@@ -31,6 +31,7 @@
 #include <Library/DeviceInfo.h>
 #include <Library/ShutdownServices.h>
 #include <Library/DrawUI.h>
+#include <Library/UnlockMenu.h>
 #include <Library/FastbootMenu.h>
 #include <Library/VerifiedBootMenu.h>
 #include <Library/MenuKeysDetection.h>
@@ -91,23 +92,23 @@ VOID WaitForExitKeysDetection()
 		MicroSecondDelay(10000);
 }
 
-STATIC VOID UpdateDeviceStatus(OPTION_MENU_INFO *MsgInfo, UINT32 Reason)
+STATIC VOID UpdateDeviceStatus(OPTION_MENU_INFO *MsgInfo, INTN Reason)
 {
 	CHAR8 FfbmPageBuffer[FFBM_MODE_BUF_SIZE];
+	INTN MenuType;
 
 	/* Clear the screen */
 	gST->ConOut->ClearScreen (gST->ConOut);
 
 	switch (Reason) {
 	case RECOVER:
-		switch (MsgInfo->Info.MenuType) {
-			case DISPLAY_MENU_UNLOCK:
-				SetDeviceUnlockValue(UNLOCK, TRUE);
-				break;
-			case DISPLAY_MENU_UNLOCK_CRITICAL:
-				SetDeviceUnlockValue(UNLOCK_CRITICAL, TRUE);
-				break;
-		}
+		MenuType = MsgInfo->Info.MenuType;
+		if (MenuType == DISPLAY_MENU_UNLOCK ||
+		    MenuType == DISPLAY_MENU_LOCK ||
+		    MenuType == DISPLAY_MENU_LOCK_CRITICAL ||
+		    MenuType == DISPLAY_MENU_UNLOCK_CRITICAL)
+		    SetDeviceUnlockValue(mUnlockInfo[MenuType].UnlockType,
+					 mUnlockInfo[MenuType].UnlockValue);
 
 		RebootDevice(RECOVERY_MODE);
 		break;
@@ -232,6 +233,8 @@ STATIC VOID PowerKeyFunc(OPTION_MENU_INFO *MenuInfo)
 		case DISPLAY_MENU_MORE_OPTION:
 		case DISPLAY_MENU_UNLOCK:
 		case DISPLAY_MENU_UNLOCK_CRITICAL:
+		case DISPLAY_MENU_LOCK:
+		case DISPLAY_MENU_LOCK_CRITICAL:
 		case DISPLAY_MENU_FASTBOOT:
 			if (OptionIndex < MenuInfo->Info.OptionNum) {
 				OptionItem = MenuInfo->Info.OptionItems[OptionIndex];
@@ -255,6 +258,16 @@ STATIC PAGES_ACTION MenuPagesAction[] = {
 		PowerKeyFunc,
 	},
 	[DISPLAY_MENU_UNLOCK_CRITICAL] = {
+		MenuVolumeUpFunc,
+		MenuVolumeDownFunc,
+		PowerKeyFunc,
+	},
+	[DISPLAY_MENU_LOCK] = {
+		MenuVolumeUpFunc,
+		MenuVolumeDownFunc,
+		PowerKeyFunc,
+	},
+	[DISPLAY_MENU_LOCK_CRITICAL] = {
 		MenuVolumeUpFunc,
 		MenuVolumeDownFunc,
 		PowerKeyFunc,
