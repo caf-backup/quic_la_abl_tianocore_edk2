@@ -75,6 +75,35 @@ STATIC MENU_MSG_INFO mUnlockMenuMsgInfo[] = {
 		COMMON_FACTOR, BGR_WHITE, BGR_BLACK, LINEATION, 0, NOACTION},
 };
 
+STATIC MENU_MSG_INFO mLockMenuMsgInfo[] = {
+	{{"Lock bootloader?\n"},
+		BIG_FACTOR, BGR_CYAN, BGR_BLACK, COMMON, 0, NOACTION},
+	{{"\nIf you lock the bootloader, you will be not able to install "\
+		"custom operating system on this phone.\n"},
+		COMMON_FACTOR, BGR_WHITE, BGR_BLACK, COMMON, 0, NOACTION},
+	{{"To prevent unauthorized access to your personal data, "\
+		"locking the bootloader will also delete all personal "\
+		"data from your phone(a \"factory data reset\").\n"},
+		COMMON_FACTOR, BGR_WHITE, BGR_BLACK, COMMON, 0, NOACTION},
+	{{"Press the Volume Up/Down buttons to select Yes "\
+		"or No. Then press the Power button to continue.\n\n"},
+		COMMON_FACTOR, BGR_WHITE, BGR_BLACK, COMMON, 0, NOACTION},
+	{{"__________"},
+		COMMON_FACTOR, BGR_WHITE, BGR_BLACK, LINEATION, 0, NOACTION},
+	{{"Yes"},
+		BIG_FACTOR, BGR_WHITE, BGR_BLACK, OPTION_ITEM, 0, RECOVER},
+	{{"lock bootloader and restart phone"},
+		COMMON_FACTOR, BGR_WHITE, BGR_BLACK, COMMON, 0, NOACTION},
+	{{"__________"},
+		COMMON_FACTOR, BGR_WHITE, BGR_BLACK, LINEATION, 0, NOACTION},
+	{{"No"},
+		BIG_FACTOR, BGR_WHITE, BGR_BLACK, OPTION_ITEM, 0, RESTART},
+	{{"Do not lock bootloader and restart phone"},
+		COMMON_FACTOR, BGR_WHITE, BGR_BLACK, COMMON, 0, NOACTION},
+	{{"__________"},
+		COMMON_FACTOR, BGR_WHITE, BGR_BLACK, LINEATION, 0, NOACTION},
+};
+
 /**
   Draw the unlock menu
   @param[in] type               Unlock menu type
@@ -82,20 +111,28 @@ STATIC MENU_MSG_INFO mUnlockMenuMsgInfo[] = {
   @retval     EFI_SUCCESS       The entry point is executed successfully.
   @retval     other	        Some error occurs when executing this entry point.
  **/
-STATIC EFI_STATUS UnlockMenuShowScreen(OPTION_MENU_INFO *OptionMenuInfo, UINT32 Type)
+STATIC EFI_STATUS UnlockMenuShowScreen(OPTION_MENU_INFO *OptionMenuInfo, INTN Type, BOOLEAN Value)
 {
 	EFI_STATUS Status = EFI_SUCCESS;
 	UINT32 Location = 0;
 	UINT32 Height = 0;
 	UINT32 i = 0;
 	UINT32 j = 0;
+	UINT32 MaxLine = 0;
 
 	/* Clear the screen before launch the unlock menu */
 	gST->ConOut->ClearScreen (gST->ConOut);
 	ZeroMem(&OptionMenuInfo->Info, sizeof(MENU_OPTION_ITEM_INFO));
 
-	OptionMenuInfo->Info.MsgInfo = mUnlockMenuMsgInfo;
-	for (i = 0; i < ARRAY_SIZE(mUnlockMenuMsgInfo); i++) {
+	if (Value) {
+		OptionMenuInfo->Info.MsgInfo = mUnlockMenuMsgInfo;
+		MaxLine = ARRAY_SIZE(mUnlockMenuMsgInfo);
+	} else {
+		OptionMenuInfo->Info.MsgInfo = mLockMenuMsgInfo;
+		MaxLine = ARRAY_SIZE(mLockMenuMsgInfo);
+	}
+
+	for (i = 0; i < MaxLine; i++) {
 		if (OptionMenuInfo->Info.MsgInfo[i].Attribute == OPTION_ITEM) {
 			if (j < UNLOCK_OPTION_NUM) {
 				OptionMenuInfo->Info.OptionItems[j] = i;
@@ -109,10 +146,15 @@ STATIC EFI_STATUS UnlockMenuShowScreen(OPTION_MENU_INFO *OptionMenuInfo, UINT32 
 		Location += Height;
 	}
 
-	if (Type == UNLOCK)
+	if (Type == UNLOCK) {
 		OptionMenuInfo->Info.MenuType = DISPLAY_MENU_UNLOCK;
-	else if (Type == UNLOCK_CRITICAL)
+		if (!Value)
+			OptionMenuInfo->Info.MenuType = DISPLAY_MENU_LOCK;
+	} else if (Type == UNLOCK_CRITICAL) {
 		OptionMenuInfo->Info.MenuType = DISPLAY_MENU_UNLOCK_CRITICAL;
+		if (!Value)
+			OptionMenuInfo->Info.MenuType = DISPLAY_MENU_LOCK_CRITICAL;
+	}
 
 	OptionMenuInfo->Info.OptionNum = UNLOCK_OPTION_NUM;
 
@@ -124,11 +166,15 @@ STATIC EFI_STATUS UnlockMenuShowScreen(OPTION_MENU_INFO *OptionMenuInfo, UINT32 
 
 /**
   Draw the unlock menu and start to detect the key's status
-  @param[in] type    The type of the unlock menu
-                     [UNLOCK]: The normal unlock menu
-                     [UNLOCK_CRITICAL]: The ctitical unlock menu
+  @param[in] UnLockType       The type of the unlock menu
+                              [UNLOCK]: The normal unlock menu
+                              [UNLOCK_CRITICAL]: The ctitical unlock menu
+             UnLockValue      [TRUE]: Unlock menu
+                              [FALSE]: Lock menu
+  @retval EFI_SUCCESS   The entry point is executed successfully.
+  @retval other         Some error occurs when executing this entry point.
 **/
-VOID DisplayUnlockMenu(UINT32 Type)
+EFI_STATUS DisplayUnlockMenu(INTN UnLockType, BOOLEAN UnLockValue)
 {
 	EFI_STATUS Status = EFI_SUCCESS;
 	OPTION_MENU_INFO *OptionMenuInfo;
@@ -139,15 +185,19 @@ VOID DisplayUnlockMenu(UINT32 Type)
 		OptionMenuInfo->LastMenuType =
 			OptionMenuInfo->Info.MenuType;
 
-		Status = UnlockMenuShowScreen(OptionMenuInfo, Type);
+		Status = UnlockMenuShowScreen(OptionMenuInfo, UnLockType, UnLockValue);
 		if (Status != EFI_SUCCESS) {
-			DEBUG((EFI_D_ERROR, "Unable to show unlock menu on screen: %r\n", Status));
-			return;
+			DEBUG((EFI_D_ERROR, "Unable to show %a menu on screen: %r\n",
+				UnLockValue? "Unlock": "Lock", Status));
+			return Status;
 		}
 
 		MenuKeysDetectionInit(OptionMenuInfo);
 		DEBUG((EFI_D_VERBOSE, "Creating unlock keys detect event\n"));
 	} else {
 		DEBUG((EFI_D_INFO, "Display menu is not enabled!\n"));
+		Status = EFI_NOT_STARTED;
 	}
+
+	return Status;
 }
