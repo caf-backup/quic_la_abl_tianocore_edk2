@@ -36,6 +36,7 @@
 #include <Library/PartitionTableUpdate.h>
 #include <Library/DeviceInfo.h>
 #include <Protocol/EFIMdtp.h>
+#include <Library/MenuKeysDetection.h>
 
 #include "BootLinux.h"
 #include "BootStats.h"
@@ -330,6 +331,19 @@ EFI_STATUS BootLinux (VOID *ImageBuffer, UINT32 ImageSize, CHAR16 *PartitionName
 	{
 		DEBUG((EFI_D_ERROR, "Error updating cmdline. Device Error %r\n", Status));
 		return Status;
+	}
+
+	if (VerifiedBootEnbled()) {
+		if(!IsEnforcing()) {
+			Status = DisplayVerifiedBootMenu(DISPLAY_MENU_EIO);
+			if (Status == EFI_SUCCESS) {
+				WaitForExitKeysDetection();
+			} else {
+				DEBUG((EFI_D_INFO, "The dm-verity is not started in restart mode." \
+					"\nWait for 30 seconds before proceeding\n"));
+				MicroSecondDelay(30000000);
+			}
+		}
 	}
 
 	// appended device tree
