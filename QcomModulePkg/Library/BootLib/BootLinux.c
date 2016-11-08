@@ -316,6 +316,13 @@ EFI_STATUS BootLinux (VOID *ImageBuffer, UINT32 ImageSize, DeviceInfo *DevInfo, 
 			ImageBuffer, RamdiskOffset));
 		return EFI_BAD_BUFFER_SIZE;
 	}
+
+	if (CHECK_ADD64((UINT64)ImageBuffer, RamdiskOffset))
+	{
+		DEBUG((EFI_D_ERROR, "Integer Oveflow: ImageBuffer=%u, RamdiskOffset=%u\n",
+			ImageBuffer, RamdiskOffset));
+		return EFI_BAD_BUFFER_SIZE;
+	}
 	CopyMem ((CHAR8*)RamdiskLoadAddr, ImageBuffer + RamdiskOffset, RamdiskSize);
 
 	if (BootingWith32BitKernel) {
