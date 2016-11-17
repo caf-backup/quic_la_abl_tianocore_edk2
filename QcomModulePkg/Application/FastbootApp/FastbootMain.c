@@ -337,7 +337,7 @@ FastbootAppEntryPoint(
   DEBUG((EFI_D_INFO, "Fastboot Build Info: %a %a\n", __DATE__, __TIME__));
   BootStatsSetTimeStamp(BS_BL_START);
 
-  StackGuardChkSetup();
+  //StackGuardChkSetup();
 
   /* Start the USB device enumeration */
   Status = FastbootUsbDeviceStart();
