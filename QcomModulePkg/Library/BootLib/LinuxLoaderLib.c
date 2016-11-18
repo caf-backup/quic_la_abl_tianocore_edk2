@@ -472,6 +472,10 @@ EFI_STATUS ReadWriteDeviceInfo(vb_device_state_op_t Mode, void *DevInfo, UINT32 
 	EFI_STATUS Status = EFI_INVALID_PARAMETER;
 	QCOM_VERIFIEDBOOT_PROTOCOL *VbIntf;
 
+	/* If verified boot is not enabled, return SUCCESS */
+	if (!VerifiedBootEnbled())
+		return EFI_SUCCESS;
+
 	Status = gBS->LocateProtocol(&gEfiQcomVerifiedBootProtocolGuid, NULL, (VOID **) &VbIntf);
 	if (Status != EFI_SUCCESS)
 	{
@@ -541,6 +545,9 @@ BOOLEAN IsSecureBootEnabled()
 	QCOM_VERIFIEDBOOT_PROTOCOL *VbIntf;
 	BOOLEAN IsSecure = FALSE;
 
+	/* If verified boot is not enabled, return SUCCESS */
+	if (!VerifiedBootEnbled())
+		return EFI_SUCCESS;
 	// Initialize verified boot & Read Device Info
 	Status = gBS->LocateProtocol(&gEfiQcomVerifiedBootProtocolGuid, NULL, (VOID **) &VbIntf);
 	if (Status != EFI_SUCCESS)

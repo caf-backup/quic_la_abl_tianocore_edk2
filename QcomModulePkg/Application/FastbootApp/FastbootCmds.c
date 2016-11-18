@@ -151,7 +151,7 @@ STATIC INT32 Lun = NO_LUN;
 STATIC BOOLEAN LunSet;
 
 STATIC FASTBOOT_CMD *cmdlist;
-DeviceInfo FbDevInfo;
+DeviceInfo FbDevInfo = {DEVICE_MAGIC, 1, 1, 0, {0}, {0}, 1};;
 STATIC UINT32 IsAllowUnlock;
 
 STATIC EFI_STATUS FastbootCommandSetup(VOID *base, UINT32 size);
