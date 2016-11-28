@@ -44,7 +44,7 @@
 #include <DeviceInfo.h>
 #include <LinuxLoaderLib.h>
 
-STATIC CONST CHAR8 *BootDeviceCmdLine = " androidboot.bootdevice=1da4000.ufshc";
+STATIC CONST CHAR8 *BootDeviceCmdLine = " androidboot.bootdevice=";
 STATIC CONST CHAR8 *UsbSerialCmdLine = " androidboot.serialno=";
 STATIC CONST CHAR8 *AndroidBootMode = " androidboot.mode=";
 STATIC CONST CHAR8 *LogLevel         = " quite";
@@ -67,7 +67,6 @@ UINT32 DisplayCmdLineLen = sizeof(DisplayCmdLine);
 
 #if VERIFIED_BOOT
 STATIC CONST CHAR8 *VerityMode = " androidboot.veritymode=";
-STATIC CONST CHAR8 *verified_state = " androidboot.verifiedbootstate=";
 STATIC struct verified_boot_verity_mode vbvm[] =
 {
 	{FALSE, "logging"},
@@ -75,8 +74,7 @@ STATIC struct verified_boot_verity_mode vbvm[] =
 };
 #else
 STATIC CONST CHAR8 *VerityMode;
-STATIC CONST CHAR8 *verified_state;
-STATIC struct verified_boot_verity_mode vbvm[];
+STATIC struct verified_boot_verity_mode vbvm[] = {};
 #endif
 
 /*Function that returns whether the kernel is signed
@@ -209,7 +207,7 @@ BOOLEAN TargetBatterySocOk(UINT32  *BatteryVoltage)
 
 	BatteryStatus = TargetCheckBatteryStatus(&BatteryPresent, &ChargerPresent, BatteryVoltage);
 	if ((BatteryStatus == EFI_SUCCESS) &&
-		(!BatteryPresent || (BatteryPresent && (BatteryVoltage > BATT_MIN_VOLT))))
+		(!BatteryPresent || (BatteryPresent && (*BatteryVoltage > BATT_MIN_VOLT))))
 	{
 		return TRUE;
 	}
@@ -225,7 +223,7 @@ VOID GetDisplayCmdline()
 			L"DisplayPanelConfiguration",
 			&gQcomTokenSpaceGuid,
 			NULL,
-			&DisplayCmdLineLen,
+			(UINTN*)&DisplayCmdLineLen,
 			DisplayCmdLine);
 	if (Status != EFI_SUCCESS) {
 		DEBUG((EFI_D_ERROR, "Unable to get Panel Config, %r\n", Status));
@@ -282,7 +280,7 @@ STATIC UINT32 GetSystemPath(CHAR8 **SysPath)
 /*Update command line: appends boot information to the original commandline
  *that is taken from boot image header*/
 EFI_STATUS UpdateCmdLine(CONST CHAR8 * CmdLine,
-				CHAR16 *PartitionName,
+				CHAR8 *FfbmStr,
 				DeviceInfo *DeviceInfo,
 				BOOLEAN Recovery,
 				CHAR8 **FinalCmdLine)
@@ -292,25 +290,12 @@ EFI_STATUS UpdateCmdLine(CONST CHAR8 * CmdLine,
 	UINT32 HaveCmdLine = 0;
 	UINT32 SysPathLength = 0;
 	UINT32 PauseAtBootUp = 0;
-	BOOLEAN BootIntoFFBM = FALSE;
 	CHAR8 SlotSuffixAscii[MAX_SLOT_SUFFIX_SZ];
 	BOOLEAN MultiSlotBoot;
 	CHAR8 ChipBaseBand[CHIP_BASE_BAND_LEN];
+	CHAR8 *BootDevBuf = NULL;
 	UINT32 BatteryStatus;
 	CHAR8 StrSerialNum[SERIAL_NUM_SIZE];
-	CHAR8 Ffbm[FFBM_MODE_BUF_SIZE];
-
-	if ((!StrnCmp(PartitionName, L"boot_a", StrLen(PartitionName)))
-		|| (!StrnCmp(PartitionName, L"boot_b", StrLen(PartitionName))))
-	{
-		SetMem(Ffbm, FFBM_MODE_BUF_SIZE, 0);
-		Status = GetFfbmCommand(Ffbm, sizeof(Ffbm));
-		if (Status == EFI_NOT_FOUND)
-			DEBUG((EFI_D_ERROR, "No Ffbm cookie found, ignore\n"));
-		else if (Status == EFI_SUCCESS)
-			BootIntoFFBM = TRUE;
-	}
-
 
 	Status = BoardSerialNum(StrSerialNum, sizeof(StrSerialNum));
 	if (Status != EFI_SUCCESS) {
@@ -330,15 +315,30 @@ EFI_STATUS UpdateCmdLine(CONST CHAR8 * CmdLine,
 
 	CmdLineLen += AsciiStrLen(BootDeviceCmdLine);
 
+	BootDevBuf = AllocatePool(sizeof(CHAR8) * BOOT_DEV_MAX_LEN);
+	if (BootDevBuf == NULL) {
+		DEBUG((EFI_D_ERROR, "Boot device buffer: Out of resources\n"));
+		return EFI_OUT_OF_RESOURCES;
+	}
+
+	Status = GetBootDevice(BootDevBuf, BOOT_DEV_MAX_LEN);
+	if (Status != EFI_SUCCESS) {
+		DEBUG((EFI_D_ERROR, "Failed to get Boot Device: %r\n", Status));
+		FreePool(BootDevBuf);
+		return Status;
+	}
+
+	CmdLineLen += AsciiStrLen(BootDevBuf);
+
 	CmdLineLen += AsciiStrLen(UsbSerialCmdLine);
 	CmdLineLen += AsciiStrLen(StrSerialNum);
 
 	/* Ignore the EFI_STATUS return value as the default Battery Status = 0 and is not fatal */
 	TargetPauseForBatteryCharge(&BatteryStatus);
 
-	if (BootIntoFFBM) {
+	if (FfbmStr && FfbmStr[0] != '\0') {
 		CmdLineLen += AsciiStrLen(AndroidBootMode);
-		CmdLineLen += AsciiStrLen(Ffbm);
+		CmdLineLen += AsciiStrLen(FfbmStr);
 		/* reduce kernel console messages to speed-up boot */
 		CmdLineLen += AsciiStrLen(LogLevel);
 	} else if (BatteryStatus && DeviceInfo->is_charger_screen_enabled) {
@@ -353,7 +353,7 @@ EFI_STATUS UpdateCmdLine(CONST CHAR8 * CmdLine,
 
 	if (NULL == BoardPlatformChipBaseBand()) {
 		DEBUG((EFI_D_ERROR, "Invalid BaseBand String\n"));
-		return NULL;
+		return EFI_NOT_FOUND;
 	}
 
 	CmdLineLen += AsciiStrLen(BOOT_BASE_BAND);
@@ -403,6 +403,12 @@ EFI_STATUS UpdateCmdLine(CONST CHAR8 * CmdLine,
 		HaveCmdLine = 1;
 		STR_COPY(Dst,Src);
 
+		Src = BootDevBuf;
+		if (HaveCmdLine) --Dst;
+		HaveCmdLine = 1;
+		STR_COPY(Dst,Src);
+		FreePool(BootDevBuf);
+
 		Src = UsbSerialCmdLine;
 		if (HaveCmdLine) --Dst;
 		HaveCmdLine = 1;
@@ -412,12 +418,12 @@ EFI_STATUS UpdateCmdLine(CONST CHAR8 * CmdLine,
 		Src = StrSerialNum;
 		STR_COPY(Dst,Src);
 
-		if (BootIntoFFBM) {
+		if (FfbmStr && FfbmStr[0] != '\0') {
 			Src = AndroidBootMode;
 			if (HaveCmdLine) --Dst;
 			STR_COPY(Dst,Src);
 
-			Src = Ffbm;
+			Src = FfbmStr;
 			if (HaveCmdLine) --Dst;
 			STR_COPY(Dst,Src);
 
