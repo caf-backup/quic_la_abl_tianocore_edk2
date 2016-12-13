@@ -347,7 +347,7 @@ UINT32 BoardPmicTarget(UINT32 PmicDeviceIndex)
 		ASSERT(0);
 	}
 
-	if (Revision >= PMIC_VERSION_REVISION) {
+	if (Revision >= 0x10002) {
 		Status = GetPmicInfoExt(PmicDeviceIndex, &pmic_info_ext);
 		if (Status != EFI_SUCCESS) {
 			DEBUG((EFI_D_ERROR, "Error finding board pmic info: %r\n", Status));
