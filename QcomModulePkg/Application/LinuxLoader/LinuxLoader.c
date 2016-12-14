@@ -45,7 +45,7 @@
 STATIC BOOLEAN BootReasonAlarm = FALSE;
 STATIC BOOLEAN BootIntoFastboot = FALSE;
 STATIC BOOLEAN BootIntoRecovery = FALSE;
-DeviceInfo DevInfo = {DEVICE_MAGIC, 1, 1, 0, {0}, {0}, 1};
+DeviceInfo DevInfo;
 
 // This function would load and authenticate boot/recovery partition based
 // on the partition type from the entry function.
