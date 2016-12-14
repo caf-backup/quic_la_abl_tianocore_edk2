@@ -117,10 +117,10 @@ EFI_STATUS EFIAPI LinuxLoaderEntry(IN EFI_HANDLE ImageHandle, IN EFI_SYSTEM_TABL
 
 	DEBUG((EFI_D_INFO, "Loader Build Info: %a %a\n", __DATE__, __TIME__));
 
-	//StackGuardChkSetup();
+	StackGuardChkSetup();
 
 	BootStatsSetTimeStamp(BS_BL_START);
-#if 0
+
 	// Initialize verified boot & Read Device Info
 	Status = ReadWriteDeviceInfo(READ_CONFIG, (UINT8 *)&DevInfo, sizeof(DevInfo));
 	if (Status != EFI_SUCCESS)
@@ -152,7 +152,7 @@ EFI_STATUS EFIAPI LinuxLoaderEntry(IN EFI_HANDLE ImageHandle, IN EFI_SYSTEM_TABL
 			return Status;
 		}
 	}
-#endif
+
 	// Check Alarm Boot
 
 	// Populate Serial number
