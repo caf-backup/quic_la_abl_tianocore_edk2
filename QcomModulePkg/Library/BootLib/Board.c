@@ -326,7 +326,7 @@ UINT32 BoardPmicModel(UINT32 PmicDeviceIndex)
 	if (Status != EFI_SUCCESS)
 	{
 		DEBUG((EFI_D_ERROR, "Error getting pmic model info: %r\n", Status));
-		return Status;
+		ASSERT(0);
 	}
 	DEBUG((EFI_D_VERBOSE, "PMIC Model 0x%x: 0x%x\n", PmicDeviceIndex, pmic_info.PmicModel));
 	return pmic_info.PmicModel;
@@ -344,7 +344,7 @@ UINT32 BoardPmicTarget(UINT32 PmicDeviceIndex)
 	if (Status != EFI_SUCCESS)
 	{
 		DEBUG((EFI_D_ERROR, "Error finding board pmic info: %r\n", Status));
-		return Status;
+		ASSERT(0);
 	}
 
 	if (Revision >= PMIC_VERSION_REVISION) {

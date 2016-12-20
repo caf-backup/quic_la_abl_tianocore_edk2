@@ -102,7 +102,7 @@ EFI_STATUS MdtpDxeInitialize (
 
 	DEBUG((EFI_D_INFO, "MdtpDxeInitialize: Started\n"));
 
-	//StackGuardChkSetup();
+	StackGuardChkSetup();
 
 	/* Install our protocols.  The device path protocol is required for this driver
 	 * to show up to the console. */
