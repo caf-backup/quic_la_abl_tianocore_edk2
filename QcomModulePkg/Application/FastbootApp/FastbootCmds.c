@@ -16,7 +16,7 @@
  * Copyright (c) 2009, Google Inc.
  * All rights reserved.
  *
- * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -363,13 +363,13 @@ STATIC VOID FastbootPublishSlotVars() {
 
 			AsciiStrnCpyS(BootSlotInfo[j].SlotSuffix, MAX_SLOT_SUFFIX_SZ, Suffix, AsciiStrLen(Suffix));
 			AsciiStrnCpyS(BootSlotInfo[j].SlotSuccessfulVar, SLOT_ATTR_SIZE, "slot-successful:", AsciiStrLen("slot-successful:"));
-			Set = PtnEntries[i].PartEntry.Attributes & PART_ATT_SUCCESSFUL_VAL;
+			Set = PtnEntries[i].PartEntry.Attributes & PART_ATT_SUCCESSFUL_VAL ? TRUE : FALSE;
 			AsciiStrnCpyS(BootSlotInfo[j].SlotSuccessfulVal, ATTR_RESP_SIZE, Set ? "yes": "no", Set? AsciiStrLen("yes"): AsciiStrLen("no"));
 			AsciiStrnCatS(BootSlotInfo[j].SlotSuccessfulVar, SLOT_ATTR_SIZE, Suffix, AsciiStrLen(Suffix));
 			FastbootPublishVar(BootSlotInfo[j].SlotSuccessfulVar, BootSlotInfo[j].SlotSuccessfulVal);
 
 			AsciiStrnCpyS(BootSlotInfo[j].SlotUnbootableVar, SLOT_ATTR_SIZE, "slot-unbootable:", AsciiStrLen("slot-unbootable:"));
-			Set = PtnEntries[i].PartEntry.Attributes & PART_ATT_UNBOOTABLE_VAL;
+			Set = PtnEntries[i].PartEntry.Attributes & PART_ATT_UNBOOTABLE_VAL ? TRUE : FALSE;
 			AsciiStrnCpyS(BootSlotInfo[j].SlotUnbootableVal, ATTR_RESP_SIZE, Set? "yes": "no", Set? AsciiStrLen("yes"): AsciiStrLen("no"));
 			AsciiStrnCatS(BootSlotInfo[j].SlotUnbootableVar, SLOT_ATTR_SIZE, Suffix, AsciiStrLen(Suffix));
 			FastbootPublishVar(BootSlotInfo[j].SlotUnbootableVar, BootSlotInfo[j].SlotUnbootableVal);
@@ -494,15 +494,24 @@ HandleSparseImgFlash(
 	sparse_header_t *sparse_header;
 	chunk_header_t  *chunk_header;
 	UINT32 total_blocks = 0;
+	UINT64 block_count_factor = 0;
+	UINT64 written_block_count = 0;
 	UINT64 PartitionSize = 0;
 	UINT32 i;
-	UINT64 ImageEnd = (UINT64) Image + sz;
+	UINT64 ImageEnd;
 	EFI_STATUS Status;
 	EFI_BLOCK_IO_PROTOCOL *BlockIo = NULL;
 	EFI_HANDLE *Handle = NULL;
 	CHAR16 SlotSuffix[MAX_SLOT_SUFFIX_SZ];
 	BOOLEAN MultiSlotBoot = PartitionHasMultiSlot(L"boot");
 	BOOLEAN HasSlot = FALSE;
+
+	if (CHECK_ADD64((UINT64)Image, sz)) {
+		DEBUG((EFI_D_ERROR, "Integer overflow while adding Image and sz\n"));
+		return EFI_INVALID_PARAMETER;
+	}
+
+	ImageEnd = (UINT64) Image + sz;
 
 	/* For multislot boot the partition may not support a/b slots.
 	 * Look for default partition, if it does not exist then try for a/b
@@ -550,6 +559,14 @@ HandleSparseImgFlash(
 		FastbootFail("Sparse header size mismatch");
 		return EFI_BAD_BUFFER_SIZE;
 	}
+
+	if ((sparse_header->blk_sz) % (BlockIo->Media->BlockSize)) {
+		DEBUG((EFI_D_ERROR, "Unsupported sparse block size %x\n", sparse_header->blk_sz));
+		FastbootFail("Unsupported sparse block size");
+		return EFI_INVALID_PARAMETER;
+	}
+
+	block_count_factor = (sparse_header->blk_sz) / (BlockIo->Media->BlockSize);
 
 	DEBUG((EFI_D_VERBOSE, "=== Sparse Image Header ===\n"));
 	DEBUG((EFI_D_VERBOSE, "magic: 0x%x\n", sparse_header->magic));
@@ -623,7 +640,8 @@ HandleSparseImgFlash(
 			}
 
 			/* Data is validated, now write to the disk */
-			Status = WriteToDisk(BlockIo, Handle, Image, chunk_data_sz, (UINT64)total_blocks);
+			written_block_count = total_blocks * block_count_factor;
+			Status = WriteToDisk(BlockIo, Handle, Image, chunk_data_sz, written_block_count);
 			if (EFI_ERROR(Status))
 			{
 				FastbootFail("Flash Write Failure");
@@ -676,7 +694,8 @@ HandleSparseImgFlash(
 					return EFI_VOLUME_FULL;
 				}
 
-				Status = WriteToDisk(BlockIo, Handle, (VOID *) fill_buf, sparse_header->blk_sz, (UINT64)total_blocks);
+				written_block_count = total_blocks * block_count_factor;
+				Status = WriteToDisk(BlockIo, Handle, (VOID *) fill_buf, sparse_header->blk_sz, written_block_count);
 				if (EFI_ERROR(Status))
 				{
 					FastbootFail("Flash write failure for FILL Chunk");
@@ -874,11 +893,11 @@ FastbootErasePartition(
 	if (Status != EFI_SUCCESS)
 		return Status;
 	if (!BlockIo) {
-		DEBUG((EFI_D_ERROR, "BlockIo for %a is corrupted\n",PartitionName));
+		DEBUG((EFI_D_ERROR, "BlockIo for %s is corrupted\n", PartitionName));
 		return EFI_VOLUME_CORRUPTED;
 	}
 	if (!Handle) {
-		DEBUG((EFI_D_ERROR, "EFI handle for %a is corrupted\n",PartitionName));
+		DEBUG((EFI_D_ERROR, "EFI handle for %s is corrupted\n", PartitionName));
 		return EFI_VOLUME_CORRUPTED;
 	}
 
@@ -1803,19 +1822,25 @@ STATIC VOID CmdOemOffModeCharger(CONST CHAR8 *Arg, VOID *Data, UINT32 Size)
 	EFI_STATUS Status;
 	CHAR8 Resp[MAX_RSP_SIZE] = "Set off mode charger: ";
 
-	AsciiStrnCatS(Resp, sizeof(Resp), Arg, AsciiStrLen(Arg));
-
 	if (Arg) {
 		Ptr = AsciiStrStr(Arg, Delim);
 		if (Ptr) {
 			Ptr++;
-			if (!AsciiStrnCmp(Ptr, "0", 1))
+			if (!AsciiStrCmp(Ptr, "0"))
 				FbDevInfo.is_charger_screen_enabled = FALSE;
-			else if (!AsciiStrnCmp(Ptr, "1", 1))
+			else if (!AsciiStrCmp(Ptr, "1"))
 				FbDevInfo.is_charger_screen_enabled = TRUE;
+			else {
+				FastbootFail("Invalid input entered");
+				return;
+			}
+		} else {
+			FastbootFail("Enter fastboot oem off-mode-charge 0/1");
+			return;
 		}
 	}
 
+	AsciiStrnCatS(Resp, sizeof(Resp), Arg, AsciiStrLen(Arg));
 	/* update charger_screen_enabled value for getvar command */
 	Status = ReadWriteDeviceInfo(WRITE_CONFIG, &FbDevInfo, sizeof(FbDevInfo));
 	if (Status != EFI_SUCCESS) {
