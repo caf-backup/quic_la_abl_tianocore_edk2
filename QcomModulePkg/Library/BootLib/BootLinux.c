@@ -34,6 +34,7 @@
 #include <Library/DrawUI.h>
 #include <Protocol/EFIScmModeSwitch.h>
 #include <Library/PartitionTableUpdate.h>
+#include <Library/DeviceInfo.h>
 #include <Protocol/EFIMdtp.h>
 
 #include "BootLinux.h"
@@ -61,7 +62,8 @@ STATIC EFI_STATUS SwitchTo32bitModeBooting(UINT64 KernelLoadAddr, UINT64 DeviceT
 	return EFI_NOT_STARTED;
 }
 
-EFI_STATUS BootLinux (VOID *ImageBuffer, UINT32 ImageSize, DeviceInfo *DevInfo, CHAR16 *PartitionName, BOOLEAN Recovery)
+EFI_STATUS BootLinux (VOID *ImageBuffer, UINT32 ImageSize, CHAR16 *PartitionName,
+	BOOLEAN Recovery, BOOLEAN AlarmBoot)
 {
 
 	EFI_STATUS Status;
@@ -96,6 +98,7 @@ EFI_STATUS BootLinux (VOID *ImageBuffer, UINT32 ImageSize, DeviceInfo *DevInfo, 
 	device_info_vb_t DevInfo_vb;
 	CHAR8 StrPartition[MAX_GPT_NAME_SIZE] = {'\0'};
 	CHAR8 PartitionNameAscii[MAX_GPT_NAME_SIZE] = {'\0'};
+	BOOLEAN MultiSlotBoot = PartitionHasMultiSlot(L"boot");
 	BOOLEAN BootingWith32BitKernel = FALSE;
 	BOOLEAN MdtpActive = FALSE;
 	QCOM_MDTP_PROTOCOL *MdtpProtocol;
@@ -123,12 +126,12 @@ EFI_STATUS BootLinux (VOID *ImageBuffer, UINT32 ImageSize, DeviceInfo *DevInfo, 
 
 	if(MdtpActive) {
 		/* If MDTP is Active and Dm-Verity Mode is not Enforcing, Block */
-		if(!DevInfo->verity_mode) {
+		if(!IsEnforcing()) {
 			DEBUG((EFI_D_ERROR, "ERROR: MDTP is active and verity mode is not enforcing \n"));
 			goto Exit;
 		}
 		/* If MDTP is Active and Device is in unlocked State, Block */
-		if(DevInfo->is_unlocked) {
+		if(IsUnlocked()) {
 			DEBUG((EFI_D_ERROR,"ERROR: MDTP is active and DEVICE is unlocked \n"));
 			goto Exit;
 		}
@@ -142,8 +145,8 @@ EFI_STATUS BootLinux (VOID *ImageBuffer, UINT32 ImageSize, DeviceInfo *DevInfo, 
 			DEBUG((EFI_D_ERROR, "Unable to locate VB protocol: %r\n", Status));
 			return Status;
 		}
-		DevInfo_vb.is_unlocked = DevInfo->is_unlocked;
-		DevInfo_vb.is_unlock_critical = DevInfo->is_unlock_critical;
+		DevInfo_vb.is_unlocked = IsUnlocked();
+		DevInfo_vb.is_unlock_critical = IsUnlockCritical();
 		Status = VbIntf->VBDeviceInit(VbIntf, (device_info_vb_t *)&DevInfo_vb);
 		if (Status != EFI_SUCCESS)
 		{
@@ -152,8 +155,14 @@ EFI_STATUS BootLinux (VOID *ImageBuffer, UINT32 ImageSize, DeviceInfo *DevInfo, 
 		}
 
 		UnicodeStrToAsciiStr(PartitionName, PartitionNameAscii);
+
 		AsciiStrnCpyS(StrPartition, MAX_GPT_NAME_SIZE, "/", AsciiStrLen("/"));
-		AsciiStrnCatS(StrPartition, MAX_GPT_NAME_SIZE, PartitionNameAscii, AsciiStrLen(PartitionNameAscii));
+		if (MultiSlotBoot) {
+			AsciiStrnCatS(StrPartition, MAX_GPT_NAME_SIZE, PartitionNameAscii,
+					AsciiStrLen(PartitionNameAscii) - (MAX_SLOT_SUFFIX_SZ - 1));
+		} else {
+			AsciiStrnCatS(StrPartition, MAX_GPT_NAME_SIZE, PartitionNameAscii, AsciiStrLen(PartitionNameAscii));
+		}
 
 		Status = VbIntf->VBVerifyImage(VbIntf, (UINT8 *)StrPartition, (UINT8 *) ImageBuffer, ImageSize, &BootState);
 		if (Status != EFI_SUCCESS && BootState == BOOT_STATE_MAX)
@@ -316,7 +325,7 @@ EFI_STATUS BootLinux (VOID *ImageBuffer, UINT32 ImageSize, DeviceInfo *DevInfo, 
 	 *Called before ShutdownUefiBootServices as it uses some boot service functions*/
 	CmdLine[BOOT_ARGS_SIZE-1] = '\0';
 
-	Status = UpdateCmdLine(CmdLine, FfbmStr, DevInfo, Recovery, &FinalCmdLine);
+	Status = UpdateCmdLine(CmdLine, FfbmStr, Recovery, AlarmBoot, &FinalCmdLine);
 	if (EFI_ERROR(Status))
 	{
 		DEBUG((EFI_D_ERROR, "Error updating cmdline. Device Error %r\n", Status));
