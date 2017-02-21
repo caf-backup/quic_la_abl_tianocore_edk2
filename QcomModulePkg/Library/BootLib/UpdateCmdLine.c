@@ -51,6 +51,7 @@ STATIC CONST CHAR8 *LogLevel         = " quite";
 STATIC CONST CHAR8 *BatteryChgPause = " androidboot.mode=charger";
 STATIC CONST CHAR8 *AuthorizedKernel = " androidboot.authorized_kernel=true";
 STATIC CONST CHAR8 *MdtpActiveFlag = " mdtp";
+STATIC CONST CHAR8 *AlarmBootCmdLine = " androidboot.alarmboot=true";
 
 /*Send slot suffix in cmdline with which we have booted*/
 STATIC CHAR8 *AndroidSlotSuffix = " androidboot.slot_suffix=";
@@ -147,7 +148,7 @@ STATIC EFI_STATUS TargetPauseForBatteryCharge(UINT32 *BatteryStatus)
 	if (IsColdBoot &&
 		(!(PONReason.HARD_RESET) &&
 		(!(PONReason.KPDPWR)) &&
-		(PONReason.PON1) &&
+		(PONReason.PON1 || PONReason.USB_CHG) &&
 		(ChgPresent)))
 	{
 		*BatteryStatus = 1;
@@ -273,7 +274,7 @@ STATIC UINT32 GetSystemPath(CHAR8 **SysPath)
 	}
 
 	if (!AsciiStrCmp("EMMC", RootDevStr))
-		AsciiSPrint(*SysPath, MAX_PATH_SIZE, " root=/dev/mmcblk0p%d", (Index + 1));
+		AsciiSPrint(*SysPath, MAX_PATH_SIZE, " root=/dev/mmcblk0p%d", Index);
 	else
 		AsciiSPrint(*SysPath, MAX_PATH_SIZE, " root=/dev/sd%c%d", LunCharMapping[Lun],
 				GetPartitionIdxInLun(PartitionName, Lun));
@@ -288,8 +289,8 @@ STATIC UINT32 GetSystemPath(CHAR8 **SysPath)
  *that is taken from boot image header*/
 EFI_STATUS UpdateCmdLine(CONST CHAR8 * CmdLine,
 				CHAR8 *FfbmStr,
-				DeviceInfo *DeviceInfo,
 				BOOLEAN Recovery,
+				BOOLEAN AlarmBoot,
 				CHAR8 **FinalCmdLine)
 {
 	EFI_STATUS Status;
@@ -326,13 +327,8 @@ EFI_STATUS UpdateCmdLine(CONST CHAR8 * CmdLine,
 	}
 
 	if (VerifiedBootEnbled()) {
-		if (DeviceInfo == NULL) {
-			DEBUG((EFI_D_ERROR, "DeviceInfo is NULL\n"));
-			return EFI_INVALID_PARAMETER;
-		}
-
 		CmdLineLen += AsciiStrLen(VerityMode);
-		CmdLineLen += AsciiStrLen(VbVm[DeviceInfo->verity_mode].name);
+		CmdLineLen += AsciiStrLen(VbVm[IsEnforcing()].name);
 		Status = gBS->LocateProtocol(&gEfiQcomVerifiedBootProtocolGuid,
 				     NULL, (VOID **) &VbIntf);
 		if (Status != EFI_SUCCESS) {
@@ -380,10 +376,12 @@ EFI_STATUS UpdateCmdLine(CONST CHAR8 * CmdLine,
 		CmdLineLen += AsciiStrLen(FfbmStr);
 		/* reduce kernel console messages to speed-up boot */
 		CmdLineLen += AsciiStrLen(LogLevel);
-	} else if (BatteryStatus && DeviceInfo->is_charger_screen_enabled) {
+	} else if (BatteryStatus && IsChargingScreenEnable()) {
 		DEBUG((EFI_D_INFO, "Device will boot into off mode charging mode\n"));
 		PauseAtBootUp = 1;
 		CmdLineLen += AsciiStrLen(BatteryChgPause);
+	} else if (AlarmBoot) {
+		CmdLineLen += AsciiStrLen(AlarmBootCmdLine);
 	}
 
 	if(TargetUseSignedKernel() && AuthorizeKernelImage) {
@@ -445,7 +443,7 @@ EFI_STATUS UpdateCmdLine(CONST CHAR8 * CmdLine,
 			--Dst;
 			STR_COPY(Dst,Src);
 			--Dst;
-			Src = VbVm[DeviceInfo->verity_mode].name;
+			Src = VbVm[IsEnforcing()].name;
 			STR_COPY(Dst,Src);
 			if (VbIntf->Revision >= QCOM_VERIFIEDBOOT_PROTOCOL_REVISION) {
 				Src = VerifiedState;
@@ -495,6 +493,10 @@ EFI_STATUS UpdateCmdLine(CONST CHAR8 * CmdLine,
 			STR_COPY(Dst,Src);
 		} else if (PauseAtBootUp) {
 			Src = BatteryChgPause;
+			if (HaveCmdLine) --Dst;
+			STR_COPY(Dst,Src);
+		} else if (AlarmBoot) {
+			Src = AlarmBootCmdLine;
 			if (HaveCmdLine) --Dst;
 			STR_COPY(Dst,Src);
 		}
