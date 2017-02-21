@@ -62,7 +62,8 @@ STATIC EFI_STATUS SwitchTo32bitModeBooting(UINT64 KernelLoadAddr, UINT64 DeviceT
 	return EFI_NOT_STARTED;
 }
 
-EFI_STATUS BootLinux (VOID *ImageBuffer, UINT32 ImageSize, CHAR16 *PartitionName, BOOLEAN Recovery)
+EFI_STATUS BootLinux (VOID *ImageBuffer, UINT32 ImageSize, CHAR16 *PartitionName,
+	BOOLEAN Recovery, BOOLEAN AlarmBoot)
 {
 
 	EFI_STATUS Status;
@@ -97,6 +98,7 @@ EFI_STATUS BootLinux (VOID *ImageBuffer, UINT32 ImageSize, CHAR16 *PartitionName
 	device_info_vb_t DevInfo_vb;
 	CHAR8 StrPartition[MAX_GPT_NAME_SIZE] = {'\0'};
 	CHAR8 PartitionNameAscii[MAX_GPT_NAME_SIZE] = {'\0'};
+	BOOLEAN MultiSlotBoot = PartitionHasMultiSlot(L"boot");
 	BOOLEAN BootingWith32BitKernel = FALSE;
 	BOOLEAN MdtpActive = FALSE;
 	QCOM_MDTP_PROTOCOL *MdtpProtocol;
@@ -153,8 +155,14 @@ EFI_STATUS BootLinux (VOID *ImageBuffer, UINT32 ImageSize, CHAR16 *PartitionName
 		}
 
 		UnicodeStrToAsciiStr(PartitionName, PartitionNameAscii);
+
 		AsciiStrnCpyS(StrPartition, MAX_GPT_NAME_SIZE, "/", AsciiStrLen("/"));
-		AsciiStrnCatS(StrPartition, MAX_GPT_NAME_SIZE, PartitionNameAscii, AsciiStrLen(PartitionNameAscii));
+		if (MultiSlotBoot) {
+			AsciiStrnCatS(StrPartition, MAX_GPT_NAME_SIZE, PartitionNameAscii,
+					AsciiStrLen(PartitionNameAscii) - (MAX_SLOT_SUFFIX_SZ - 1));
+		} else {
+			AsciiStrnCatS(StrPartition, MAX_GPT_NAME_SIZE, PartitionNameAscii, AsciiStrLen(PartitionNameAscii));
+		}
 
 		Status = VbIntf->VBVerifyImage(VbIntf, (UINT8 *)StrPartition, (UINT8 *) ImageBuffer, ImageSize, &BootState);
 		if (Status != EFI_SUCCESS && BootState == BOOT_STATE_MAX)
@@ -317,7 +325,7 @@ EFI_STATUS BootLinux (VOID *ImageBuffer, UINT32 ImageSize, CHAR16 *PartitionName
 	 *Called before ShutdownUefiBootServices as it uses some boot service functions*/
 	CmdLine[BOOT_ARGS_SIZE-1] = '\0';
 
-	Status = UpdateCmdLine(CmdLine, FfbmStr, Recovery, &FinalCmdLine);
+	Status = UpdateCmdLine(CmdLine, FfbmStr, Recovery, AlarmBoot, &FinalCmdLine);
 	if (EFI_ERROR(Status))
 	{
 		DEBUG((EFI_D_ERROR, "Error updating cmdline. Device Error %r\n", Status));
