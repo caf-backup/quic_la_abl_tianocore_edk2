@@ -457,7 +457,8 @@ EFIChipInfoFoundryIdType BoardPlatformFoundryId()
 
 CHAR8* BoardPlatformChipBaseBand()
 {
-	return platform_board_info.ChipBaseBand;
+	DEBUG((EFI_D_ERROR, "Orig BaseBand: %a\n", platform_board_info.ChipBaseBand));
+	return "mdm";
 }
 
 EFI_PLATFORMINFO_PLATFORM_TYPE BoardPlatformType()
