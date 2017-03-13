@@ -188,14 +188,29 @@ VOID UpdatePartitionAttributes()
 	EFI_BLOCK_IO_PROTOCOL *BlockIo=NULL;
 	HandleInfo BlockIoHandle[MAX_HANDLEINF_LST_SIZE];
 	UINT32 MaxHandles = MAX_HANDLEINF_LST_SIZE;
+	CHAR8 BootDeviceType[BOOT_DEV_NAME_SIZE_MAX];
 
+	GetRootDeviceType(BootDeviceType, BOOT_DEV_NAME_SIZE_MAX);
 	for( Lun = 0; Lun < MaxLuns; Lun++) {
 
-		Status = GetStorageHandle(Lun, BlockIoHandle, &MaxHandles);
-		if (Status || (MaxHandles != 1)) {
-			DEBUG((EFI_D_ERROR, "Failed to get the BlockIo for the device %r\n",Status));
+		if (!AsciiStrnCmp(BootDeviceType, "EMMC", AsciiStrLen("EMMC"))) {
+			Status = GetStorageHandle(NO_LUN, BlockIoHandle, &MaxHandles);
+		} else if (!AsciiStrnCmp(BootDeviceType, "UFS", AsciiStrLen("UFS"))) {
+			Status = GetStorageHandle(Lun, BlockIoHandle, &MaxHandles);
+		} else {
+			DEBUG((EFI_D_ERROR, "Unsupported  boot device type\n"));
 			return;
 		}
+
+		if (Status == EFI_SUCCESS || (MaxHandles != 1)) {
+			DEBUG((EFI_D_VERBOSE, "Failed to get the BlockIo for device. MaxHandle:%d, %r\n",
+						MaxHandles, Status));
+			continue;
+		} else {
+			DEBUG((EFI_D_ERROR, "Failed to get BlkIo for device. MaxHandles:%d - %r\n", Status));
+			return;
+		}
+
 		BlockIo = BlockIoHandle[0].BlkIo;
 		DeviceDensity = (BlockIo->Media->LastBlock + 1) * BlockIo->Media->BlockSize;
 		BlkSz = BlockIo->Media->BlockSize;
@@ -237,14 +252,15 @@ VOID UpdatePartitionAttributes()
 					continue;
 				}
 
-				/* Partition table is populated with entries from lun 0 to max lun.
-				 * break out of the loop once we see the partition lun is > current lun */
-				if (PtnEntries[i].lun > Lun)
-					break;
-				/* Find the entry where the partition table for 'lun' starts and then update the attributes */
-				if (PtnEntries[i].lun != Lun)
-					continue;
-
+				if (!AsciiStrnCmp(BootDeviceType, "UFS", AsciiStrLen("UFS"))) {
+					/* Partition table is populated with entries from lun 0 to max lun.
+					 * break out of the loop once we see the partition lun is > current lun */
+					if (PtnEntries[i].lun > Lun)
+						break;
+					/* Find the entry where the partition table for 'lun' starts and then update the attributes */
+					if (PtnEntries[i].lun != Lun)
+						continue;
+				}
 				/* Update the partition attributes  and partiton GUID values */
 				PUT_LONG_LONG(&PtnEntriesPtr[ATTRIBUTE_FLAG_OFFSET], PtnEntries[i].PartEntry.Attributes);
 				CopyMem((VOID *)PtnEntriesPtr, (VOID *)&PtnEntries[i].PartEntry.PartitionTypeGUID, GUID_SIZE);
