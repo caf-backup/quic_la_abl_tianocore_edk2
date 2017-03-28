@@ -551,12 +551,9 @@ EFI_STATUS UpdateCmdLine(CONST CHAR8 * CmdLine,
 			if (HaveCmdLine) --Dst;
 			STR_COPY(Dst, Src);
 
-			/* Suffix System path in command line*/
-			if (*SystemPath) {
-				Src = SystemPath;
-				if (HaveCmdLine) --Dst;
-				STR_COPY(Dst, Src);
-			}
+			Src = SystemPath;
+			if (HaveCmdLine) --Dst;
+			STR_COPY(Dst, Src);
 		}
 	}
 
