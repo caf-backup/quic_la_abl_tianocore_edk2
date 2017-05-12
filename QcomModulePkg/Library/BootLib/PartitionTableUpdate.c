@@ -96,7 +96,7 @@ VOID UpdatePartitionEntries()
 
 	PartitionCount = 0;
 	/*Nullify the PtnEntries array before using it*/
-	SetMem((VOID*) PtnEntries, (sizeof(PtnEntries[0]) * MAX_NUM_PARTITIONS), 0);
+	gBS->SetMem((VOID*) PtnEntries, (sizeof(PtnEntries[0]) * MAX_NUM_PARTITIONS), 0);
 
 	for (i = 0; i < MaxLuns; i++) {
 		for (j = 0; (j < Ptable[i].MaxHandles) && (Index < MAX_NUM_PARTITIONS); j++, Index++) {
@@ -108,7 +108,7 @@ VOID UpdatePartitionEntries()
 				continue;
 			}
 
-			CopyMem((&PtnEntries[Index]), PartEntry, sizeof(PartEntry[0]));
+			gBS->CopyMem((&PtnEntries[Index]), PartEntry, sizeof(PartEntry[0]));
 			PtnEntries[Index].lun = i;
 		}
 	}
@@ -228,7 +228,7 @@ VOID UpdatePartitionAttributes()
 			return;
 		}
 
-		SetMem((VOID *) GptHdr, MaxGptPartEntrySzBytes, 0);
+		gBS->SetMem((VOID *) GptHdr, MaxGptPartEntrySzBytes, 0);
 		GptHdrPtr = GptHdr;
 
 		/* This loop iterates twice to update both primary and backup Gpt*/
@@ -270,7 +270,7 @@ VOID UpdatePartitionAttributes()
 				if(Attr != PtnEntries[i].PartEntry.Attributes) {
 					/* Update the partition attributes  and partiton GUID values */
 					PUT_LONG_LONG(&PtnEntriesPtr[ATTRIBUTE_FLAG_OFFSET], PtnEntries[i].PartEntry.Attributes);
-					CopyMem((VOID *)PtnEntriesPtr, (VOID *)&PtnEntries[i].PartEntry.PartitionTypeGUID, GUID_SIZE);
+					gBS->CopyMem((VOID *)PtnEntriesPtr, (VOID *)&PtnEntries[i].PartEntry.PartitionTypeGUID, GUID_SIZE);
 					SkipUpdation = FALSE;
 				}
 
@@ -341,9 +341,9 @@ STATIC VOID SwapPtnGuid(EFI_PARTITION_ENTRY *p1, EFI_PARTITION_ENTRY *p2)
 
 	if (p1 == NULL || p2 == NULL)
 		return;
-	CopyMem((VOID *)&Temp, (VOID *)&p1->PartitionTypeGUID, sizeof(EFI_GUID));
-	CopyMem((VOID *)&p1->PartitionTypeGUID, (VOID *)&p2->PartitionTypeGUID, sizeof(EFI_GUID));
-	CopyMem((VOID *)&p2->PartitionTypeGUID, (VOID *)&Temp, sizeof(EFI_GUID));
+	gBS->CopyMem((VOID *)&Temp, (VOID *)&p1->PartitionTypeGUID, sizeof(EFI_GUID));
+	gBS->CopyMem((VOID *)&p1->PartitionTypeGUID, (VOID *)&p2->PartitionTypeGUID, sizeof(EFI_GUID));
+	gBS->CopyMem((VOID *)&p2->PartitionTypeGUID, (VOID *)&Temp, sizeof(EFI_GUID));
 }
 
 STATIC EFI_STATUS GetMultiSlotPartsList() {
@@ -429,8 +429,8 @@ VOID SwitchPtnSlots(CONST CHAR16 *SetActive)
 		}
 		/* Swap the guids for the slots */
 		SwapPtnGuid(&PtnCurrent->PartEntry, &PtnNew->PartEntry);
-		SetMem(CurSlot, BOOT_PART_SIZE, 0);
-		SetMem(NewSlot, BOOT_PART_SIZE, 0);
+		gBS->SetMem(CurSlot, BOOT_PART_SIZE, 0);
+		gBS->SetMem(NewSlot, BOOT_PART_SIZE, 0);
 		PtnCurrent = PtnNew = NULL;
 	}
 
@@ -470,7 +470,7 @@ EnumeratePartitions ()
 		gEfiUfsLU7Guid,
 	};
 
-	SetMem((VOID*) Ptable, (sizeof(struct StoragePartInfo) * MAX_LUNS), 0);
+	gBS->SetMem((VOID*) Ptable, (sizeof(struct StoragePartInfo) * MAX_LUNS), 0);
 
 	/* By default look for emmc partitions if not found look for UFS */
 	Attribs |= BLK_IO_SEL_MATCH_ROOT_DEVICE;
@@ -562,7 +562,7 @@ VOID FindPtnActiveSlot()
 			}
 			if (PtnEntries[i].PartEntry.Attributes & PART_ATT_UNBOOTABLE_VAL) {
 				StrnCpyS(SlotInfo, MAX_SLOT_SUFFIX_SZ, Suffix, StrLen(Suffix));
-				SetMem(ActiveSlot, sizeof(ActiveSlot), 0);
+				gBS->SetMem(ActiveSlot, sizeof(ActiveSlot), 0);
 				Unbootable++;
 			}
 		}
@@ -1048,7 +1048,7 @@ STATIC UINT32 WriteGpt(INT32 Lun, UINT32 Sz, UINT8 *Gpt)
 		return FAILURE;
 	}
 	FlashingGpt = 0;
-	SetMem((VOID *)PrimaryGptHdr, Sz, 0x0);
+	gBS->SetMem((VOID *)PrimaryGptHdr, Sz, 0x0);
 
 	DEBUG((EFI_D_ERROR, "Updated Partition Table Successfully\n"));
 	return SUCCESS;
