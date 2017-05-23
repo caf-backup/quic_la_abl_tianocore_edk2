@@ -161,7 +161,7 @@ EFI_STATUS SetDeviceUnlockValue(UINT32 Type, BOOLEAN State)
 		return Status;
 	}
 
-	SetMem((VOID *)&Msg, sizeof(Msg), 0);
+	gBS->SetMem((VOID *)&Msg, sizeof(Msg), 0);
 	AsciiStrnCpyS(Msg.recovery, sizeof(Msg.recovery), RECOVERY_WIPE_DATA, AsciiStrLen(RECOVERY_WIPE_DATA));
 	WriteToPartition(&gEfiMiscPartitionGuid, &Msg);
 
@@ -185,7 +185,7 @@ EFI_STATUS DeviceInfoInit()
 
 	if (CompareMem(DevInfo.magic, DEVICE_MAGIC, DEVICE_MAGIC_SIZE)) {
 		DEBUG((EFI_D_ERROR, "Device Magic does not match\n"));
-		CopyMem(DevInfo.magic, DEVICE_MAGIC, DEVICE_MAGIC_SIZE);
+		gBS->CopyMem(DevInfo.magic, DEVICE_MAGIC, DEVICE_MAGIC_SIZE);
 		if (IsSecureBootEnabled())
 		{
 			DevInfo.is_unlocked = FALSE;
