@@ -186,17 +186,30 @@ EFI_STATUS BootLinux (VOID *ImageBuffer, UINT32 ImageSize, CHAR16 *PartitionName
 		switch (BootState)
 		{
 			case RED:
-				DisplayVerifiedBootMenu(DISPLAY_MENU_RED);
-				MicroSecondDelay(5000000);
+				Status = DisplayVerifiedBootMenu(DISPLAY_MENU_RED);
+				if (Status != EFI_SUCCESS) {
+					DEBUG((EFI_D_INFO, "Your device is corrupt. It can't be trusted and will not boot." \
+						"\nYour device will shutdown in 30s\n"));
+				}
+				MicroSecondDelay(30000000);
 				ShutdownDevice();
 				break;
 			case YELLOW:
-				DisplayVerifiedBootMenu(DISPLAY_MENU_YELLOW);
-				MicroSecondDelay(5000000);
+				Status = DisplayVerifiedBootMenu(DISPLAY_MENU_YELLOW);
+				if (Status == EFI_SUCCESS) {
+					WaitForExitKeysDetection();
+				} else {
+					DEBUG((EFI_D_INFO, "Your device has loaded a different operating system." \
+						"\nWait for 5 seconds before proceeding\n"));
+					MicroSecondDelay(5000000);
+				}
 				break;
 			case ORANGE:
-				if (FfbmStr[0] == '\0') {
-					DisplayVerifiedBootMenu(DISPLAY_MENU_ORANGE);
+				Status = DisplayVerifiedBootMenu(DISPLAY_MENU_ORANGE);
+				if (Status == EFI_SUCCESS) {
+					WaitForExitKeysDetection();
+				} else {
+					DEBUG((EFI_D_INFO, "Device is unlocked, Skipping boot verification\n"));
 					MicroSecondDelay(5000000);
 				}
 				break;
