@@ -33,17 +33,15 @@
 #include <DrawUI.h>
 
 #if VERIFIED_BOOT
-VOID DisplayVerifiedBootMenu(UINT32 Type);
+EFI_STATUS DisplayVerifiedBootMenu(INTN Type);
 EFI_STATUS VerifiedBootOptionMenuShowScreen(OPTION_MENU_INFO *OptionMenuInfo);
-EFI_STATUS VerifiedBootMenuShowScreen(OPTION_MENU_INFO *OptionMenuInfo, UINT32 Type);
+EFI_STATUS VerifiedBootMenuShowScreen(OPTION_MENU_INFO *OptionMenuInfo, INTN Type);
+EFI_STATUS VerifiedBootMenuUpdateShowScreen(OPTION_MENU_INFO *OptionMenuInfo);
 #else
-STATIC inline VOID DisplayVerifiedBootMenu(UINT32 type) {}
-STATIC inline EFI_STATUS VerifiedBootOptionMenuShowScreen(OPTION_MENU_INFO *OptionMenuInfo) {
-	return EFI_NOT_FOUND;
-}
-STATIC inline EFI_STATUS VerifiedBootMenuShowScreen(OPTION_MENU_INFO *OptionMenuInfo, UINT32 Type) {
-	return EFI_NOT_FOUND;
-}
+STATIC inline EFI_STATUS DisplayVerifiedBootMenu(INTN Type) {return EFI_UNSUPPORTED;}
+STATIC inline EFI_STATUS VerifiedBootOptionMenuShowScreen(OPTION_MENU_INFO *OptionMenuInfo) {return EFI_UNSUPPORTED;}
+STATIC inline EFI_STATUS VerifiedBootMenuShowScreen(OPTION_MENU_INFO *OptionMenuInfo, INTN Type) {return EFI_UNSUPPORTED;}
+STATIC inline EFI_STATUS VerifiedBootMenuUpdateShowScreen(OPTION_MENU_INFO *OptionMenuInfo) {return EFI_UNSUPPORTED;}
 #endif
 
 #endif
