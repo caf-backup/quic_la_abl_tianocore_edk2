@@ -30,5 +30,17 @@
 #ifndef _UNLOCKMENU_H_
 #define _UNLOCKMENU_H_
 
-VOID DisplayUnlockMenu(UINT32 Type);
+typedef struct {
+	INTN UnlockType;
+	BOOLEAN UnlockValue;
+} UNLOCK_INFO;
+
+STATIC UNLOCK_INFO mUnlockInfo[] = {
+	[DISPLAY_MENU_LOCK] = {UNLOCK, FALSE},
+	[DISPLAY_MENU_UNLOCK] = {UNLOCK, TRUE},
+	[DISPLAY_MENU_LOCK_CRITICAL] = {UNLOCK_CRITICAL, FALSE},
+	[DISPLAY_MENU_UNLOCK_CRITICAL] = {UNLOCK_CRITICAL, TRUE},
+};
+
+EFI_STATUS DisplayUnlockMenu(INTN UnLockType, BOOLEAN UnLockValue);
 #endif
