@@ -48,7 +48,7 @@ STATIC EFI_STATUS SwitchTo32bitModeBooting(UINT64 KernelLoadAddr, UINT64 DeviceT
 	EFI_STATUS Status;
 	EFI_HLOS_BOOT_ARGS HlosBootArgs;
 
-	SetMem((VOID*)&HlosBootArgs, sizeof(HlosBootArgs), 0);
+	gBS->SetMem((VOID*)&HlosBootArgs, sizeof(HlosBootArgs), 0);
 	HlosBootArgs.el1_x2 = DeviceTreeLoadAddr;
 	/* Write 0 into el1_x4 to switch to 32bit mode */
 	HlosBootArgs.el1_x4 = 0;
@@ -212,7 +212,7 @@ EFI_STATUS BootLinux (VOID *ImageBuffer, UINT32 ImageSize, CHAR16 *PartitionName
 			DEBUG((EFI_D_ERROR, "Integer Overflow: in DTB offset addition\n"));
 			return EFI_BAD_BUFFER_SIZE;
 		}
-		CopyMem((VOID*)&DtbOffset, ((VOID*)Kptr + DTB_OFFSET_LOCATION_IN_ARCH32_KERNEL_HDR), sizeof(DtbOffset));
+		gBS->CopyMem((VOID*)&DtbOffset, ((VOID*)Kptr + DTB_OFFSET_LOCATION_IN_ARCH32_KERNEL_HDR), sizeof(DtbOffset));
 	}
 
 	/*Finds out the location of device tree image and ramdisk image within the boot image
@@ -299,7 +299,7 @@ EFI_STATUS BootLinux (VOID *ImageBuffer, UINT32 ImageSize, CHAR16 *PartitionName
 			ImageBuffer, RamdiskOffset));
 		return EFI_BAD_BUFFER_SIZE;
 	}
-	CopyMem ((CHAR8*)RamdiskLoadAddr, ImageBuffer + RamdiskOffset, RamdiskSize);
+	gBS->CopyMem ((CHAR8*)RamdiskLoadAddr, ImageBuffer + RamdiskOffset, RamdiskSize);
 
 	if (BootingWith32BitKernel) {
 		if (CHECK_ADD64(KernelLoadAddr, KernelSizeActual)) {
@@ -310,7 +310,7 @@ EFI_STATUS BootLinux (VOID *ImageBuffer, UINT32 ImageSize, CHAR16 *PartitionName
 			DEBUG((EFI_D_ERROR, "Kernel size is over the limit\n"));
 			return EFI_INVALID_PARAMETER;
 		}
-		CopyMem((CHAR8*)KernelLoadAddr, ImageBuffer + PageSize, KernelSizeActual);
+		gBS->CopyMem((CHAR8*)KernelLoadAddr, ImageBuffer + PageSize, KernelSizeActual);
 	}
 
 	if (FixedPcdGetBool(EnablePartialGoods))
