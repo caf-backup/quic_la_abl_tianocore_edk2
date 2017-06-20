@@ -48,7 +48,7 @@ STATIC EFI_STATUS SwitchTo32bitModeBooting(UINT64 KernelLoadAddr, UINT64 DeviceT
 	EFI_STATUS Status;
 	EFI_HLOS_BOOT_ARGS HlosBootArgs;
 
-	gBS->SetMem((VOID*)&HlosBootArgs, sizeof(HlosBootArgs), 0);
+	SetMem((VOID*)&HlosBootArgs, sizeof(HlosBootArgs), 0);
 	HlosBootArgs.el1_x2 = DeviceTreeLoadAddr;
 	/* Write 0 into el1_x4 to switch to 32bit mode */
 	HlosBootArgs.el1_x4 = 0;
@@ -101,6 +101,8 @@ EFI_STATUS BootLinux (VOID *ImageBuffer, UINT32 ImageSize, CHAR16 *PartitionName
 	QCOM_MDTP_PROTOCOL *MdtpProtocol;
 	MDTP_VB_EXTERNAL_PARTITION ExternalPartition;
 	CHAR8 FfbmStr[FFBM_MODE_BUF_SIZE] = {'\0'};
+	VOID *SingleDtHdr = NULL;
+	VOID *NextDtHdr = NULL;
 
 	if (!StrnCmp(PartitionName, L"boot", StrLen(L"boot")))
 	{
@@ -276,8 +278,25 @@ EFI_STATUS BootLinux (VOID *ImageBuffer, UINT32 ImageSize, CHAR16 *PartitionName
 	void *dtb;
 	dtb = DeviceTreeAppended((void *) (ImageBuffer + PageSize), KernelSize, DtbOffset, (void *)DeviceTreeLoadAddr);
 	if (!dtb) {
-		DEBUG((EFI_D_ERROR, "Error: Appended Device Tree blob not found\n"));
-		return EFI_NOT_FOUND;
+		if (CHECK_ADD64((UINT64)(ImageBuffer + PageSize), DtbOffset)) {
+			DEBUG((EFI_D_ERROR, "Integer Overflow: in DTB offset addition\n"));
+			return EFI_BAD_BUFFER_SIZE;
+		}
+		SingleDtHdr = (ImageBuffer + PageSize + DtbOffset);
+
+		if (!fdt_check_header(SingleDtHdr)) {
+			NextDtHdr = (void *)((uintptr_t)SingleDtHdr + fdt_totalsize(SingleDtHdr));
+			if (!fdt_check_header(NextDtHdr)) {
+				DEBUG((EFI_D_VERBOSE, "Not the single appended DTB\n"));
+				return EFI_NOT_FOUND;
+			}
+
+			DEBUG((EFI_D_VERBOSE, "Single appended DTB found\n"));
+			CopyMem((VOID*)DeviceTreeLoadAddr, SingleDtHdr, fdt_totalsize(SingleDtHdr));
+		} else {
+			DEBUG((EFI_D_ERROR, "Error: Appended Device Tree blob not found\n"));
+			return EFI_NOT_FOUND;
+		}
 	}
 
 	Status = UpdateDeviceTree((VOID*)DeviceTreeLoadAddr , FinalCmdLine, (VOID *)RamdiskLoadAddr, RamdiskSize);
