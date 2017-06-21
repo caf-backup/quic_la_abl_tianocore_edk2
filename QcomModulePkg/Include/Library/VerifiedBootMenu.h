@@ -32,18 +32,16 @@
 
 #include <DrawUI.h>
 
-#if VERIFIED_BOOT
-VOID DisplayVerifiedBootMenu(UINT32 Type);
+#if VERIFIED_BOOT || VERIFIED_BOOT_2
+EFI_STATUS DisplayVerifiedBootMenu(DISPLAY_MENU_TYPE Type);
 EFI_STATUS VerifiedBootOptionMenuShowScreen(OPTION_MENU_INFO *OptionMenuInfo);
-EFI_STATUS VerifiedBootMenuShowScreen(OPTION_MENU_INFO *OptionMenuInfo, UINT32 Type);
+EFI_STATUS VerifiedBootMenuShowScreen(OPTION_MENU_INFO *OptionMenuInfo, DISPLAY_MENU_TYPE Type);
+EFI_STATUS VerifiedBootMenuUpdateShowScreen(OPTION_MENU_INFO *OptionMenuInfo);
 #else
-STATIC inline VOID DisplayVerifiedBootMenu(UINT32 type) {}
-STATIC inline EFI_STATUS VerifiedBootOptionMenuShowScreen(OPTION_MENU_INFO *OptionMenuInfo) {
-	return EFI_NOT_FOUND;
-}
-STATIC inline EFI_STATUS VerifiedBootMenuShowScreen(OPTION_MENU_INFO *OptionMenuInfo, UINT32 Type) {
-	return EFI_NOT_FOUND;
-}
+STATIC inline EFI_STATUS DisplayVerifiedBootMenu(DISPLAY_MENU_TYPE Type) {return EFI_UNSUPPORTED;}
+STATIC inline EFI_STATUS VerifiedBootOptionMenuShowScreen(OPTION_MENU_INFO *OptionMenuInfo) {return EFI_UNSUPPORTED;}
+STATIC inline EFI_STATUS VerifiedBootMenuShowScreen(OPTION_MENU_INFO *OptionMenuInfo, DISPLAY_MENU_TYPE Type) {return EFI_UNSUPPORTED;}
+STATIC inline EFI_STATUS VerifiedBootMenuUpdateShowScreen(OPTION_MENU_INFO *OptionMenuInfo) {return EFI_UNSUPPORTED;}
 #endif
 
 #endif

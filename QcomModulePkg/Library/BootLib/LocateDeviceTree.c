@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -28,11 +28,23 @@
 
 #include "LocateDeviceTree.h"
 #include "UpdateDeviceTree.h"
+#include <Library/Rtic.h>
+#include <Library/PartitionTableUpdate.h>
+#include <Library/BootLinux.h>
+#include <Library/Board.h>
 // Variables to initialize board data
 
 STATIC int platform_dt_absolute_match(struct dt_entry *cur_dt_entry, struct dt_entry_node *dt_list);
 STATIC struct dt_entry *platform_dt_match_best(struct dt_entry_node *dt_list);
 
+STATIC UINT32 BestSocDtMatch;
+STATIC UINT32 BestBoardDtMatch;
+STATIC BOOLEAN DtboNeed = TRUE;
+
+BOOLEAN GetDtboNeeded ()
+{
+	return DtboNeed;
+}
 /* Add function to allocate dt entry list, used for recording
  *  the entry which conform to platform_dt_absolute_match()
  */
@@ -384,6 +396,9 @@ VOID *DeviceTreeAppended(VOID *kernel, UINT32 kernel_size, UINT32 dtb_offset, VO
 
 		if (!DeviceTreeCompatible(dtb, dtb_size, dt_entry_queue)) {
 			DEBUG((EFI_D_VERBOSE, "Error while DTB parse continue with next DTB\n"));
+			if (!GetRticDtb(dtb))
+				DEBUG((EFI_D_VERBOSE, "Error while DTB parsing RTIC prop continue with next DTB\n"));
+
 		}
 
 		/* goto the next device tree if any */
@@ -447,6 +462,238 @@ out:
 	if (dt_entry_queue)
 		FreePool(dt_entry_queue);
 	return NULL;
+}
+
+STATIC BOOLEAN CheckAllBitsSet(UINT32 DtMatchVal)
+{
+	return (DtMatchVal & ALL_BITS_SET) == (ALL_BITS_SET);
+}
+
+STATIC BOOLEAN ReadDtbFindMatch(VOID* Dtb, UINT32* MatchVal)
+{
+	const char *PlatProp = NULL;
+	const char *BoardProp = NULL;
+	const char *PmicProp = NULL;
+	INT32 LenBoardId;
+	INT32 LenPlatId;
+	INT32 LenPmicId;
+	INT32 MinPlatIdLen = PLAT_ID_SIZE;
+	UINT32 RootOffset = 0;
+	/*DT parameters*/
+	UINT32 DtPlatformId;
+	UINT32 DtVariantId;
+	UINT32 DtPlatformSubtype;
+	UINT32 DtSocRev;
+	UINT32 DtPmicTarget[MAX_PMIC_IDX];
+	UINT32 DtFoundryId;
+
+	/*Ensure MatchVal to 0 initially*/
+	*MatchVal = 0;
+	RootOffset = fdt_path_offset(Dtb, "/");
+	if (RootOffset < 0) {
+		DEBUG ((EFI_D_ERROR, "Unable to locate root node\n"));
+		return FALSE;
+	}
+
+	/* Get the msm-id prop from DTB */
+	PlatProp = (const char *)fdt_getprop(Dtb, RootOffset, "qcom,msm-id", &LenPlatId);
+	if (PlatProp && (LenPlatId > 0) && (!(LenPlatId % MinPlatIdLen))) {
+		/*Compare msm-id of the dtb vs Board*/
+		DtPlatformId = fdt32_to_cpu(((struct plat_id *)PlatProp)->platform_id);
+		DEBUG ((EFI_D_VERBOSE, "Boardsocid = %x, Dtsocid = %x\n", (BoardPlatformRawChipId() & 0xffff),(DtPlatformId & 0xffff)));
+		if ((BoardPlatformRawChipId() & 0xffff) == (DtPlatformId & 0xffff)) {
+			*MatchVal |= SOC_MATCH;
+		} else {
+			DEBUG ((EFI_D_VERBOSE, "qcom,msm-id doesnot match\n"));
+			return FALSE;
+		}
+		/*Compare soc rev of the dtb vs Board*/
+		DtSocRev = fdt32_to_cpu(((struct plat_id *)PlatProp)->soc_rev);
+		DEBUG ((EFI_D_VERBOSE, "BoardSocRev = %x, DtSocRev =%x\n", BoardPlatformChipVersion(), DtSocRev));
+		if (DtSocRev == BoardPlatformChipVersion()) {
+			*MatchVal |= VERSION_MATCH;
+		} else if (DtSocRev) {
+			DEBUG ((EFI_D_VERBOSE, "soc version doesnot match\n"));
+			return FALSE;
+		}
+		/*Compare Foundry Id of the dtb vs Board*/
+		DtFoundryId = fdt32_to_cpu(((struct plat_id *)PlatProp)->platform_id) & 0x00ff0000;
+		DEBUG ((EFI_D_VERBOSE, "BoardFoundry = %x, DtFoundry = %x\n", (BoardPlatformFoundryId() << PLATFORM_FOUNDRY_SHIFT), DtFoundryId));
+		if (DtFoundryId == (BoardPlatformFoundryId() << PLATFORM_FOUNDRY_SHIFT)) {
+			*MatchVal |= FOUNDRYID_MATCH;
+		} else {
+			DEBUG ((EFI_D_VERBOSE, "soc foundry doesnot match\n"));
+		}
+	} else {
+		DEBUG ((EFI_D_VERBOSE, "qcom, msm-id does not exist (or) is (%d) not a multiple of (%d)\n", LenPlatId, MinPlatIdLen));
+	}
+
+	/*Get the properties like variant id, subtype from Dtb then compare the dtb vs Board*/
+	BoardProp = (const char *)fdt_getprop(Dtb, RootOffset, "qcom,board-id", &LenBoardId);
+	if (BoardProp && (LenBoardId > 0) && (!(LenBoardId % BOARD_ID_SIZE))) {
+		DtVariantId = fdt32_to_cpu(((struct board_id *)BoardProp)->variant_id);
+		DtPlatformSubtype = fdt32_to_cpu(((struct board_id *)BoardProp)->platform_subtype);
+		if (DtPlatformSubtype == 0)
+			DtPlatformSubtype = fdt32_to_cpu(((struct board_id *)BoardProp)->variant_id) >> 0x18;
+
+		DEBUG ((EFI_D_VERBOSE, "BoardVariant = %x, DtVariant = %x\n", BoardPlatformType(), DtVariantId));
+		if (DtVariantId == BoardPlatformType()) {
+			*MatchVal |= VARIANT_MATCH;
+		} else if (DtVariantId) {
+			DEBUG ((EFI_D_VERBOSE, "qcom,board-id doesnot match\n"));
+			return FALSE;
+		}
+
+		DEBUG ((EFI_D_VERBOSE, "BoardSubtype = %x, DtSubType = %x\n",BoardPlatformSubType(), DtPlatformSubtype));
+		if (DtPlatformSubtype == BoardPlatformSubType()) {
+			*MatchVal |= SUBTYPE_MATCH;
+		} else if (DtPlatformSubtype) {
+			DEBUG ((EFI_D_VERBOSE, "subtype-id doesnot match\n"));
+			return FALSE;
+		}
+	} else {
+		DEBUG ((EFI_D_VERBOSE, "qcom,board-id does not exist (or)(%d) is not a multiple of (%d)\n", LenBoardId,BOARD_ID_SIZE));
+	}
+
+	/*Get the pmic property from Dtb then compare the dtb vs Board*/
+        PmicProp = (const char *)fdt_getprop(Dtb, RootOffset, "qcom,pmic-id", &LenPmicId);
+	if (PmicProp && (LenPmicId > 0) && (!(LenPmicId % PMIC_ID_SIZE))) {
+		DtPmicTarget[PMIC_IDX0]= fdt32_to_cpu(((struct pmic_id *)PmicProp)->pmic_version[PMIC_IDX0]);
+		DtPmicTarget[PMIC_IDX1]= fdt32_to_cpu(((struct pmic_id *)PmicProp)->pmic_version[PMIC_IDX1]);
+		DtPmicTarget[PMIC_IDX2]= fdt32_to_cpu(((struct pmic_id *)PmicProp)->pmic_version[PMIC_IDX2]);
+		DtPmicTarget[PMIC_IDX3]= fdt32_to_cpu(((struct pmic_id *)PmicProp)->pmic_version[PMIC_IDX3]);
+
+		DEBUG ((EFI_D_VERBOSE, "BoardPmicids = %x/%x/%x/%x DtPmicids = %x/%x/%x/%x\n", BoardPmicTarget(0), BoardPmicTarget(1),BoardPmicTarget(2),BoardPmicTarget(4), DtPmicTarget[0], DtPmicTarget[1], DtPmicTarget[2], DtPmicTarget[3]));
+		if ((DtPmicTarget[PMIC_IDX0] == BoardPmicTarget(PMIC_IDX0))
+				&& (DtPmicTarget[PMIC_IDX1] == BoardPmicTarget(PMIC_IDX1))
+				&& (DtPmicTarget[PMIC_IDX2] == BoardPmicTarget(PMIC_IDX2))
+				&& (DtPmicTarget[PMIC_IDX3] == BoardPmicTarget(PMIC_IDX3))) {
+			*MatchVal |= PMIC_MATCH;
+		} else if (DtPmicTarget[PMIC_IDX0] || DtPmicTarget[PMIC_IDX1] || DtPmicTarget[PMIC_IDX2] || DtPmicTarget[PMIC_IDX3]) {
+			DEBUG ((EFI_D_VERBOSE, "Pmic version doesnot match\n"));
+			return FALSE;
+		}
+	} else {
+		DEBUG ((EFI_D_VERBOSE, "qcom,pmic-id does not exit (or) is (%d) not a multiple of (%d)\n", LenPmicId, PMIC_ID_SIZE));
+	}
+	return TRUE;
+}
+
+VOID* GetSocDtb (VOID *Kernel, UINT32 KernelSize, UINT32 DtbOffset, VOID *DtbLoadAddr)
+{
+	uintptr_t KernelEnd = (uintptr_t)Kernel + KernelSize;
+	VOID *Dtb = NULL;
+	struct fdt_header DtbHdr;
+	UINT32 LocalSocDtMatch = 0;
+	BOOLEAN Match = FALSE;
+	VOID* BestMatchDt = NULL;
+	UINT32 DtbSize = 0;
+
+	if (!DtbOffset){
+		DEBUG((EFI_D_ERROR, "DTB offset is NULL\n"));
+		return NULL;
+	}
+
+	if (((uintptr_t)Kernel + (uintptr_t)DtbOffset) < (uintptr_t)Kernel) {
+		return NULL;
+	}
+	Dtb = Kernel + DtbOffset;
+	while (((uintptr_t)Dtb + sizeof(struct fdt_header)) < (uintptr_t)KernelEnd) {
+		/* the DTB could be unaligned, so extract the header,
+		 * and operate on it separately */
+		gBS->CopyMem(&DtbHdr, Dtb, sizeof(struct fdt_header));
+		DtbSize = fdt_totalsize((const VOID *)&DtbHdr);
+		if (fdt_check_header((const VOID *)&DtbHdr) != 0 ||
+				fdt_check_header_ext((VOID *)&DtbHdr) != 0 ||
+				((uintptr_t)Dtb + DtbSize < (uintptr_t)Dtb) ||
+				((uintptr_t)Dtb + DtbSize > (uintptr_t)KernelEnd))
+			break;
+
+		Match = ReadDtbFindMatch(Dtb, &LocalSocDtMatch);
+		if (Match) {
+			if (CheckAllBitsSet(LocalSocDtMatch)) {
+				DEBUG ((EFI_D_VERBOSE, "Exact DTB match found. DTBO search is not required\n"));
+				DtboNeed = FALSE;
+			}
+
+			if (BestSocDtMatch < LocalSocDtMatch) {
+				BestSocDtMatch = LocalSocDtMatch;
+				BestMatchDt = Dtb;
+			}
+		} else {
+			if (!GetRticDtb(Dtb))
+				DEBUG((EFI_D_VERBOSE, "Error while DTB parsing RTIC prop continue with next DTB\n"));
+
+		}
+
+		DEBUG ((EFI_D_VERBOSE, "Match = %x Bestmatch = %x\n", Match, BestSocDtMatch));
+		Dtb += DtbSize;
+	}
+
+	if (!BestMatchDt) {
+		DEBUG ((EFI_D_ERROR, "No match found for Soc Dtb type\n"));
+		return NULL;
+	}
+
+	return BestMatchDt;
+}
+
+VOID* GetBoardDtb (BootInfo *Info, VOID* DtboImgBuffer)
+{
+	struct DtboTableHdr* DtboTableHdr = DtboImgBuffer;
+	struct DtboTableEntry *DtboTableEntry = NULL;
+	UINT32 DtboCount = 0;
+	UINT32 LocalBoardDtMatch = 0;
+	VOID* BestMatchDt = NULL;
+	VOID *BoardDtb = NULL;
+	BOOLEAN Match = FALSE;
+	UINT32 DtboTableEntriesCount = 0;
+	UINT32 FirstDtboTableEntryOffset = 0;
+
+	if (!DtboImgBuffer) {
+		DEBUG((EFI_D_ERROR, "Dtbo Img buffer is NULL\n"));
+		return NULL;
+	}
+
+	FirstDtboTableEntryOffset = fdt32_to_cpu(DtboTableHdr->DtEntryOffset);
+	if (CHECK_ADD64((UINT64)DtboImgBuffer, FirstDtboTableEntryOffset)) {
+		DEBUG((EFI_D_ERROR, "Integer overflow deteced with Dtbo address\n"));
+		return NULL;
+	}
+
+	DtboTableEntry = (struct DtboTableEntry *)(DtboImgBuffer + FirstDtboTableEntryOffset);
+	if (!DtboTableEntry) {
+		DEBUG((EFI_D_ERROR, "No proper DtTable\n"));
+		return NULL;
+	}
+
+	DtboTableEntriesCount = fdt32_to_cpu(DtboTableHdr->DtEntryCount);
+	for (DtboCount = 0; DtboCount < DtboTableEntriesCount; DtboCount++) {
+		if (CHECK_ADD64((UINT64)DtboImgBuffer, fdt32_to_cpu(DtboTableEntry->DtOffset))) {
+			DEBUG((EFI_D_ERROR, "Integer overflow deteced with Dtbo address\n"));
+			return NULL;
+		}
+		BoardDtb = DtboImgBuffer + fdt32_to_cpu(DtboTableEntry->DtOffset);
+		if (fdt_check_header(BoardDtb) || fdt_check_header_ext(BoardDtb)) {
+			DEBUG ((EFI_D_ERROR, "No Valid Dtb\n"));
+			break;
+		}
+		Match = ReadDtbFindMatch(BoardDtb, &LocalBoardDtMatch);
+		if (Match) {
+			if (BestBoardDtMatch < LocalBoardDtMatch) {
+				BestBoardDtMatch = LocalBoardDtMatch;
+				BestMatchDt = BoardDtb;
+			}
+		}
+		DEBUG ((EFI_D_VERBOSE, "Dtbo count = %u LocalBoardDtMatch =%x\n",DtboCount, LocalBoardDtMatch));
+		DtboTableEntry++;
+	}
+
+	if (!BestMatchDt) {
+		DEBUG ((EFI_D_ERROR, "Unable to find the Board Dtb\n"));
+                return NULL;
+	}
+	return BestMatchDt;
 }
 
 /* Returns 0 if the device tree is valid. */
