@@ -36,13 +36,18 @@
 #include <Library/PartitionTableUpdate.h>
 #include <Library/DeviceInfo.h>
 #include <Protocol/EFIMdtp.h>
+#include <libufdt_sysdeps.h>
 
 #include "BootLinux.h"
 #include "BootStats.h"
 #include "BootImage.h"
 #include "UpdateDeviceTree.h"
+#include "libfdt.h"
+#include <ufdt_overlay.h>
+
 
 STATIC QCOM_SCM_MODE_SWITCH_PROTOCOL *pQcomScmModeSwitchProtocol = NULL;
+STATIC BOOLEAN BootDevImage;
 
 STATIC EFI_STATUS SwitchTo32bitModeBooting(UINT64 KernelLoadAddr, UINT64 DeviceTreeLoadAddr) {
 	EFI_STATUS Status;
@@ -62,11 +67,15 @@ STATIC EFI_STATUS SwitchTo32bitModeBooting(UINT64 KernelLoadAddr, UINT64 DeviceT
 	return EFI_NOT_STARTED;
 }
 
-EFI_STATUS BootLinux (VOID *ImageBuffer, UINT32 ImageSize, CHAR16 *PartitionName,
-	BOOLEAN Recovery, BOOLEAN AlarmBoot)
+EFI_STATUS BootLinux (BootInfo *Info)
 {
 
 	EFI_STATUS Status;
+	VOID *ImageBuffer = NULL;
+	UINTN ImageSize = 0;
+	CHAR16 *PartitionName = NULL;
+	BOOLEAN Recovery = FALSE;
+	BOOLEAN AlarmBoot = FALSE;
 
 	LINUX_KERNEL LinuxKernel;
 	UINT32 DeviceTreeOffset = 0;
@@ -94,15 +103,27 @@ EFI_STATUS BootLinux (VOID *ImageBuffer, UINT32 ImageSize, CHAR16 *PartitionName
 	CHAR8* CmdLine = NULL;
 	UINT64 BaseMemory = 0;
 	CHAR8 StrPartition[MAX_GPT_NAME_SIZE] = {'\0'};
-	CHAR8 PartitionNameAscii[MAX_GPT_NAME_SIZE] = {'\0'};
-	BOOLEAN MultiSlotBoot = PartitionHasMultiSlot(L"boot");
 	BOOLEAN BootingWith32BitKernel = FALSE;
 	BOOLEAN MdtpActive = FALSE;
 	QCOM_MDTP_PROTOCOL *MdtpProtocol;
 	MDTP_VB_EXTERNAL_PARTITION ExternalPartition;
 	CHAR8 FfbmStr[FFBM_MODE_BUF_SIZE] = {'\0'};
-	VOID *SingleDtHdr = NULL;
-	VOID *NextDtHdr = NULL;
+	VOID *SocDtb = NULL;
+	VOID *BoardDtb = NULL;
+	VOID *SocDtbHdr = NULL;
+	VOID *FinalDtbHdr = NULL;
+	BOOLEAN DtboCheckNeeded = FALSE;
+	BOOLEAN DtboImgInvalid = FALSE;
+	VOID* DtboImgBuffer = NULL;
+
+	if (Info == NULL) {
+		DEBUG((EFI_D_ERROR, "BootLinux: invalid parameter Info\n"));
+		return EFI_INVALID_PARAMETER;
+	}
+
+	PartitionName = Info->Pname;
+	Recovery = Info->BootIntoRecovery;
+	AlarmBoot = Info->BootReasonAlarm;
 
 	if (!StrnCmp(PartitionName, L"boot", StrLen(L"boot")))
 	{
@@ -113,6 +134,11 @@ EFI_STATUS BootLinux (VOID *ImageBuffer, UINT32 ImageSize, CHAR16 *PartitionName
 		}
 	}
 
+	Status = GetImage(Info, &ImageBuffer, &ImageSize, "boot");
+	if (Status != EFI_SUCCESS || ImageBuffer == NULL || ImageSize <= 0) {
+		DEBUG((EFI_D_ERROR, "BootLinux: GetBootImage failed!\n"));
+		goto Exit;
+	}
 	/* Find if MDTP is enabled and Active */
         if (FixedPcdGetBool(EnableMdtpSupport)) {
 		Status = IsMdtpActive(&MdtpActive);
@@ -136,22 +162,7 @@ EFI_STATUS BootLinux (VOID *ImageBuffer, UINT32 ImageSize, CHAR16 *PartitionName
 		}
 	}
 
-	if (VerifiedBootEnbled())
-	{
-		UnicodeStrToAsciiStr(PartitionName, PartitionNameAscii);
 
-		AsciiStrnCpyS(StrPartition, MAX_GPT_NAME_SIZE, "/", AsciiStrLen("/"));
-		if (MultiSlotBoot) {
-			AsciiStrnCatS(StrPartition, MAX_GPT_NAME_SIZE, PartitionNameAscii,
-					AsciiStrLen(PartitionNameAscii) - (MAX_SLOT_SUFFIX_SZ - 1));
-		} else {
-			AsciiStrnCatS(StrPartition, MAX_GPT_NAME_SIZE, PartitionNameAscii, AsciiStrLen(PartitionNameAscii));
-		}
-
-		Status = VerifiedBootImage(ImageBuffer, ImageSize, StrPartition, MdtpActive, FfbmStr);
-		if (Status != EFI_SUCCESS)
-			return Status;
-	}
 
 	KernelSize = ((boot_img_hdr*)(ImageBuffer))->kernel_size;
 	RamdiskSize = ((boot_img_hdr*)(ImageBuffer))->ramdisk_size;
@@ -267,36 +278,60 @@ EFI_STATUS BootLinux (VOID *ImageBuffer, UINT32 ImageSize, CHAR16 *PartitionName
 	 *Called before ShutdownUefiBootServices as it uses some boot service functions*/
 	CmdLine[BOOT_ARGS_SIZE-1] = '\0';
 
-	Status = UpdateCmdLine(CmdLine, FfbmStr, Recovery, AlarmBoot, &FinalCmdLine);
+	if (AsciiStrStr(CmdLine, "root="))
+		BootDevImage = TRUE;
+
+	Status = UpdateCmdLine(CmdLine, FfbmStr, Recovery, AlarmBoot, Info->VBCmdLine, &FinalCmdLine);
 	if (EFI_ERROR(Status))
 	{
 		DEBUG((EFI_D_ERROR, "Error updating cmdline. Device Error %r\n", Status));
 		return Status;
 	}
 
-	// appended device tree
-	void *dtb;
-	dtb = DeviceTreeAppended((void *) (ImageBuffer + PageSize), KernelSize, DtbOffset, (void *)DeviceTreeLoadAddr);
-	if (!dtb) {
-		if (CHECK_ADD64((UINT64)(ImageBuffer + PageSize), DtbOffset)) {
-			DEBUG((EFI_D_ERROR, "Integer Overflow: in DTB offset addition\n"));
-			return EFI_BAD_BUFFER_SIZE;
-		}
-		SingleDtHdr = (ImageBuffer + PageSize + DtbOffset);
-
-		if (!fdt_check_header(SingleDtHdr)) {
-			NextDtHdr = (void *)((uintptr_t)SingleDtHdr + fdt_totalsize(SingleDtHdr));
-			if (!fdt_check_header(NextDtHdr)) {
-				DEBUG((EFI_D_VERBOSE, "Not the single appended DTB\n"));
-				return EFI_NOT_FOUND;
-			}
-
-			DEBUG((EFI_D_VERBOSE, "Single appended DTB found\n"));
-			CopyMem((VOID*)DeviceTreeLoadAddr, SingleDtHdr, fdt_totalsize(SingleDtHdr));
-		} else {
+	DtboImgInvalid = LoadAndValidateDtboImg(Info, &DtboImgBuffer);
+	if (!DtboImgInvalid) {
+		// appended device tree
+		void *dtb;
+		dtb = DeviceTreeAppended((void *) (ImageBuffer + PageSize), KernelSize, DtbOffset, (void *)DeviceTreeLoadAddr);
+		if (!dtb) {
 			DEBUG((EFI_D_ERROR, "Error: Appended Device Tree blob not found\n"));
 			return EFI_NOT_FOUND;
 		}
+	} else {
+		/*It is the case of DTB overlay Get the Soc specific dtb */
+		FinalDtbHdr = SocDtb = GetSocDtb((void *) (ImageBuffer + PageSize), KernelSize, DtbOffset, (void *)DeviceTreeLoadAddr);
+		if (!SocDtb) {
+			DEBUG((EFI_D_ERROR, "Error: Appended Soc Device Tree blob not found\n"));
+			return EFI_NOT_FOUND;
+		}
+
+		/*Check do we really need to gothrough DTBO or not*/
+		DtboCheckNeeded = GetDtboNeeded();
+		if (DtboCheckNeeded == TRUE) {
+			BoardDtb = GetBoardDtb(Info, DtboImgBuffer);
+			if (!BoardDtb) {
+				DEBUG((EFI_D_ERROR, "Error: Board Dtbo blob not found\n"));
+				return EFI_NOT_FOUND;
+			}
+			if (!pre_overlay_malloc()) {
+				DEBUG((EFI_D_ERROR, "Error: Unable to Allocate Pre Buffer for Overlay\n"));
+				return EFI_OUT_OF_RESOURCES;
+			}
+
+			SocDtbHdr = ufdt_install_blob(SocDtb, fdt_totalsize(SocDtb));
+			if (!SocDtbHdr) {
+				DEBUG((EFI_D_ERROR, "Error: Istall blob failed\n"));
+				return EFI_NOT_FOUND;
+			}
+
+			FinalDtbHdr = ufdt_apply_overlay(SocDtbHdr, fdt_totalsize(SocDtbHdr), BoardDtb, fdt_totalsize(BoardDtb));
+			if (!FinalDtbHdr) {
+				DEBUG((EFI_D_ERROR, "ufdt apply overlay failed\n"));
+				return EFI_NOT_FOUND;
+			}
+		}
+		gBS->CopyMem((VOID*)DeviceTreeLoadAddr, FinalDtbHdr, fdt_totalsize(FinalDtbHdr));
+		post_overlay_free();
 	}
 
 	Status = UpdateDeviceTree((VOID*)DeviceTreeLoadAddr , FinalCmdLine, (VOID *)RamdiskLoadAddr, RamdiskSize);
@@ -332,22 +367,6 @@ EFI_STATUS BootLinux (VOID *ImageBuffer, UINT32 ImageSize, CHAR16 *PartitionName
 		gBS->CopyMem((CHAR8*)KernelLoadAddr, ImageBuffer + PageSize, KernelSizeActual);
 	}
 
-	if (FixedPcdGetBool(EnablePartialGoods))
-	{
-		Status = UpdatePartialGoodsNode((VOID*)DeviceTreeLoadAddr);
-		if (Status != EFI_SUCCESS)
-		{
-			DEBUG((EFI_D_ERROR, "Failed to update device tree for partial goods, Status=%r\n", Status));
-			return Status;
-		}
-	}
-
-	if (VerifiedBootEnbled()) {
-		Status = VerifiedBootSendMilestone();
-		if (Status != EFI_SUCCESS)
-			return Status;
-	}
-
 	if (FixedPcdGetBool(EnableMdtpSupport)) {
 		Status = gBS->LocateProtocol(&gQcomMdtpProtocolGuid,
 			NULL,
@@ -374,6 +393,8 @@ EFI_STATUS BootLinux (VOID *ImageBuffer, UINT32 ImageSize, CHAR16 *PartitionName
 		else
 			DEBUG((EFI_D_ERROR, "Failed to locate MDTP protocol, Status=%r\n", Status));
 	}
+
+	FreeVerifiedBootResource(Info);
 
 	/* Free the boot logo blt buffer before starting kernel */
 	FreeBootLogoBltBuffer();
@@ -598,6 +619,26 @@ EFI_STATUS LoadImage (CHAR16 *Pname, VOID **ImageBuffer, UINT32 *ImageSizeActual
 	return Status;
 }
 
+EFI_STATUS GetImage(CONST BootInfo *Info, VOID **ImageBuffer, UINTN *ImageSize,
+                    CHAR8 *ImageName)
+{
+	if (Info == NULL || ImageBuffer == NULL || ImageSize == NULL ||
+	    ImageName == NULL) {
+		DEBUG((EFI_D_ERROR, "GetImage: invalid parameters\n"));
+		return EFI_INVALID_PARAMETER;
+	}
+
+	for (UINTN LoadedIndex = 0; LoadedIndex < Info->NumLoadedImages; LoadedIndex++) {
+		if (!AsciiStrnCmp(Info->Images[LoadedIndex].Name, ImageName,
+		                  AsciiStrLen(ImageName))) {
+			*ImageBuffer = Info->Images[LoadedIndex].ImageBuffer;
+			*ImageSize = Info->Images[LoadedIndex].ImageSize;
+			return EFI_SUCCESS;
+		}
+	}
+	return EFI_NOT_FOUND;
+}
+
 /* Return Build variant */
 #ifdef USER_BUILD_VARIANT
 BOOLEAN TargetBuildVariantUser()
@@ -610,3 +651,8 @@ BOOLEAN TargetBuildVariantUser()
 	return FALSE;
 }
 #endif
+
+BOOLEAN IsBootDevImage()
+{
+	return BootDevImage;
+}

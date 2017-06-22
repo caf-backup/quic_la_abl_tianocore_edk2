@@ -38,7 +38,6 @@ VOID StackGuardChkSetup()
 	EFI_GUID AlgoId;
 	UINTN AlgoIdSize = sizeof(EFI_GUID);
 
-
 	Status = gBS->LocateProtocol(&gQcomRngProtocolGuid, NULL, (VOID **) &RngIf);
 	if (Status != EFI_SUCCESS) {
 		DEBUG((EFI_D_ERROR, "Error locating PRNG protocol, using default canary :%r\n", Status));

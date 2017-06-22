@@ -26,7 +26,7 @@
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
- 
+
 #ifndef __PARTITION_TABLE_H__
 #define __PARTITION_TABLE_H__
 
@@ -123,14 +123,14 @@ table in the respective position mentioned below.
         ((UINT32)*(x+2) << 16) | \
         ((UINT32)*(x+3) << 24))
 
-#define GET_LLWORD_FROM_BYTE(x)    ((UINTN)*(x) | \
-        ((UINTN)*(x+1) << 8) | \
-        ((UINTN)*(x+2) << 16) | \
-        ((UINTN)*(x+3) << 24) | \
-        ((UINTN)*(x+4) << 32) | \
-        ((UINTN)*(x+5) << 40) | \
-        ((UINTN)*(x+6) << 48) | \
-        ((UINTN)*(x+7) << 56))
+#define GET_LLWORD_FROM_BYTE(x)    ((UINT64)*(x) | \
+        ((UINT64)*(x+1) << 8) | \
+        ((UINT64)*(x+2) << 16) | \
+        ((UINT64)*(x+3) << 24) | \
+        ((UINT64)*(x+4) << 32) | \
+        ((UINT64)*(x+5) << 40) | \
+        ((UINT64)*(x+6) << 48) | \
+        ((UINT64)*(x+7) << 56))
 
 #define GET_LONG(x)    ((UINT32)*(x) | \
             ((UINT32)*(x+1) << 8) | \
@@ -142,14 +142,14 @@ table in the respective position mentioned below.
     *(x+2) = (y >> 16) & 0xff;    \
     *(x+3) = (y >> 24) & 0xff;
 
-#define PUT_LONG_LONG(x,y)    *(x) =(y) & 0xff; \
-     *((x)+1) = (((y) >> 8) & 0xff);    \
-     *((x)+2) = (((y) >> 16) & 0xff);   \
-     *((x)+3) = (((y) >> 24) & 0xff);   \
-     *((x)+4) = (((y) >> 32) & 0xff);   \
-     *((x)+5) = (((y) >> 40) & 0xff);   \
-     *((x)+6) = (((y) >> 48) & 0xff);   \
-     *((x)+7) = (((y) >> 56) & 0xff);
+#define PUT_LONG_LONG(x,y)    (*(x) =(y) & 0xff); \
+     (*((x)+1) = (((y) >> 8) & 0xff));    \
+     (*((x)+2) = (((y) >> 16) & 0xff));   \
+     (*((x)+3) = (((y) >> 24) & 0xff));   \
+     (*((x)+4) = (((y) >> 32) & 0xff));   \
+     (*((x)+5) = (((y) >> 40) & 0xff));   \
+     (*((x)+6) = (((y) >> 48) & 0xff));   \
+     (*((x)+7) = (((y) >> 56) & 0xff));
 
 struct StoragePartInfo
 {
@@ -158,7 +158,12 @@ struct StoragePartInfo
 };
 extern struct StoragePartInfo Ptable[MAX_LUNS];
 
-CHAR16* GetCurrentSlotSuffix();
+typedef struct
+{
+	CHAR16 Suffix[MAX_SLOT_SUFFIX_SZ];
+} Slot;
+
+Slot GetCurrentSlotSuffix();
 UINT32 GetMaxLuns();
 VOID GetPartitionCount(UINT32 *Val);
 VOID SetMultiSlotBootVal(BOOLEAN Val);
@@ -191,9 +196,10 @@ BOOLEAN PartitionHasMultiSlot(CONST CHAR16 *Pname);
 EFI_STATUS EnumeratePartitions ();
 VOID UpdatePartitionEntries();
 VOID UpdatePartitionAttributes();
-VOID SetCurrentSlotSuffix(CHAR16* SlotSuffix);
 VOID FindPtnActiveSlot();
-VOID FindBootableSlot(CHAR16 *BootableSlot, UINT32 BootableSlotSizeMax);
-VOID SwitchPtnSlots(CONST CHAR16 *SetActive);
-VOID MarkPtnActive(CHAR16 *ActiveSlot);
+EFI_STATUS FindBootableSlot(Slot *BootableSlot);
+BOOLEAN IsSuffixEmpty(Slot *CheckSlot);
+EFI_STATUS SetActiveSlot(Slot *NewSlot);
+BOOLEAN IsCurrentSlotBootable();
+EFI_STATUS HandleActiveSlotUnbootable();
 #endif

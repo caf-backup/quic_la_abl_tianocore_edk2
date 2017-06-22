@@ -65,6 +65,7 @@
   UefiApplicationEntryPoint|MdePkg/Library/UefiApplicationEntryPoint/UefiApplicationEntryPoint.inf
   PcdLib|MdePkg/Library/BasePcdLibNull/BasePcdLibNull.inf
   FdtLib|EmbeddedPkg/Library/FdtLib/FdtLib.inf
+  LibUfdt|EmbeddedPkg/Library/LibUfdt/LibUfdt.inf
   EfiFileLib|EmbeddedPkg/Library/EfiFileLib/EfiFileLib.inf
   EblNetworkLib|EmbeddedPkg/Library/EblNetworkLib/EblNetworkLib.inf
   TimerLib|ArmPkg/Library/ArmArchTimerLib/ArmArchTimerLib.inf
@@ -76,6 +77,11 @@
   UefiDriverEntryPoint|MdePkg/Library/UefiDriverEntryPoint/UefiDriverEntryPoint.inf
   PerformanceLib|MdeModulePkg/Library/DxePerformanceLib/DxePerformanceLib.inf
   UefiHiiServicesLib|MdeModulePkg/Library/UefiHiiServicesLib/UefiHiiServicesLib.inf
+  AvbLib|QcomModulePkg/Library/avb/AvbLib.inf
+
+[LibraryClasses.ARM]
+  ArmLib|ArmPkg/Library/ArmLib/ArmV7/ArmV7Lib.inf
+  NULL|ArmPkg/Library/CompilerIntrinsicsLib/CompilerIntrinsicsLib.inf
 
 [LibraryClasses.AARCH64]
   ArmLib|ArmPkg/Library/ArmLib/AArch64/AArch64Lib.inf
@@ -85,11 +91,15 @@
   ReportStatusCodeLib|IntelFrameworkModulePkg/Library/DxeReportStatusCodeLibFramework/DxeReportStatusCodeLib.inf
   ExtractGuidedSectionLib|MdePkg/Library/DxeExtractGuidedSectionLib/DxeExtractGuidedSectionLib.inf
 
-[BuildOptions.AARCH64]
-  GCC:*_*_AARCH64_ARCHCC_FLAGS  = -Wno-shift-negative-value -fstack-protector-strong -Wno-varargs
-  GCC:*_*_AARCH64_DLINK_FLAGS = -Ttext=0x0
+[BuildOptions.common]
+  GCC:*_*_*_ARCHCC_FLAGS  = -Wno-shift-negative-value -fstack-protector-strong -Wno-varargs
+  GCC:*_*_*_DLINK_FLAGS = -Ttext=0x0
+
   !if $(VERIFIED_BOOT)
       GCC:*_*_*_CC_FLAGS = -DVERIFIED_BOOT
+  !endif
+  !if $(VERIFIED_BOOT_2)
+      GCC:*_*_*_CC_FLAGS = -DVERIFIED_BOOT_2
   !endif
   !if $(USER_BUILD_VARIANT) == 0
       GCC:*_*_*_CC_FLAGS = -DENABLE_UPDATE_PARTITIONS_CMDS -DENABLE_BOOT_CMD -DENABLE_DEVICE_CRITICAL_LOCK_UNLOCK_CMDS
@@ -120,8 +130,10 @@
 	QcomModulePkg/Application/LinuxLoader/LinuxLoader.inf {
 		<LibraryClasses>
 			FdtLib|EmbeddedPkg/Library/FdtLib/FdtLib.inf
+			LibUfdt|EmbeddedPkg/Library/LibUfdt/LibUfdt.inf
 			ArmSmcLib|ArmPkg/Library/ArmSmcLib/ArmSmcLib.inf
 			BootLib|QcomModulePkg/Library/BootLib/BootLib.inf
 			StackCanary|QcomModulePkg/Library/StackCanary/StackCanary.inf
 			FastbootLib|QcomModulePkg/Library/FastbootLib/FastbootLib.inf
+			AvbLib|QcomModulePkg/Library/avb/AvbLib.inf
 	}
