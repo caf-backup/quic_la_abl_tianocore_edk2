@@ -129,7 +129,7 @@
 	gEfiRamPartitionProtocolGuid
 	gEfiResetReasonProtocolGuid
 	gQcomPmicPonProtocolGuid
-	gQcomChargerExProtocolGuid
+	gChargerExProtocolGuid
 	gEfiLimitsProtocolGuid
 	gEfiQcomVerifiedBootProtocolGuid
 	gQcomScmModeSwithProtocolGuid

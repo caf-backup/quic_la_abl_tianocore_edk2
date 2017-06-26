@@ -52,6 +52,5 @@ EFI_STATUS UpdateCmdLine(CONST CHAR8 * CmdLine,
 			 BOOLEAN Recovery,
 			 BOOLEAN AlarmBoot,
 			 CHAR8 **FinalCmdLine);
-BOOLEAN TargetBatterySocOk();
-
+BOOLEAN TargetBatterySocOk(UINT32 *BatteryVoltage);
 #endif
