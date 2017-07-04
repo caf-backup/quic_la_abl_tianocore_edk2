@@ -314,6 +314,8 @@ EFI_STATUS UpdateCmdLine(CONST CHAR8 * CmdLine,
 	BOOLEAN BatteryStatus;
 	CHAR8 StrSerialNum[SERIAL_NUM_SIZE];
 	BOOLEAN MdtpActive = FALSE;
+        CHAR8 *SystemPath = NULL;
+        UINT32 SystemPathLen = 0;
 
 	Status = BoardSerialNum(StrSerialNum, sizeof(StrSerialNum));
 	if (Status != EFI_SUCCESS) {
@@ -398,6 +400,13 @@ EFI_STATUS UpdateCmdLine(CONST CHAR8 * CmdLine,
 			CmdLineLen += AsciiStrLen(SkipRamFs);
 	}
 
+        SystemPathLen = GetSystemPath(&SystemPath);
+        if (SystemPathLen == 0 || SystemPath == NULL) {
+                DEBUG((EFI_D_ERROR, "GetSystemPath failed!\n"));
+                return EFI_LOAD_ERROR;
+        }
+
+	CmdLineLen += SystemPathLen;
 	GetDisplayCmdline();
 	CmdLineLen += AsciiStrLen(DisplayCmdLine);
 
@@ -487,6 +496,10 @@ EFI_STATUS UpdateCmdLine(CONST CHAR8 * CmdLine,
   ToLower (ChipBaseBand);
   Src = ChipBaseBand;
   STR_COPY (Dst, Src);
+
+  Src = SystemPath;
+  if (HaveCmdLine) --Dst;
+    STR_COPY(Dst,Src);
 
   Src = DisplayCmdLine;
   --Dst;
