@@ -54,6 +54,11 @@
 #include <Protocol/FirmwareVolume2.h>
 #include <Protocol/LoadedImage.h>
 #include <Protocol/EFIVerifiedBoot.h>
+#include <Protocol/EFISecRSA.h>
+#include <Protocol/Hash.h>
+#include <Protocol/Hash2.h>
+#include <Protocol/EFIASN1X509.h>
+
 #include <Guid/FileSystemInfo.h>
 #include <Guid/FileInfo.h>
 #include <Guid/Gpt.h>
