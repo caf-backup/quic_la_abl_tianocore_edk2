@@ -131,7 +131,7 @@ STATIC EFI_STATUS VBCommonInit(BootInfo *Info)
 		return EFI_LOAD_ERROR;
 	}
 
-	Info->BootState = RED;
+	Info->BootState = ORANGE;
 
 	Status = gBS->LocateProtocol(&gEfiQcomVerifiedBootProtocolGuid, NULL,
 	                             (VOID **)&(Info->VbIntf));
