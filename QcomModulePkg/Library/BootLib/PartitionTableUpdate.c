@@ -285,6 +285,11 @@ VOID UpdatePartitionAttributes()
 			MaxPtnCount = GET_LWORD_FROM_BYTE(&GptHdr[PARTITION_COUNT_OFFSET]);
 			PtnEntrySz =  GET_LWORD_FROM_BYTE(&GptHdr[PENTRY_SIZE_OFFSET]);
 
+			if (((MaxPtnCount) * (PtnEntrySz)) >  MAX_PARTITION_ENTRIES_SZ) {
+				DEBUG((EFI_D_ERROR, "Invalid GPT header fields MaxPtnCount = %x, PtnEntrySz = %x\n", MaxPtnCount, PtnEntrySz));
+				return;
+			}
+
 			Status = gBS->CalculateCrc32(Ptn_Entries, ((MaxPtnCount) * (PtnEntrySz)),&CrcVal);
 			if (Status != EFI_SUCCESS) {
 				DEBUG((EFI_D_ERROR, "Error Calculating CRC32 on the Gpt header: %x\n", Status));
@@ -1114,6 +1119,8 @@ EFI_STATUS SetActiveSlot(Slot *NewSlot)
 {
 	EFI_STATUS Status = EFI_SUCCESS;
 	Slot CurrentSlot = {{0}};
+	Slot *AlternateSlot = NULL;
+	Slot Slots[] = {{L"_a"}, {L"_b"}};
 	struct PartitionEntry *BootEntry = NULL;
 
 	if (NewSlot == NULL) {
@@ -1124,12 +1131,10 @@ EFI_STATUS SetActiveSlot(Slot *NewSlot)
 
 	GUARD(GetActiveSlot(&CurrentSlot));
 
-	if (StrnCmp(CurrentSlot.Suffix, NewSlot->Suffix,
-	            StrLen(CurrentSlot.Suffix)) == 0) {
-		/* This Slot is already active do nothing */
-		DEBUG((EFI_D_INFO, "SetActiveSlot: %s already active slot\n",
-		       NewSlot->Suffix));
-		return EFI_SUCCESS;
+	if (StrnCmp(NewSlot->Suffix, Slots[0].Suffix, StrLen(Slots[0].Suffix)) == 0) {
+		AlternateSlot = &Slots[1];
+	} else {
+		AlternateSlot = &Slots[0];
 	}
 
 	BootEntry = GetBootPartitionEntry(NewSlot);
@@ -1145,12 +1150,12 @@ EFI_STATUS SetActiveSlot(Slot *NewSlot)
 	BootEntry->PartEntry.Attributes &=
 	        (~PART_ATT_SUCCESSFUL_VAL & ~PART_ATT_UNBOOTABLE_VAL);
 
-	/* Reduce the priority and clear the active flag for inactive slot*/
-	BootEntry = GetBootPartitionEntry(&CurrentSlot);
+	/* Reduce the priority and clear the active flag for alternate slot*/
+	BootEntry = GetBootPartitionEntry(AlternateSlot);
 	if (BootEntry == NULL) {
 		DEBUG((EFI_D_ERROR,
 		       "SetActiveSlot: No boot partition entry for slot %s\n",
-		       CurrentSlot.Suffix));
+		       AlternateSlot->Suffix));
 		return EFI_NOT_FOUND;
 	}
 
@@ -1159,10 +1164,17 @@ EFI_STATUS SetActiveSlot(Slot *NewSlot)
 	BootEntry->PartEntry.Attributes |=
 	        (((UINT64)MAX_PRIORITY - 1) << PART_ATT_PRIORITY_BIT);
 
-	DEBUG((EFI_D_INFO, "Current slot %s, New slot %s\n", CurrentSlot.Suffix,
-	       NewSlot->Suffix));
+	if (StrnCmp(CurrentSlot.Suffix, NewSlot->Suffix,
+	            StrLen(CurrentSlot.Suffix)) == 0) {
+		/* This Slot is already active do nothing */
+		DEBUG((EFI_D_INFO, "SetActiveSlot: %s already active slot\n",
+		       NewSlot->Suffix));
+	} else {
+		DEBUG((EFI_D_INFO, "Alternate slot %s, New slot %s\n", AlternateSlot->Suffix,
+                       NewSlot->Suffix));
+		SwitchPtnSlots(NewSlot->Suffix);
+	}
 
-	SwitchPtnSlots(NewSlot->Suffix);
 	UpdatePartitionAttributes();
 
 	return EFI_SUCCESS;
@@ -1232,6 +1244,27 @@ EFI_STATUS HandleActiveSlotUnbootable()
 	}
 
 	return EFI_LOAD_ERROR;
+}
+
+EFI_STATUS ClearUnbootable()
+{
+	EFI_STATUS Status = EFI_SUCCESS;
+	Slot ActiveSlot = {{0}};
+	struct PartitionEntry *BootEntry = NULL;
+
+	Status = GetActiveSlot(&ActiveSlot);
+	if(Status != EFI_SUCCESS) {
+		DEBUG((EFI_D_ERROR, "ClearUnbootable: GetActiveSlot failed.\n"));
+		return Status;
+	}
+	BootEntry = GetBootPartitionEntry(&ActiveSlot);
+	if (BootEntry == NULL) {
+                DEBUG((EFI_D_ERROR, "ClearUnbootable: No boot partition entry for slot %s\n", ActiveSlot.Suffix));
+                return EFI_NOT_FOUND;
+        }
+	BootEntry->PartEntry.Attributes &= ~PART_ATT_UNBOOTABLE_VAL;
+	UpdatePartitionAttributes();
+	return EFI_SUCCESS;
 }
 
 STATIC EFI_STATUS ValidateSlotGuids(Slot *BootableSlot)
