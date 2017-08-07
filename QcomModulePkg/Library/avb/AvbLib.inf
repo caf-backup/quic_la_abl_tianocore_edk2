@@ -68,6 +68,10 @@
 
 
 [Protocols]
+	gEfiQcomASN1X509ProtocolGuid
+	gEfiHashAlgorithmSha256Guid
+	gEfiHash2ProtocolGuid
+	gEfiQcomSecRSAProtocolGuid
 
 [FixedPcd]
 	gQcomTokenSpaceGuid.EnableMdtpSupport

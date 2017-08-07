@@ -31,8 +31,24 @@
 
 #include <Uefi.h>
 
-#define NO_AVB 0
-#define AVB_1 1
+enum
+{
+  NO_AVB	= 0,
+  AVB_1,
+  AVB_2,
+  AVB_LE
+};
+
+#define VB_SHA256_SIZE  32
+#define LE_BOOTIMG_SIG_SIZE 256
+
+typedef enum {
+  VB_UNDEFINED_HASH	= 0,
+  VB_SHA1,
+  VB_SHA256,
+  VB_UNSUPPORTED_HASH,
+  VB_RESERVED_HASH	= 0x7fffffff /* force to 32 bits */
+} VB_HASH;
 
 #define GUARD(code)                                                            \
     do {                                                                       \
