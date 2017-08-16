@@ -847,10 +847,16 @@ HandleMetaImgFlash(
 	meta_header_t   *meta_header;
 	CHAR16 PartitionNameFromMeta[MAX_GPT_NAME_SIZE];
 	UINT64 ImageEnd = 0;
+	BOOLEAN PnameTerminated = FALSE;
+	UINT32 j;
 
 	meta_header = (meta_header_t *) Image;
 	img_header_entry = (img_header_entry_t *) (Image + sizeof(meta_header_t));
 	images = meta_header->img_hdr_sz / sizeof(img_header_entry_t);
+	if (images > MAX_IMAGES_IN_METAIMG) {
+		DEBUG((EFI_D_ERROR, "Error: Number of images(%u)in meta_image are greater than expected\n", images));
+		return EFI_INVALID_PARAMETER;
+	}
 
 	if (CHECK_ADD64((UINT64)Image, Size)) {
 		DEBUG((EFI_D_ERROR, "Integer overflow detected in %d, %a\n", __LINE__, __FUNCTION__));
@@ -876,6 +882,16 @@ HandleMetaImgFlash(
 			return EFI_INVALID_PARAMETER;
 		}
 
+		for (j = 0; j < MAX_GPT_NAME_SIZE; j++) {
+			if (!(img_header_entry[i].ptn_name[j])) {
+				PnameTerminated = TRUE;
+				break;
+			}
+		}
+		if (!PnameTerminated) {
+			DEBUG((EFI_D_ERROR, "ptn_name string not terminated properly\n"));
+			return EFI_INVALID_PARAMETER;
+		}
 		AsciiStrToUnicodeStr(img_header_entry[i].ptn_name, PartitionNameFromMeta);
 		Status = HandleRawImgFlash(PartitionNameFromMeta, sizeof(PartitionNameFromMeta),
 				(void *) Image + img_header_entry[i].start_offset, img_header_entry[i].size);
