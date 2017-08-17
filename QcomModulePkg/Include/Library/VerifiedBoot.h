@@ -29,8 +29,75 @@
 #ifndef __VERIFIEDBOOT_H__
 #define __VERIFIEDBOOT_H__
 
+#include <Uefi.h>
+
+enum
+{
+  NO_AVB	= 0,
+  AVB_1,
+  AVB_2,
+  AVB_LE
+};
+
+#define VB_SHA256_SIZE  32
+#define LE_BOOTIMG_SIG_SIZE 256
+
+typedef enum {
+  VB_UNDEFINED_HASH	= 0,
+  VB_SHA1,
+  VB_SHA256,
+  VB_UNSUPPORTED_HASH,
+  VB_RESERVED_HASH	= 0x7fffffff /* force to 32 bits */
+} VB_HASH;
+
+#define GUARD(code)                                                            \
+    do {                                                                       \
+        Status = (code);                                                       \
+        if (Status != EFI_SUCCESS) {                                           \
+            DEBUG((EFI_D_ERROR, "Err: line:%d %a() status: %r\n", __LINE__,    \
+                   __FUNCTION__, Status));                                     \
+            return Status;                                                     \
+        }                                                                      \
+    } while (0)
+
+#define GUARD_OUT(code)                                                        \
+    do {                                                                       \
+        Status = (code);                                                       \
+        if (Status != EFI_SUCCESS) {                                           \
+            DEBUG((EFI_D_ERROR, "Err: line:%d %a() status: %r\n", __LINE__,    \
+                   __FUNCTION__, Status));                                     \
+            goto out;                                                          \
+        }                                                                      \
+    } while (0)
+
+/* forward declare BootInfo */
+typedef struct BootInfo BootInfo;
+
 BOOLEAN VerifiedBootEnbled();
-EFI_STATUS VerifiedBootSendMilestone();
-EFI_STATUS VerifiedBootImage(VOID *ImageBuffer, UINT32 ImageSize, CHAR8 *PartitionName,
-	BOOLEAN IsMdtpActive, CHAR8 *FfbmStr);
-#endif
+
+/**
+ * @return  0 - AVB disabled
+ *          1 - VB 1.0
+ */
+UINT32 GetAVBVersion();
+
+/**
+ * Authenticates and loads boot image in
+ * Info->Images on EFI_SUCCESS.
+ * Also provides Verified Boot command
+ * arguments (if any) in Info->VBCmdLine
+ *
+ * @return EFI_STATUS
+ */
+EFI_STATUS LoadImageAndAuth(BootInfo *Info);
+
+/**
+ *  Free resources/memory allocated by
+ *  verified boot, ImageBuffer, VBCmdLine
+ *  VBData...
+ *
+ * @return VOID
+ */
+VOID FreeVerifiedBootResource(BootInfo *Info);
+
+#endif /* __VERIFIEDBOOT_H__ */

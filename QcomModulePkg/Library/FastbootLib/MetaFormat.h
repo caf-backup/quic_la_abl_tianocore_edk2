@@ -31,6 +31,9 @@
 #define _META_FORMAT_H_
 
 #define META_HEADER_MAGIC  0xce1ad63c
+/*Keeping the maximum number of images supported to 32 for future expansion*/
+/*Refer device/qcom/common/meta_image/meta_image.c file for reference*/
+#define MAX_IMAGES_IN_METAIMG 32
 
 typedef struct meta_header {
   UINT32       magic;		    /* 0xce1ad63c */

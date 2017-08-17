@@ -844,18 +844,55 @@ HandleMetaImgFlash(
 	img_header_entry_t *img_header_entry;
 	meta_header_t   *meta_header;
 	CHAR16 PartitionNameFromMeta[MAX_GPT_NAME_SIZE];
+	UINT64 ImageEnd = 0;
+	BOOLEAN PnameTerminated = FALSE;
+	UINT32 j;
 
 	meta_header = (meta_header_t *) Image;
 	img_header_entry = (img_header_entry_t *) (Image + sizeof(meta_header_t));
 	images = meta_header->img_hdr_sz / sizeof(img_header_entry_t);
+	if (images > MAX_IMAGES_IN_METAIMG) {
+		DEBUG((EFI_D_ERROR, "Error: Number of images(%u)in meta_image are greater than expected\n", images));
+		return EFI_INVALID_PARAMETER;
+	}
+
+	if (CHECK_ADD64((UINT64)Image, Size)) {
+		DEBUG((EFI_D_ERROR, "Integer overflow detected in %d, %a\n", __LINE__, __FUNCTION__));
+		return EFI_BAD_BUFFER_SIZE;
+	}
+	ImageEnd = (UINT64)Image + Size;
 
 	for (i = 0; i < images; i++)
 	{
 		if (img_header_entry[i].ptn_name == NULL || img_header_entry[i].start_offset == 0 || img_header_entry[i].size == 0)
-		break;
+			break;
+
+		if (CHECK_ADD64((UINT64)Image, img_header_entry[i].start_offset)) {
+			DEBUG((EFI_D_ERROR, "Integer overflow detected in %d, %a\n", __LINE__, __FUNCTION__));
+			return EFI_BAD_BUFFER_SIZE;
+		}
+		if (CHECK_ADD64((UINT64)(Image + img_header_entry[i].start_offset), img_header_entry[i].size)) {
+			DEBUG((EFI_D_ERROR, "Integer overflow detected in %d, %a\n", __LINE__, __FUNCTION__));
+			return EFI_BAD_BUFFER_SIZE;
+		}
+		if (ImageEnd < ((UINT64)Image + img_header_entry[i].start_offset + img_header_entry[i].size)) {
+			DEBUG((EFI_D_ERROR, "Image size mismatch\n"));
+			return EFI_INVALID_PARAMETER;
+		}
+
+		for (j = 0; j < MAX_GPT_NAME_SIZE; j++) {
+			if (!(img_header_entry[i].ptn_name[j])) {
+				PnameTerminated = TRUE;
+				break;
+			}
+		}
+		if (!PnameTerminated) {
+			DEBUG((EFI_D_ERROR, "ptn_name string not terminated properly\n"));
+			return EFI_INVALID_PARAMETER;
+		}
 		AsciiStrToUnicodeStr(img_header_entry[i].ptn_name, PartitionNameFromMeta);
 		Status = HandleRawImgFlash(PartitionNameFromMeta, sizeof(PartitionNameFromMeta),
-								   (void *) Image + img_header_entry[i].start_offset, img_header_entry[i].size);
+				(void *) Image + img_header_entry[i].start_offset, img_header_entry[i].size);
 	}
 
 	/* ToDo: Add Bootloader version support */
@@ -1515,23 +1552,12 @@ STATIC VOID CmdContinue(
 	)
 {
 	EFI_STATUS Status = EFI_SUCCESS;
-	VOID* ImageBuffer = NULL;
-	UINT32 ImageSizeActual = 0;
-	CHAR16 BootableSlot[MAX_GPT_NAME_SIZE];
 	CHAR8 Resp[MAX_RSP_SIZE];
-	BOOLEAN MultiSlotBoot = PartitionHasMultiSlot(L"boot");
+	BootInfo Info = {0};
 
-	if (MultiSlotBoot)
-	{
-		FindBootableSlot(BootableSlot, ARRAY_SIZE(BootableSlot) - 1);
-		if(!BootableSlot[0])
-			return;
-	} else
-		StrnCpyS(BootableSlot, StrLen(L"boot") + 1, L"boot", StrLen(L"boot"));
-
-	Status = LoadImage(BootableSlot, (VOID**)&ImageBuffer, &ImageSizeActual);
-	if (Status != EFI_SUCCESS)
-	{
+	Info.MultiSlotBoot = PartitionHasMultiSlot(L"boot");
+	Status = LoadImageAndAuth(&Info);
+	if (Status != EFI_SUCCESS) {
 		AsciiSPrint(Resp, sizeof(Resp), "Failed to load image from partition: %r", Status);
 		FastbootFail(Resp);
 		return;
@@ -1544,7 +1570,7 @@ STATIC VOID CmdContinue(
 	FastbootUsbDeviceStop();
 	Finished = TRUE;
 	// call start Linux here
-	BootLinux(ImageBuffer, ImageSizeActual, BootableSlot, FALSE, FALSE);
+	BootLinux(&Info);
 }
 
 STATIC VOID UpdateGetVarVariable()
@@ -1631,6 +1657,7 @@ STATIC VOID CmdBoot(CONST CHAR8 *Arg, VOID *Data, UINT32 Size)
 	UINT32 SigActual = SIGACTUAL;
 	CHAR8 Resp[MAX_RSP_SIZE];
 	BOOLEAN MdtpActive = FALSE;
+	BootInfo Info = {0};
 
 	if (FixedPcdGetBool(EnableMdtpSupport)) {
 		Status = IsMdtpActive(&MdtpActive);
@@ -1676,12 +1703,23 @@ STATIC VOID CmdBoot(CONST CHAR8 *Arg, VOID *Data, UINT32 Size)
 		return;
 	}
 
+	Info.Images[0].ImageBuffer = Data;
+	Info.Images[0].ImageSize = ImageSizeActual;
+	Info.Images[0].Name = "boot";
+	Info.NumLoadedImages = 1;
+	Status = LoadImageAndAuth(&Info);
+	if (Status != EFI_SUCCESS) {
+		AsciiSPrint(Resp, sizeof(Resp), "Failed to load/authenticate boot image: %r", Status);
+		FastbootFail(Resp);
+		return;
+	}
+
 	/* Exit keys' detection firstly */
 	ExitMenuKeysDetection();
 
 	FastbootOkay("");
 	FastbootUsbDeviceStop();
-	BootLinux(Data, ImageSizeActual, L"boot", FALSE, FALSE);
+	BootLinux(&Info);
 }
 #endif
 
