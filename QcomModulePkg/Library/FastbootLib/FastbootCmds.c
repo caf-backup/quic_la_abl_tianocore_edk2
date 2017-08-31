@@ -183,7 +183,7 @@ FastbootUnInit()
 /* Publish a variable readable by the built-in getvar command
  * These Variables must not be temporary, shallow copies are used.
  */
-EFI_STATUS
+STATIC VOID
 FastbootPublishVar (
   IN  CONST CHAR8   *Name,
   IN  CONST CHAR8   *Value
@@ -193,12 +193,15 @@ FastbootPublishVar (
 	Var = AllocatePool(sizeof(*Var));
 	if (Var)
 	{
-	Var->next = Varlist;
-	Varlist = Var;
-	Var->name  = Name;
-	Var->value = Value;
+        Var->next = Varlist;
+        Varlist = Var;
+        Var->name  = Name;
+        Var->value = Value;
+    } else {
+        DEBUG ((EFI_D_VERBOSE,
+            "Failed to publish a variable readable(%a): malloc error!\n",
+            Name));
 	}
-	return EFI_SUCCESS;
 }
 
 /* Returns the Remaining amount of bytes expected
@@ -207,17 +210,10 @@ FastbootPublishVar (
 UINTN GetXfrSize(VOID)
 {
 	UINTN BytesLeft = mNumDataBytes - mBytesReceivedSoFar;
-	if (mState == ExpectDataState)
-	{
-		if (BytesLeft > USB_BUFFER_SIZE)
-			return USB_BUFFER_SIZE;
-		else
-			return BytesLeft;
-	}
-	else
-	{
-		return USB_BUFFER_SIZE;
-	}
+	if ((mState == ExpectDataState) && (BytesLeft < USB_BUFFER_SIZE))
+		return BytesLeft;
+
+	return USB_BUFFER_SIZE;
 }
 
 /* Acknowlege to host, INFO, OKAY and FAILURE */
@@ -404,8 +400,6 @@ void PopulateMultislotMetadata()
 				}
 			}
 		}
-		i = AsciiStrLen(SlotSuffixArray);
-		SlotSuffixArray[i] = '\0';
 		FastbootPublishVar("slot-suffixes",SlotSuffixArray);
 
 		/*Allocate memory for available number of slots*/
@@ -546,6 +540,11 @@ HandleSparseImgFlash(
 		return EFI_BAD_BUFFER_SIZE;
 	}
 
+    if (!sparse_header->blk_sz) {
+        FastbootFail ("Invalid block size in the sparse header\n");
+        return EFI_INVALID_PARAMETER;
+    }
+
 	if ((sparse_header->blk_sz) % (BlockIo->Media->BlockSize)) {
 		DEBUG((EFI_D_ERROR, "Unsupported sparse block size %x\n", sparse_header->blk_sz));
 		FastbootFail("Unsupported sparse block size");
@@ -591,12 +590,6 @@ HandleSparseImgFlash(
 	if (sparse_header->chunk_hdr_sz != sizeof(chunk_header_t))
 	{
 		FastbootFail("chunk header size mismatch");
-		return EFI_INVALID_PARAMETER;
-	}
-
-	if (!sparse_header->blk_sz)
-	{
-		FastbootFail("Invalid block size in the sparse header\n");
 		return EFI_INVALID_PARAMETER;
 	}
 
@@ -942,11 +935,9 @@ FastbootErasePartition(
 		return Status;
 	}
 
-	if (!(StrCmp(L"userdata", PartitionName))) {
-		Status = ResetDeviceState();
-		if (Status != EFI_SUCCESS)
-			return Status;
-	}
+    if (!(StrCmp (L"userdata", PartitionName))) {
+        Status = ResetDeviceState ();
+    }
 
 	return Status;
 }
@@ -999,7 +990,7 @@ VOID BlockIoCallback(IN EFI_EVENT Event,IN VOID *Context)
 }
 
 #ifdef ENABLE_UPDATE_PARTITIONS_CMDS
-BOOLEAN NamePropertyMatches(CHAR8* Name) {
+STATIC BOOLEAN NamePropertyMatches (CHAR8* Name) {
 
 	return (BOOLEAN)(!AsciiStrnCmp(Name, "has-slot", AsciiStrLen("has-slot")) ||
 		!AsciiStrnCmp(Name, "current-slot", AsciiStrLen("current-slot")) ||
@@ -1015,11 +1006,6 @@ STATIC VOID ClearFastbootVarsofAB() {
 	FASTBOOT_VAR *CurrentList = NULL;
 	FASTBOOT_VAR *PrevList = NULL;
 	FASTBOOT_VAR *NextList = NULL;
-
-	if (!Varlist) {
-		DEBUG((EFI_D_VERBOSE, "Varlist is Empty\n"));
-		return;
-	}
 
 	for (CurrentList = Varlist; CurrentList != NULL; CurrentList = NextList) {
 		NextList = CurrentList->next;
@@ -1194,11 +1180,11 @@ STATIC VOID CmdFlash(
 						SetCurrentSlotSuffix(NullSlot);
 						ClearFastbootVarsofAB();
 						FreePool(BootSlotInfo);
+                        BootSlotInfo = NULL;
 						SetMem((VOID*)SlotSuffixArray, SLOT_SUFFIX_ARRAY_SIZE, 0);
 						InitialPopulate = FALSE;
 					}
 				}
-				BootPtnUpdated = FALSE;
 			}
 
 			DEBUG((EFI_D_INFO, "*************** New partition Table Dump Start *******************\n"));
@@ -2041,11 +2027,14 @@ STATIC EFI_STATUS ReadAllowUnlockValue(UINT32 *IsAllowUnlock)
 			BlockIo->Media->LastBlock,
 			BlockIo->Media->BlockSize,
 			Buffer);
-	if (Status != EFI_SUCCESS)
-		return Status;
+    if (Status != EFI_SUCCESS) {
+        goto Exit;
+    }
 
 	/* IsAllowUnlock value stored at the LSB of last byte*/
 	*IsAllowUnlock = Buffer[BlockIo->Media->BlockSize - 1] & 0x01;
+
+Exit:
 	FreePool(Buffer);
 	return Status;
 }
