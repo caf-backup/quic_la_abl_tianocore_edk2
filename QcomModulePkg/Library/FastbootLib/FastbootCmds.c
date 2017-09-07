@@ -991,6 +991,7 @@ VOID IsBootPtnUpdated(INT32 Lun, BOOLEAN *BootPtnUpdated) {
 	EFI_PARTITION_ENTRY *PartEntry;
 	UINT32 j;
 
+	*BootPtnUpdated = FALSE;
 	if (Lun == NO_LUN)
 		Lun = 0;
 
