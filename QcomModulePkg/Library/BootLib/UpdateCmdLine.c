@@ -292,9 +292,9 @@ UINT32 GetSystemPath(CHAR8 **SysPath)
 	}
 
 	if (!AsciiStrCmp("EMMC", RootDevStr))
-		AsciiSPrint(*SysPath, MAX_PATH_SIZE, " root=/dev/mmcblk0p%d", Index);
+		AsciiSPrint(*SysPath, MAX_PATH_SIZE, " /dev/mmcblk0p%d\"", Index);
 	else
-		AsciiSPrint(*SysPath, MAX_PATH_SIZE, " root=/dev/sd%c%d", LunCharMapping[Lun],
+		AsciiSPrint(*SysPath, MAX_PATH_SIZE, " /dev/sd%c%d\"", LunCharMapping[Lun],
 				GetPartitionIdxInLun(PartitionName, Lun));
 
 	DEBUG((EFI_D_VERBOSE, "System Path - %a \n", *SysPath));
