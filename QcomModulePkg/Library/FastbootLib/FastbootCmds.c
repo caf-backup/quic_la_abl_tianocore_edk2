@@ -168,9 +168,9 @@ STATIC UINT8 *mUsbDataBuffer = NULL;
 
 STATIC BOOLEAN IsFlashComplete = TRUE;
 STATIC EFI_STATUS FlashResult = EFI_SUCCESS;
-#ifdef ENABLE_UPDATE_PARTITIONS_CMDS
+/*#ifdef ENABLE_UPDATE_PARTITIONS_CMDS
 STATIC EFI_EVENT UsbTimerEvent;
-#endif
+#endif*/
 
 STATIC INT32 Lun = NO_LUN;
 STATIC BOOLEAN LunSet;
@@ -1045,7 +1045,7 @@ STATIC VOID CmdDownload(
 STATIC VOID BlockIoCallback(IN EFI_EVENT Event,IN VOID *Context)
 {
 }
-
+/*
 STATIC VOID UsbTimerHandler(IN EFI_EVENT Event, IN VOID *Context)
 {
 	HandleUsbEvents();
@@ -1086,7 +1086,7 @@ STATIC VOID StopUsbTimer(VOID)
 	}
 }
 #else
-STATIC VOID StopUsbTimer(VOID) {return;}
+STATIC VOID StopUsbTimer(VOID) {return;}*/
 #endif
 
 #ifdef ENABLE_UPDATE_PARTITIONS_CMDS
@@ -1356,7 +1356,7 @@ STATIC VOID CmdFlash(
             goto out;
         }
 
-        IsFlashComplete = FALSE;
+    /*    IsFlashComplete = FALSE;
 
         Status = HandleUsbEventsInTimer ();
         if (EFI_ERROR (Status)) {
@@ -1368,14 +1368,14 @@ STATIC VOID CmdFlash(
         } else {
             FastbootOkay ("");
         }
-
+    */
         FlashResult = HandleSparseImgFlash (PartitionName,
                                             sizeof (PartitionName),
                                             mFlashDataBuffer,
                                             mFlashNumDataBytes);
 
         IsFlashComplete = TRUE;
-        StopUsbTimer ();
+    //    StopUsbTimer ();
 
     }  else if (meta_header->magic == META_HEADER_MAGIC) {
 
@@ -1396,9 +1396,9 @@ STATIC VOID CmdFlash(
      * Also, Handle if there is Failure in handling USB events especially for
      * sparse images.
      */
-    if ((sparse_header->magic != SPARSE_HEADER_MAGIC) ||
-                (Status != EFI_SUCCESS))
-    {
+//    if ((sparse_header->magic != SPARSE_HEADER_MAGIC) ||
+//                (Status != EFI_SUCCESS))
+//    {
         if (FlashResult == EFI_NOT_FOUND) {
             DEBUG ((EFI_D_ERROR, "(%s) No such partition\n", PartitionName));
             FastbootFail ("No such partition.");
@@ -1417,7 +1417,7 @@ STATIC VOID CmdFlash(
             DEBUG ((EFI_D_INFO, "flash image status:  %r\n", FlashResult));
             FastbootOkay ("");
         }
-    }
+//    }
 
 out:
 	LunSet = FALSE;
@@ -1666,7 +1666,7 @@ STATIC VOID AcceptData (IN UINT64 Size, IN  VOID  *Data)
                    RoundSize - mNumDataBytes, 0);
     }
 		/* Stop usb timer after data transfer completed */
-		StopUsbTimer();
+	//	StopUsbTimer();
 		/* Postpone Fastboot Okay until flash completed */
 		FastbootOkayDelay();
 		mState = ExpectCmdState;
@@ -2265,7 +2265,7 @@ STATIC VOID AcceptCmd(
 
 	/* Wait for flash finished before next command */
 	if (AsciiStrnCmp(Data, "download", AsciiStrLen("download"))){
-		StopUsbTimer();
+	//	StopUsbTimer();
 		if (!IsFlashComplete) {
 			Status = AcceptCmdTimerInit(Size, Data);
 			if (Status ==  EFI_SUCCESS)
