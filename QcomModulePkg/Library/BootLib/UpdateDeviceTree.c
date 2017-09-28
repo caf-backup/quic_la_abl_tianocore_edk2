@@ -241,7 +241,8 @@ EFI_STATUS AddMemMap(VOID *fdt, UINT32 memory_node_offset)
 			DEBUG((EFI_D_ERROR, "Failed to add Base: 0x%016lx Available Length: 0x%016lx \r\n", RamPartitions[i].Base, RamPartitions[i].AvailableLength));
 		}
 	}
-	FreePool(RamPartitions);
+    FreePool (RamPartitions);
+    RamPartitions = NULL;
 
 	return EFI_SUCCESS;
 }

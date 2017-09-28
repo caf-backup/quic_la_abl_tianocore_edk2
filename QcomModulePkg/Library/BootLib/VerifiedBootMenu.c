@@ -307,8 +307,10 @@ EFI_STATUS VerifiedBootMenuUpdateShowScreen(OPTION_MENU_INFO *OptionMenuInfo)
 	OptionMenuInfo->Info.TimeoutTime = 30;
 
 Exit:
-	if (MsgStrInfo)
-		FreePool(MsgStrInfo);
+    if (MsgStrInfo) {
+        FreePool (MsgStrInfo);
+        MsgStrInfo = NULL;
+    }
 
 	return Status;
 
@@ -394,9 +396,9 @@ EFI_STATUS VerifiedBootMenuShowScreen(OPTION_MENU_INFO *OptionMenuInfo, UINT32 T
 			GetDisplayOutPut(mMenuMsgInfo[Type].Fingerprint.Msg,
 					 MAX_MSG_SIZE, DisplayStr,
 					 DisplayStrLen);
-			if (DisplayStr) {
-				FreePool(DisplayStr);
-			}
+
+            FreePool (DisplayStr);
+            DisplayStr = NULL;
 		}else {
 			AsciiSPrint(mMenuMsgInfo[Type].Fingerprint.Msg,
 				MAX_MSG_SIZE, "ID: %a\n", "unsupported");
