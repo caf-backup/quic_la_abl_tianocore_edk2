@@ -243,6 +243,7 @@ EFI_STATUS AddMemMap(VOID *fdt, UINT32 memory_node_offset)
 		}
 	}
 	FreePool(RamPartitions);
+    RamPartitions = NULL;
 
 	return EFI_SUCCESS;
 }
