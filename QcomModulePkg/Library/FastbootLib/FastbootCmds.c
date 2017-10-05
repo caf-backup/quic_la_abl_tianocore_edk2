@@ -901,6 +901,12 @@ HandleMetaImgFlash(
 	BOOLEAN PnameTerminated = FALSE;
 	UINT32 j;
 
+  if (Size < sizeof (meta_header_t)) {
+    DEBUG ((EFI_D_ERROR,
+        "Error: The size is smaller than the image header size\n"));
+    return EFI_INVALID_PARAMETER;
+  }
+
 	meta_header = (meta_header_t *) Image;
 	img_header_entry = (img_header_entry_t *) (Image + sizeof(meta_header_t));
 	images = meta_header->img_hdr_sz / sizeof(img_header_entry_t);
@@ -908,6 +914,12 @@ HandleMetaImgFlash(
 		DEBUG((EFI_D_ERROR, "Error: Number of images(%u)in meta_image are greater than expected\n", images));
 		return EFI_INVALID_PARAMETER;
 	}
+
+  if (Size <= (sizeof (meta_header_t) + meta_header->img_hdr_sz)) {
+    DEBUG ((EFI_D_ERROR,
+        "Error: The size is smaller than image header size + entry size\n"));
+    return EFI_INVALID_PARAMETER;
+  }
 
 	if (CHECK_ADD64((UINT64)Image, Size)) {
 		DEBUG((EFI_D_ERROR, "Integer overflow detected in %d, %a\n", __LINE__, __FUNCTION__));
@@ -1579,7 +1591,9 @@ STATIC EFI_STATUS FastbootOkayDelay()
 
 STATIC VOID AcceptData (IN UINT64 Size, IN  VOID  *Data)
 {
-	UINT64 RemainingBytes = mNumDataBytes - mBytesReceivedSoFar;
+  UINT64 RemainingBytes = mNumDataBytes - mBytesReceivedSoFar;
+  UINT32 PageSize = 0;
+  UINT32 RoundSize = 0;
 
 	/* Protocol doesn't say anything about sending extra data so just ignore it.*/
 	if (Size > RemainingBytes)
@@ -1596,6 +1610,15 @@ STATIC VOID AcceptData (IN UINT64 Size, IN  VOID  *Data)
 	{
 		/* Download Finished */
 		DEBUG((EFI_D_INFO, "Download Finished\n"));
+    /* Zero initialized the surplus data buffer. It's risky to access the data
+     * buffer which it's not zero initialized, its content might leak
+     */
+    GetPageSize (&PageSize);
+    RoundSize = ROUND_TO_PAGE (mNumDataBytes, PageSize - 1);
+    if (RoundSize < MAX_DOWNLOAD_SIZE) {
+      gBS->SetMem ((VOID *)(Data + mNumDataBytes),
+                   RoundSize - mNumDataBytes, 0);
+    }
 		/* Stop usb timer after data transfer completed */
 		StopUsbTimer();
 		/* Postpone Fastboot Okay until flash completed */
