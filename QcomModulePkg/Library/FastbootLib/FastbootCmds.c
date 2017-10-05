@@ -864,6 +864,8 @@ HandleMetaImgFlash(
 	img_header_entry_t *img_header_entry;
 	meta_header_t   *meta_header;
 	CHAR16 PartitionNameFromMeta[MAX_GPT_NAME_SIZE];
+	BOOLEAN PnameTerminated = FALSE;
+	UINT32 j;
 
 	meta_header = (meta_header_t *) Image;
 	img_header_entry = (img_header_entry_t *) (Image + sizeof(meta_header_t));
@@ -871,8 +873,22 @@ HandleMetaImgFlash(
 
 	for (i = 0; i < images; i++)
 	{
+            PnameTerminated = FALSE;
+
 		if (img_header_entry[i].ptn_name == NULL || img_header_entry[i].start_offset == 0 || img_header_entry[i].size == 0)
 		break;
+
+		for (j = 0; j < MAX_GPT_NAME_SIZE; j++) {
+			if (!(img_header_entry[i].ptn_name[j])) {
+				PnameTerminated = TRUE;
+				break;
+			}
+		}
+		if (!PnameTerminated) {
+			DEBUG((EFI_D_ERROR, "ptn_name string not terminated properly\n"));
+			return EFI_INVALID_PARAMETER;
+		}
+
 		AsciiStrToUnicodeStr(img_header_entry[i].ptn_name, PartitionNameFromMeta);
 		Status = HandleRawImgFlash(PartitionNameFromMeta, sizeof(PartitionNameFromMeta),
 								   (void *) Image + img_header_entry[i].start_offset, img_header_entry[i].size);
