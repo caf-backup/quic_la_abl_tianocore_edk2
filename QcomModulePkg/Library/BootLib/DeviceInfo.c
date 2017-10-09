@@ -168,8 +168,12 @@ EFI_STATUS SetDeviceUnlockValue(UINT32 Type, BOOLEAN State)
 	}
 
 	gBS->SetMem((VOID *)&Msg, sizeof(Msg), 0);
-	AsciiStrnCpyS(Msg.recovery, sizeof(Msg.recovery), RECOVERY_WIPE_DATA, AsciiStrLen(RECOVERY_WIPE_DATA));
-	WriteToPartition(&gEfiMiscPartitionGuid, &Msg);
+    Status = AsciiStrnCpyS (Msg.recovery, sizeof (Msg.recovery),
+                       RECOVERY_WIPE_DATA, AsciiStrLen (RECOVERY_WIPE_DATA));
+    if (Status == EFI_SUCCESS) {
+        Status = WriteToPartition (&gEfiMiscPartitionGuid,
+                                 &Msg, sizeof (Msg));
+    }
 
 	return Status;
 }
