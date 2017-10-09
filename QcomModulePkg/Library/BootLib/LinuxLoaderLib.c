@@ -490,7 +490,7 @@ EFI_STATUS ReadWriteDeviceInfo(vb_device_state_op_t Mode, void *DevInfo, UINT32 
 	return Status;
 }
 
-EFI_STATUS WriteToPartition(EFI_GUID *Ptype, VOID *Msg)
+EFI_STATUS WriteToPartition (EFI_GUID *Ptype, VOID *Msg, UINT32 MsgSize)
 {
 	EFI_STATUS Status;
 	EFI_BLOCK_IO_PROTOCOL *BlkIo = NULL;
@@ -529,7 +529,7 @@ EFI_STATUS WriteToPartition(EFI_GUID *Ptype, VOID *Msg)
 
 	BlkIo = HandleInfoList[0].BlkIo;
 
-  if (AsciiStrLen ((CONST CHAR8 *)Msg) >= BlkIo->Media->BlockSize) {
+  if (MsgSize >= BlkIo->Media->BlockSize) {
     return EFI_OUT_OF_RESOURCES;
   }
 
@@ -539,7 +539,7 @@ EFI_STATUS WriteToPartition(EFI_GUID *Ptype, VOID *Msg)
     return EFI_OUT_OF_RESOURCES;
   }
 
-  gBS->CopyMem (MsgBuffer, Msg, AsciiStrLen ((CONST CHAR8 *)Msg));
+  gBS->CopyMem (MsgBuffer, Msg, MsgSize);
   Status = BlkIo->WriteBlocks (BlkIo, BlkIo->Media->MediaId, 0,
                                BlkIo->Media->BlockSize,
                                MsgBuffer);
