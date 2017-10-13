@@ -95,18 +95,27 @@ GetBlkIOHandles (
 		SelectionAttrib |= (BLK_IO_SEL_PARTITIONED_GPT | BLK_IO_SEL_PARTITIONED_MBR);
 
 	/* If we need Filesystem handle then search based on that its narrower search than BlkIo */
-	if (SelectionAttrib & (BLK_IO_SEL_SELECT_MOUNTED_FILESYSTEM | BLK_IO_SEL_SELECT_BY_VOLUME_NAME))
-		gBS->LocateHandleBuffer (ByProtocol,
-				&gEfiSimpleFileSystemProtocolGuid,
-				NULL,
-				&BlkIoHandleCount,
-				&BlkIoHandles);
-	else
-		gBS->LocateHandleBuffer (ByProtocol,
-				&gEfiBlockIoProtocolGuid,
-				NULL,
-				&BlkIoHandleCount,
-				&BlkIoHandles);
+    if (SelectionAttrib &
+            (BLK_IO_SEL_SELECT_MOUNTED_FILESYSTEM |
+            BLK_IO_SEL_SELECT_BY_VOLUME_NAME)) {
+        Status = gBS->LocateHandleBuffer (ByProtocol,
+                    &gEfiSimpleFileSystemProtocolGuid,
+                    NULL,
+                    &BlkIoHandleCount,
+                    &BlkIoHandles);
+    } else {
+        Status = gBS->LocateHandleBuffer (ByProtocol,
+                    &gEfiBlockIoProtocolGuid,
+                    NULL,
+                    &BlkIoHandleCount,
+                    &BlkIoHandles);
+    }
+
+    if (Status != EFI_SUCCESS) {
+        DEBUG ((EFI_D_ERROR,
+            "Unable to get Filesystem Handle buffer %r\n", Status));
+        return Status;
+    }
 
 	/* Loop through to search for the ones we are interested in. */
 	for (i = 0; i < BlkIoHandleCount; i++){
@@ -371,8 +380,7 @@ LaunchApp (
 
     Status = gBS->LoadImage (FALSE, gImageHandle, DevicePath, Buffer, BufferSize, &ImageHandle);
 
-    if (Buffer != NULL)
-      FreePool (Buffer);
+  FreePool (Buffer);
   }
 
   EfiClose (File);
@@ -461,6 +469,7 @@ EFI_STATUS WriteToPartition(EFI_GUID *Ptype, VOID *Msg)
 	HandleInfo HandleInfoList[1];
 	UINT32 MaxHandles;
 	UINT32 BlkIOAttrib = 0;
+  CHAR8 *MsgBuffer = NULL;
 
 	if (Msg == NULL)
 		return EFI_INVALID_PARAMETER;
@@ -491,12 +500,23 @@ EFI_STATUS WriteToPartition(EFI_GUID *Ptype, VOID *Msg)
 
 	BlkIo = HandleInfoList[0].BlkIo;
 
-	Status = BlkIo->WriteBlocks(BlkIo, BlkIo->Media->MediaId, 0, BlkIo->Media->BlockSize, Msg);
+  if (AsciiStrLen ((CONST CHAR8 *)Msg) >= BlkIo->Media->BlockSize) {
+    return EFI_OUT_OF_RESOURCES;
+  }
 
-	if(Status != EFI_SUCCESS)
-		return Status;
+  MsgBuffer = AllocateZeroPool (BlkIo->Media->BlockSize);
+  if (MsgBuffer == NULL) {
+    DEBUG ((EFI_D_ERROR, "Failed to allocate zero pool for MsgBuffer\n"));
+    return EFI_OUT_OF_RESOURCES;
+  }
 
-	return Status;
+  gBS->CopyMem (MsgBuffer, Msg, AsciiStrLen ((CONST CHAR8 *)Msg));
+  Status = BlkIo->WriteBlocks (BlkIo, BlkIo->Media->MediaId, 0,
+                               BlkIo->Media->BlockSize,
+                               MsgBuffer);
+
+  FreePool (MsgBuffer);
+  return Status;
 }
 
 BOOLEAN IsSecureBootEnabled(VOID)

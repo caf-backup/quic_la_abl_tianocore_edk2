@@ -50,7 +50,8 @@ EFI_STATUS GetRamPartitions(RamPartitionEntry **RamPartitions, UINT32 *NumPartit
 	EFI_RAMPARTITION_PROTOCOL *pRamPartProtocol = NULL;
 
 	Status = gBS->LocateProtocol(&gEfiRamPartitionProtocolGuid, NULL, (VOID**)&pRamPartProtocol);
-	if (EFI_ERROR(Status) || (&pRamPartProtocol == NULL))
+  if (EFI_ERROR (Status) ||
+      (pRamPartProtocol == NULL))
 	{
 		DEBUG((EFI_D_ERROR, "Locate EFI_RAMPARTITION_Protocol failed, Status =  (0x%x)\r\n", Status));
 		return EFI_NOT_FOUND;
@@ -271,11 +272,7 @@ VOID GetRootDeviceType(CHAR8 *StrDeviceType, UINT32 Len)
 	UINT32      Type;
 
 	Type = CheckRootDeviceType(HandleInfoList, MaxHandles);
-
-	if (Type < ARRAY_SIZE(DeviceType))
-		AsciiSPrint(StrDeviceType, Len, "%a", DeviceType[Type]);
-	else
-		AsciiSPrint(StrDeviceType, Len, "%a", DeviceType[UNKNOWN]);
+  AsciiSPrint (StrDeviceType, Len, "%a", DeviceType[Type]);
 }
 
 /**
@@ -518,10 +515,15 @@ VOID BoardHwPlatformName(CHAR8 *StrHwPlatform, UINT32 Len)
 		return;
 	}
 
-	Status = pChipInfoProtocol->GetChipIdString(pChipInfoProtocol, StrHwPlatform, EFICHIPINFO_MAX_ID_LENGTH);
+	Status = pChipInfoProtocol->GetChipIdString(pChipInfoProtocol, StrHwPlatform,
+		EFICHIPINFO_MAX_ID_LENGTH > Len ? Len : EFICHIPINFO_MAX_ID_LENGTH);
 	if (EFI_ERROR(Status)) {
 		DEBUG((EFI_D_ERROR, "Failed to Get the ChipIdString\n"));
 		return;
 	}
-	StrHwPlatform[ChipIdValidLen-1] = '\0';
+
+	if (Len < ChipIdValidLen)
+		StrHwPlatform[Len - 1] = '\0';
+	else
+		StrHwPlatform[ChipIdValidLen - 1] = '\0';
 }

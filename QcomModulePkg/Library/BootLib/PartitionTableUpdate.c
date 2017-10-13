@@ -1184,6 +1184,7 @@ EFI_STATUS SetActiveSlot(Slot *NewSlot)
 		DEBUG((EFI_D_INFO, "Alternate slot %s, New slot %s\n", AlternateSlot->Suffix,
                        NewSlot->Suffix));
 		SwitchPtnSlots(NewSlot->Suffix);
+            MarkPtnActive (NewSlot->Suffix);
 	}
 
 	UpdatePartitionAttributes();
@@ -1420,10 +1421,10 @@ BOOLEAN LoadAndValidateDtboImg(BootInfo *Info, VOID** DtboImgBuffer)
 		DEBUG((EFI_D_ERROR, "BootLinux: GetImage failed!"));
 		return FALSE;
 	}
-	if (!DtboImgBuffer) {
-		DEBUG((EFI_D_ERROR, "DtboImgBuffer is NULL"));
-		return FALSE;
-	}
+  if (!*DtboImgBuffer) {
+    DEBUG ((EFI_D_ERROR, "DtboImgBuffer is NULL"));
+    return FALSE;
+  }
 
 	DtboTableHdr = *DtboImgBuffer;
 	if (fdt32_to_cpu(DtboTableHdr->Magic) != DTBO_TABLE_MAGIC) {

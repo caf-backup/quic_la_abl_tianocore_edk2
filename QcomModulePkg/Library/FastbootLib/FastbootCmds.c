@@ -509,20 +509,6 @@ HandleSparseImgFlash(
 	EFI_STATUS Status;
 	EFI_BLOCK_IO_PROTOCOL *BlockIo = NULL;
 	EFI_HANDLE *Handle = NULL;
-    BOOLEAN MultiSlotBoot = PartitionHasMultiSlot ((CONST CHAR16 *)L"boot");
-    BOOLEAN HasSlot = FALSE;
-    CHAR16 SlotSuffix[MAX_SLOT_SUFFIX_SZ];
-
-    /* For multislot boot the partition may not support a/b slots.
-     * Look for default partition, if it does not exist then try for a/b
-     */
-    if (MultiSlotBoot) {
-        HasSlot =  GetPartitionHasSlot (PartitionName, PartitionMaxSize,
-                                        SlotSuffix, MAX_SLOT_SUFFIX_SZ);
-        if (HasSlot) {
-            DEBUG ((EFI_D_VERBOSE, "Partition %a has slot", PartitionName));
-        }
-    }
 
 	if (CHECK_ADD64((UINT64)Image, sz)) {
 		DEBUG((EFI_D_ERROR, "Integer overflow while adding Image and sz\n"));
@@ -530,7 +516,7 @@ HandleSparseImgFlash(
 	}
 
 	ImageEnd = (UINT64) Image + sz;
-
+    /* Caller to ensure that the partition is present in the Partition Table*/
 	Status = PartitionGetInfo(PartitionName, &BlockIo, &Handle);
 	if (Status != EFI_SUCCESS)
 		return Status;
@@ -907,6 +893,12 @@ HandleMetaImgFlash(
 	BOOLEAN PnameTerminated = FALSE;
 	UINT32 j;
 
+  if (Size < sizeof (meta_header_t)) {
+    DEBUG ((EFI_D_ERROR,
+        "Error: The size is smaller than the image header size\n"));
+    return EFI_INVALID_PARAMETER;
+  }
+
 	meta_header = (meta_header_t *) Image;
 	img_header_entry = (img_header_entry_t *) (Image + sizeof(meta_header_t));
 	images = meta_header->img_hdr_sz / sizeof(img_header_entry_t);
@@ -914,6 +906,12 @@ HandleMetaImgFlash(
 		DEBUG((EFI_D_ERROR, "Error: Number of images(%u)in meta_image are greater than expected\n", images));
 		return EFI_INVALID_PARAMETER;
 	}
+
+  if (Size <= (sizeof (meta_header_t) + meta_header->img_hdr_sz)) {
+    DEBUG ((EFI_D_ERROR,
+        "Error: The size is smaller than image header size + entry size\n"));
+    return EFI_INVALID_PARAMETER;
+  }
 
 	if (CHECK_ADD64((UINT64)Image, Size)) {
 		DEBUG((EFI_D_ERROR, "Integer overflow detected in %d, %a\n", __LINE__, __FUNCTION__));
@@ -1182,7 +1180,7 @@ STATIC VOID CmdFlash(
 	IN UINT32 sz
 	)
 {
-	EFI_STATUS  Status = 0;
+    EFI_STATUS  Status = EFI_SUCCESS;
 	sparse_header_t *sparse_header;
 	meta_header_t   *meta_header;
 	CHAR16 PartitionName[MAX_GPT_NAME_SIZE];
@@ -1195,6 +1193,11 @@ STATIC VOID CmdFlash(
 	BOOLEAN BootPtnUpdated = FALSE;
 	UINT32 UfsBootLun = 0;
 	CHAR8 BootDeviceType[BOOT_DEV_NAME_SIZE_MAX];
+    /* For partition info */
+    EFI_BLOCK_IO_PROTOCOL   *BlockIo = NULL;
+    EFI_HANDLE *Handle = NULL;
+    BOOLEAN HasSlot = FALSE;
+    CHAR16 SlotSuffix[MAX_SLOT_SUFFIX_SZ];
 
 	ExchangeFlashAndUsbDataBuf();
 	if (mFlashDataBuffer == NULL)
@@ -1329,43 +1332,92 @@ STATIC VOID CmdFlash(
 		}
 	}
 
-	IsFlashComplete = FALSE;
-	Status = HandleUsbEventsInTimer();
-	if (EFI_ERROR (Status)) {
-		StopUsbTimer();
-		DEBUG ((EFI_D_ERROR, "Failed to handle usb event:  %r\n", Status));
-	} else {
-		/* Send okay for next data sending */
-		FastbootOkay("");
-	}
+    sparse_header = (sparse_header_t *) mFlashDataBuffer;
+    meta_header   = (meta_header_t *) mFlashDataBuffer;
 
-	sparse_header = (sparse_header_t *) mFlashDataBuffer;
-	meta_header   = (meta_header_t *) mFlashDataBuffer;
+    /* Send okay for next data sending */
+    if (sparse_header->magic == SPARSE_HEADER_MAGIC) {
 
-	if (sparse_header->magic == SPARSE_HEADER_MAGIC)
-		FlashResult = HandleSparseImgFlash(PartitionName, sizeof(PartitionName), mFlashDataBuffer, mFlashNumDataBytes);
-	else if (meta_header->magic == META_HEADER_MAGIC)
-		FlashResult = HandleMetaImgFlash(PartitionName, sizeof(PartitionName), mFlashDataBuffer, mFlashNumDataBytes);
-	else
-		FlashResult = HandleRawImgFlash(PartitionName, sizeof(PartitionName), mFlashDataBuffer, mFlashNumDataBytes);
+        MultiSlotBoot = PartitionHasMultiSlot ((CONST CHAR16 *)L"boot");
+        if (MultiSlotBoot) {
+            HasSlot =  GetPartitionHasSlot (PartitionName,
+                                            sizeof (PartitionName),
+                                            SlotSuffix,
+                                            MAX_SLOT_SUFFIX_SZ);
+            if (HasSlot) {
+                DEBUG ((EFI_D_VERBOSE, "Partition %s has slot\n",
+                                               PartitionName));
+            }
+        }
 
-	IsFlashComplete = TRUE;
-	StopUsbTimer();
-	if (EFI_ERROR (Status)) {
-		if (FlashResult == EFI_NOT_FOUND) {
-			FastbootFail("No such partition.");
-			DEBUG((EFI_D_ERROR, " (%s) No such partition\n", PartitionName));
-			goto out;
-		} else if (EFI_ERROR(FlashResult)){
-			FastbootFail("Error flashing partition.");
-			DEBUG ((EFI_D_ERROR, "Couldn't flash image:  %r\n", FlashResult));
-			goto out;
-		} else {
-			DEBUG ((EFI_D_ERROR, "flash image status:  %r\n", FlashResult));
-			FastbootOkay("");
-			goto out;
-		}
-	}
+        Status = PartitionGetInfo (PartitionName, &BlockIo, &Handle);
+        if (EFI_ERROR (Status)) {
+            FastbootFail ("Partition not found");
+            goto out;
+        }
+
+        IsFlashComplete = FALSE;
+
+        Status = HandleUsbEventsInTimer ();
+        if (EFI_ERROR (Status)) {
+            DEBUG ((EFI_D_ERROR,
+                "Failed to handle usb event: %r\n", Status));
+
+            IsFlashComplete = TRUE;
+            StopUsbTimer ();
+        } else {
+            FastbootOkay ("");
+        }
+
+        FlashResult = HandleSparseImgFlash (PartitionName,
+                                            sizeof (PartitionName),
+                                            mFlashDataBuffer,
+                                            mFlashNumDataBytes);
+
+        IsFlashComplete = TRUE;
+        StopUsbTimer ();
+
+    }  else if (meta_header->magic == META_HEADER_MAGIC) {
+
+        FlashResult = HandleMetaImgFlash (PartitionName,
+                                          sizeof (PartitionName),
+                                          mFlashDataBuffer,
+                                          mFlashNumDataBytes);
+    } else {
+
+        FlashResult = HandleRawImgFlash (PartitionName,
+                                         sizeof (PartitionName),
+                                         mFlashDataBuffer,
+                                         mFlashNumDataBytes);
+    }
+
+    /*
+     * For Non-sparse image: Check flash result and update the result
+     * Also, Handle if there is Failure in handling USB events especially for
+     * sparse images.
+     */
+    if ((sparse_header->magic != SPARSE_HEADER_MAGIC) ||
+                (Status != EFI_SUCCESS))
+    {
+        if (FlashResult == EFI_NOT_FOUND) {
+            DEBUG ((EFI_D_ERROR, "(%s) No such partition\n", PartitionName));
+            FastbootFail ("No such partition.");
+
+            /* Reset the Flash Result for next flash command */
+            FlashResult = EFI_SUCCESS;
+            goto out;
+        } else if (EFI_ERROR (FlashResult)) {
+            DEBUG ((EFI_D_ERROR, "Couldn't flash image:  %r\n", FlashResult));
+            FastbootFail ("Error flashing partition.");
+
+            /* Reset the Flash Result for next flash command */
+            FlashResult = EFI_SUCCESS;
+            goto out;
+        } else {
+            DEBUG ((EFI_D_INFO, "flash image status:  %r\n", FlashResult));
+            FastbootOkay ("");
+        }
+    }
 
 out:
 	LunSet = FALSE;
@@ -1585,7 +1637,9 @@ STATIC EFI_STATUS FastbootOkayDelay(VOID)
 
 STATIC VOID AcceptData (IN UINT64 Size, IN  VOID  *Data)
 {
-	UINT64 RemainingBytes = mNumDataBytes - mBytesReceivedSoFar;
+  UINT64 RemainingBytes = mNumDataBytes - mBytesReceivedSoFar;
+  UINT32 PageSize = 0;
+  UINT32 RoundSize = 0;
 
 	/* Protocol doesn't say anything about sending extra data so just ignore it.*/
 	if (Size > RemainingBytes)
@@ -1602,6 +1656,15 @@ STATIC VOID AcceptData (IN UINT64 Size, IN  VOID  *Data)
 	{
 		/* Download Finished */
 		DEBUG((EFI_D_INFO, "Download Finished\n"));
+    /* Zero initialized the surplus data buffer. It's risky to access the data
+     * buffer which it's not zero initialized, its content might leak
+     */
+    GetPageSize (&PageSize);
+    RoundSize = ROUND_TO_PAGE (mNumDataBytes, PageSize - 1);
+    if (RoundSize < MAX_DOWNLOAD_SIZE) {
+      gBS->SetMem ((VOID *)(Data + mNumDataBytes),
+                   RoundSize - mNumDataBytes, 0);
+    }
 		/* Stop usb timer after data transfer completed */
 		StopUsbTimer();
 		/* Postpone Fastboot Okay until flash completed */
