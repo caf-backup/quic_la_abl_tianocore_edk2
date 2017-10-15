@@ -572,7 +572,7 @@ HandleSparseImgFlash(
 
 	block_count_factor = (sparse_header->blk_sz) / (BlockIo->Media->BlockSize);
 
-	DEBUG((EFI_D_VERBOSE, "=== Sparse Image Header ===\n"));
+/*	DEBUG((EFI_D_VERBOSE, "=== Sparse Image Header ===\n"));
 	DEBUG((EFI_D_VERBOSE, "magic: 0x%x\n", sparse_header->magic));
 	DEBUG((EFI_D_VERBOSE, "major_version: 0x%x\n", sparse_header->major_version));
 	DEBUG((EFI_D_VERBOSE, "minor_version: 0x%x\n", sparse_header->minor_version));
@@ -580,7 +580,7 @@ HandleSparseImgFlash(
 	DEBUG((EFI_D_VERBOSE, "chunk_hdr_sz: %d\n", sparse_header->chunk_hdr_sz));
 	DEBUG((EFI_D_VERBOSE, "blk_sz: %d\n", sparse_header->blk_sz));
 	DEBUG((EFI_D_VERBOSE, "total_blks: %d\n", sparse_header->total_blks));
-	DEBUG((EFI_D_VERBOSE, "total_chunks: %d\n", sparse_header->total_chunks));
+	DEBUG((EFI_D_VERBOSE, "total_chunks: %d\n", sparse_header->total_chunks));*/
 
 	/* Start processing the chunks */
 	for (chunk = 0; chunk < sparse_header->total_chunks; chunk++)
@@ -606,10 +606,10 @@ HandleSparseImgFlash(
 		return EFI_BAD_BUFFER_SIZE;
 	}
 
-	DEBUG((EFI_D_VERBOSE, "=== Chunk Header ===\n"));
+/*	DEBUG((EFI_D_VERBOSE, "=== Chunk Header ===\n"));
 	DEBUG((EFI_D_VERBOSE, "chunk_type: 0x%x\n", chunk_header->chunk_type));
 	DEBUG((EFI_D_VERBOSE, "chunk_data_sz: 0x%x\n", chunk_header->chunk_sz));
-	DEBUG((EFI_D_VERBOSE, "total_size: 0x%x\n", chunk_header->total_sz));
+	DEBUG((EFI_D_VERBOSE, "total_size: 0x%x\n", chunk_header->total_sz));*/
 
 	if (sparse_header->chunk_hdr_sz != sizeof(chunk_header_t))
 	{
