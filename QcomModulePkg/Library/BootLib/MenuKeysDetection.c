@@ -94,7 +94,7 @@ VOID WaitForExitKeysDetection()
 
 STATIC VOID UpdateDeviceStatus(OPTION_MENU_INFO *MsgInfo, INTN Reason)
 {
-	CHAR8 FfbmPageBuffer[FFBM_MODE_BUF_SIZE];
+    CHAR8 FfbmPageBuffer[FFBM_MODE_BUF_SIZE] = "";
 
 	/* Clear the screen */
 	gST->ConOut->ClearScreen (gST->ConOut);
@@ -128,12 +128,14 @@ STATIC VOID UpdateDeviceStatus(OPTION_MENU_INFO *MsgInfo, INTN Reason)
 		break;
 	case FFBM:
 		AsciiSPrint(FfbmPageBuffer, sizeof(FfbmPageBuffer), "ffbm-00");
-		WriteToPartition(&gEfiMiscPartitionGuid, FfbmPageBuffer);
+        WriteToPartition (&gEfiMiscPartitionGuid, FfbmPageBuffer,
+                         sizeof (FfbmPageBuffer));
 		RebootDevice(NORMAL_MODE);
 		break;
 	case QMMI:
 		AsciiSPrint(FfbmPageBuffer, sizeof(FfbmPageBuffer), "ffbm-02");
-		WriteToPartition(&gEfiMiscPartitionGuid, FfbmPageBuffer);
+        WriteToPartition (&gEfiMiscPartitionGuid, FfbmPageBuffer,
+                        sizeof (FfbmPageBuffer));
 		RebootDevice(NORMAL_MODE);
 		break;
 	}
