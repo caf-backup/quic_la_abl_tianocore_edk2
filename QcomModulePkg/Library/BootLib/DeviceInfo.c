@@ -162,8 +162,12 @@ EFI_STATUS SetDeviceUnlockValue(UINT32 Type, BOOLEAN State)
 	}
 
 	gBS->SetMem((VOID *)&Msg, sizeof(Msg), 0);
-	AsciiStrnCpyS(Msg.recovery, sizeof(Msg.recovery), RECOVERY_WIPE_DATA, AsciiStrLen(RECOVERY_WIPE_DATA));
-	WriteToPartition(&gEfiMiscPartitionGuid, &Msg);
+    Status = AsciiStrnCpyS (Msg.recovery, sizeof (Msg.recovery),
+                       RECOVERY_WIPE_DATA, AsciiStrLen (RECOVERY_WIPE_DATA));
+    if (Status == EFI_SUCCESS) {
+        Status = WriteToPartition (&gEfiMiscPartitionGuid,
+                                 &Msg, sizeof (Msg));
+    }
 
 	return Status;
 }
@@ -174,7 +178,8 @@ EFI_STATUS DeviceInfoInit()
 	STATIC BOOLEAN FirstReadDevInfo = TRUE;
 
 	if (FirstReadDevInfo) {
-		Status = ReadWriteDeviceInfo(READ_CONFIG, (UINT8 *)&DevInfo, sizeof(DevInfo));
+        Status = ReadWriteDeviceInfo (READ_CONFIG, (VOID *)&DevInfo,
+                                    sizeof (DevInfo));
 		if (Status != EFI_SUCCESS) {
 			DEBUG((EFI_D_ERROR, "Unable to Read Device Info: %r\n", Status));
 			return Status;
@@ -196,7 +201,8 @@ EFI_STATUS DeviceInfoInit()
 		}
 		DevInfo.is_charger_screen_enabled = FALSE;
 		DevInfo.verity_mode = TRUE;
-		Status = ReadWriteDeviceInfo(WRITE_CONFIG, (UINT8 *)&DevInfo, sizeof(DevInfo));
+        Status = ReadWriteDeviceInfo (WRITE_CONFIG, (VOID *)&DevInfo,
+                                    sizeof (DevInfo));
 		if (Status != EFI_SUCCESS) {
 			DEBUG((EFI_D_ERROR, "Unable to Write Device Info: %r\n", Status));
 			return Status;
