@@ -43,7 +43,7 @@
 
 #include <Protocol/EFIVerifiedBoot.h>
 
-STATIC UINT32 StartTimer;
+STATIC UINT64 StartTimer;
 STATIC EFI_EVENT CallbackKeyDetection;
 
 typedef VOID (*Keys_Action_Func)(OPTION_MENU_INFO *gMsgInfo);
@@ -98,7 +98,7 @@ VOID WaitForExitKeysDetection (VOID)
 
 STATIC VOID UpdateDeviceStatus(OPTION_MENU_INFO *MsgInfo, INTN Reason)
 {
-	CHAR8 FfbmPageBuffer[FFBM_MODE_BUF_SIZE];
+    CHAR8 FfbmPageBuffer[FFBM_MODE_BUF_SIZE] = "";
 
 	/* Clear the screen */
 	gST->ConOut->ClearScreen (gST->ConOut);
@@ -132,12 +132,14 @@ STATIC VOID UpdateDeviceStatus(OPTION_MENU_INFO *MsgInfo, INTN Reason)
 		break;
 	case FFBM:
 		AsciiSPrint(FfbmPageBuffer, sizeof(FfbmPageBuffer), "ffbm-00");
-		WriteToPartition(&gEfiMiscPartitionGuid, FfbmPageBuffer);
+        WriteToPartition (&gEfiMiscPartitionGuid, FfbmPageBuffer,
+                         sizeof (FfbmPageBuffer));
 		RebootDevice(NORMAL_MODE);
 		break;
 	case QMMI:
 		AsciiSPrint(FfbmPageBuffer, sizeof(FfbmPageBuffer), "ffbm-02");
-		WriteToPartition(&gEfiMiscPartitionGuid, FfbmPageBuffer);
+        WriteToPartition (&gEfiMiscPartitionGuid, FfbmPageBuffer,
+                        sizeof (FfbmPageBuffer));
 		RebootDevice(NORMAL_MODE);
 		break;
 	}
@@ -332,12 +334,12 @@ STATIC VOID StartKeyDetectTimer()
  **/
 STATIC VOID EFIAPI MenuKeysHandler(IN EFI_EVENT Event, IN VOID *Context)
 {
-	UINT32 TimerDiff;
+    UINT64 TimerDiff;
 	EFI_STATUS Status = EFI_SUCCESS;
 	OPTION_MENU_INFO  *MenuInfo = Context;
 	UINT32 CurrentKey = SCAN_NULL;
 	STATIC UINT32 LastKey = SCAN_NULL;
-	STATIC UINT32 KeyPressStartTime;
+    STATIC UINT64 KeyPressStartTime;
 
 	if (MenuInfo->Info.TimeoutTime > 0) {
 		TimerDiff = GetTimerCountms() - StartTimer;

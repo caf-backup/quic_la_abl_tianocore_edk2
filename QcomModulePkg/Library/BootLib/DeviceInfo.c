@@ -170,8 +170,10 @@ EFI_STATUS SetDeviceUnlockValue(UINT32 Type, BOOLEAN State)
 
 	gBS->SetMem((VOID *)&Msg, sizeof(Msg), 0);
 	Status = AsciiStrnCpyS(Msg.recovery, sizeof(Msg.recovery), RECOVERY_WIPE_DATA, AsciiStrLen(RECOVERY_WIPE_DATA));
-	if (Status == EFI_SUCCESS)
-		WriteToPartition(&gEfiMiscPartitionGuid, &Msg);
+    if (Status == EFI_SUCCESS) {
+        Status = WriteToPartition (&gEfiMiscPartitionGuid,
+                                 &Msg, sizeof (Msg));
+    }
 
 	return Status;
 }
@@ -190,7 +192,8 @@ EFI_STATUS UpdateDevInfo(CHAR16 *Pname, CHAR8 *ImgVersion)
 		AsciiStrnCatS(DevInfo.radio_version, MAX_VERSION_LEN, ImgVersion, AsciiStrLen(ImgVersion));
 	}
 
-	Status = ReadWriteDeviceInfo(WRITE_CONFIG, (UINT8 *)&DevInfo, sizeof(DevInfo));
+    Status = ReadWriteDeviceInfo (WRITE_CONFIG, (VOID *)&DevInfo,
+                                sizeof (DevInfo));
 	if (Status != EFI_SUCCESS) {
 		DEBUG((EFI_D_ERROR, "Unable to Write Device Info: %r\n", Status));
 	}
@@ -202,7 +205,8 @@ EFI_STATUS DeviceInfoInit(VOID)
 	EFI_STATUS Status = EFI_SUCCESS;
 
 	if (FirstReadDevInfo) {
-		Status = ReadWriteDeviceInfo(READ_CONFIG, (UINT8 *)&DevInfo, sizeof(DevInfo));
+        Status = ReadWriteDeviceInfo (READ_CONFIG, (VOID *)&DevInfo,
+                                    sizeof (DevInfo));
 		if (Status != EFI_SUCCESS) {
 			DEBUG((EFI_D_ERROR, "Unable to Read Device Info: %r\n", Status));
 			return Status;
@@ -227,7 +231,8 @@ EFI_STATUS DeviceInfoInit(VOID)
 		}
 		DevInfo.is_charger_screen_enabled = FALSE;
 		DevInfo.verity_mode = TRUE;
-		Status = ReadWriteDeviceInfo(WRITE_CONFIG, (UINT8 *)&DevInfo, sizeof(DevInfo));
+        Status = ReadWriteDeviceInfo (WRITE_CONFIG, (VOID *)&DevInfo,
+                                    sizeof (DevInfo));
 		if (Status != EFI_SUCCESS) {
 			DEBUG((EFI_D_ERROR, "Unable to Write Device Info: %r\n", Status));
 			return Status;
@@ -280,7 +285,8 @@ EFI_STATUS WriteRollbackIndex(UINT32 Loc, UINT64 RollbackIndex)
 	}
 
 	DevInfo.rollback_index[Loc] = RollbackIndex;
-	Status = ReadWriteDeviceInfo(WRITE_CONFIG, (UINT8 *)&DevInfo, sizeof(DevInfo));
+    Status = ReadWriteDeviceInfo (WRITE_CONFIG, (VOID *)&DevInfo,
+                                sizeof (DevInfo));
 	if (Status != EFI_SUCCESS) {
 		DEBUG((EFI_D_ERROR, "Unable to Write Device Info: %r\n", Status));
 		return Status;
@@ -306,7 +312,8 @@ EFI_STATUS StoreUserKey(CHAR8 *UserKey, UINT32 UserKeySize)
 
 	gBS->CopyMem(DevInfo.user_public_key, UserKey, UserKeySize);
 	DevInfo.user_public_key_length = UserKeySize;
-	Status = ReadWriteDeviceInfo(WRITE_CONFIG, (UINT8 *)&DevInfo, sizeof(DevInfo));
+    Status = ReadWriteDeviceInfo (WRITE_CONFIG, (VOID *)&DevInfo,
+                                sizeof (DevInfo));
 	if (Status != EFI_SUCCESS) {
 		DEBUG((EFI_D_ERROR, "Unable to Write Device Info: %r\n", Status));
 		return Status;
@@ -325,9 +332,11 @@ EFI_STATUS EraseUserKey(VOID)
 		return Status;
 	}
 
-	gBS->SetMem(DevInfo.user_public_key, ARRAY_SIZE(DevInfo.user_public_key), 0);
+    gBS->SetMem (DevInfo.user_public_key,
+                sizeof (DevInfo.user_public_key), 0);
 	DevInfo.user_public_key_length = 0;
-	Status = ReadWriteDeviceInfo(WRITE_CONFIG, (UINT8 *)&DevInfo, sizeof(DevInfo));
+    Status = ReadWriteDeviceInfo (WRITE_CONFIG, (VOID *)&DevInfo,
+                                sizeof (DevInfo));
 	if (Status != EFI_SUCCESS) {
 		DEBUG((EFI_D_ERROR, "Unable to Write Device Info: %r\n", Status));
 		return Status;

@@ -196,13 +196,16 @@ FastbootUnInit(VOID)
 
 	for (Var = Varlist; Var && Var->next; Var = Var->next)
 	{
-		if(VarPrev)
-			FreePool(VarPrev);
+        if (VarPrev) {
+            FreePool (VarPrev);
+            VarPrev = NULL;
+        }
 		VarPrev = Var;
 	}
 	if(Var)
 	{
-		FreePool(Var);
+        FreePool (Var);
+        Var = NULL;
 	}
 
 	return EFI_SUCCESS;
@@ -533,14 +536,14 @@ HandleSparseImgFlash(
 
 	if (sz < sizeof(sparse_header_t))
 	{
-		FastbootFail("Input image is invalid\n");
+        DEBUG ((EFI_D_ERROR, "Input image is invalid\n"));
 		return EFI_INVALID_PARAMETER;
 	}
 
 	sparse_header = (sparse_header_t *) Image;
 	if (((UINT64) sparse_header->total_blks * (UINT64) sparse_header->blk_sz) > PartitionSize)
 	{
-		FastbootFail("Image is too large for the partition");
+        DEBUG ((EFI_D_ERROR, "Image is too large for the partition\n"));
 		return EFI_VOLUME_FULL;
 	}
 
@@ -548,25 +551,25 @@ HandleSparseImgFlash(
 
 	if (ImageEnd < (UINT64) Image)
 	{
-		FastbootFail("buffer overreads occured due to invalid sparse header");
+        DEBUG ((EFI_D_ERROR,
+            "buffer overreads occured due to invalid sparse header\n"));
 		return EFI_BAD_BUFFER_SIZE;
 	}
 
 	if (sparse_header->file_hdr_sz != sizeof(sparse_header_t))
 	{
-		FastbootFail("Sparse header size mismatch");
+        DEBUG ((EFI_D_ERROR, "Sparse header size mismatch\n"));
 		return EFI_BAD_BUFFER_SIZE;
 	}
 
 	if (!sparse_header->blk_sz)
 	{
-		FastbootFail("Invalid block size in the sparse header\n");
+        DEBUG ((EFI_D_ERROR, "Invalid block size in the sparse header\n"));
 		return EFI_INVALID_PARAMETER;
 	}
 
 	if ((sparse_header->blk_sz) % (BlockIo->Media->BlockSize)) {
 		DEBUG((EFI_D_ERROR, "Unsupported sparse block size %x\n", sparse_header->blk_sz));
-		FastbootFail("Unsupported sparse block size");
 		return EFI_INVALID_PARAMETER;
 	}
 
@@ -587,7 +590,8 @@ HandleSparseImgFlash(
 	{
 		if (((UINT64) total_blocks * (UINT64) sparse_header->blk_sz) >= PartitionSize)
 		{
-			FastbootFail("Size of image is too large for the partition");
+            DEBUG ((EFI_D_ERROR,
+                "Size of image is too large for the partition\n"));
 			return EFI_VOLUME_FULL;
 		}
 
@@ -602,7 +606,8 @@ HandleSparseImgFlash(
 
 	if (ImageEnd < (UINT64) Image)
 	{
-		FastbootFail("buffer overreads occured due to invalid sparse header");
+        DEBUG ((EFI_D_ERROR,
+            "buffer overreads occured due to invalid sparse header\n"));
 		return EFI_BAD_BUFFER_SIZE;
 	}
 
@@ -613,7 +618,7 @@ HandleSparseImgFlash(
 
 	if (sparse_header->chunk_hdr_sz != sizeof(chunk_header_t))
 	{
-		FastbootFail("chunk header size mismatch");
+        DEBUG ((EFI_D_ERROR, "chunk header size mismatch\n"));
 		return EFI_INVALID_PARAMETER;
 	}
 
@@ -623,7 +628,7 @@ HandleSparseImgFlash(
 	 */
 	if ((UINT64) total_blocks * (UINT64) sparse_header->blk_sz + chunk_data_sz > PartitionSize)
 	{
-		FastbootFail("Chunk data size exceeds partition size");
+        DEBUG ((EFI_D_ERROR, "Chunk data size exceeds partition size\n"));
 		return EFI_VOLUME_FULL;
 	}
 
@@ -632,7 +637,7 @@ HandleSparseImgFlash(
 		case CHUNK_TYPE_RAW:
 			if ((UINT64)chunk_header->total_sz != ((UINT64)sparse_header->chunk_hdr_sz + chunk_data_sz))
 			{
-				FastbootFail("Bogus chunk size for chunk type Raw");
+                DEBUG ((EFI_D_ERROR, "Bogus chunk size for chunk type Raw\n"));
 				return EFI_INVALID_PARAMETER;
 			}
 
@@ -643,7 +648,8 @@ HandleSparseImgFlash(
 
 			if (ImageEnd < (UINT64)Image + chunk_data_sz)
 			{
-				FastbootFail("buffer overreads occured due to invalid sparse header");
+                DEBUG ((EFI_D_ERROR,
+                   "buffer overreads occured due to invalid sparse header\n"));
 				return EFI_INVALID_PARAMETER;
 			}
 
@@ -652,13 +658,13 @@ HandleSparseImgFlash(
 			Status = WriteToDisk(BlockIo, Handle, Image, chunk_data_sz, written_block_count);
 			if (EFI_ERROR(Status))
 			{
-				FastbootFail("Flash Write Failure");
+                DEBUG ((EFI_D_ERROR, "Flash Write Failure\n"));
 				return Status;
 			}
 
 			if (total_blocks > (MAX_UINT32 - chunk_header->chunk_sz))
 			{
-				FastbootFail("Bogus size for RAW chunk Type");
+                DEBUG ((EFI_D_ERROR, "Bogus size for RAW chunk Type\n"));
 				return EFI_INVALID_PARAMETER;
 			}
 
@@ -669,14 +675,15 @@ HandleSparseImgFlash(
 		case CHUNK_TYPE_FILL:
 			if (chunk_header->total_sz != (sparse_header->chunk_hdr_sz + sizeof(UINT32)))
 			{
-				FastbootFail("Bogus chunk size for chunk type FILL");
+                DEBUG ((EFI_D_ERROR,
+                    "Bogus chunk size for chunk type FILL\n"));
 				return EFI_INVALID_PARAMETER;
 			}
 
 			fill_buf = AllocatePool(sparse_header->blk_sz);
 			if (!fill_buf)
 			{
-				FastbootFail("Malloc failed for: CHUNK_TYPE_FILL");
+                DEBUG ((EFI_D_ERROR, "Malloc failed for: CHUNK_TYPE_FILL\n"));
 				return EFI_OUT_OF_RESOURCES;
 			}
 
@@ -687,8 +694,10 @@ HandleSparseImgFlash(
 
 			if (ImageEnd < (UINT64)Image + sizeof(UINT32))
 			{
-				FastbootFail("Buffer overread occured due to invalid sparse header");
-				FreePool(fill_buf);
+                DEBUG ((EFI_D_ERROR,
+                   "Buffer overread occured due to invalid sparse header\n"));
+                FreePool (fill_buf);
+                fill_buf = NULL;
 				return EFI_INVALID_PARAMETER;
 			}
 
@@ -702,8 +711,11 @@ HandleSparseImgFlash(
 				/* Make sure the data does not exceed the partition size */
 				if ((UINT64)total_blocks * (UINT64)sparse_header->blk_sz + sparse_header->blk_sz > PartitionSize)
 				{
-					FastbootFail("Chunk data size for fill type exceeds partition size");
-					FreePool(fill_buf);
+                    DEBUG ((EFI_D_ERROR,
+                        "Chunk data size for fill type " \
+                        "exceeds partition size\n"));
+                    FreePool (fill_buf);
+                    fill_buf = NULL;
 					return EFI_VOLUME_FULL;
 				}
 
@@ -711,7 +723,8 @@ HandleSparseImgFlash(
 				Status = WriteToDisk(BlockIo, Handle, (VOID *) fill_buf, sparse_header->blk_sz, written_block_count);
 				if (EFI_ERROR(Status))
 				{
-					FastbootFail("Flash write failure for FILL Chunk");
+                    DEBUG ((EFI_D_ERROR,
+                        "Flash write failure for FILL Chunk\n"));
 					FreePool(fill_buf);
 					return Status;
 				}
@@ -719,13 +732,14 @@ HandleSparseImgFlash(
 				total_blocks++;
 			}
 
-			FreePool(fill_buf);
+            FreePool (fill_buf);
+            fill_buf = NULL;
 			break;
 
 		case CHUNK_TYPE_DONT_CARE:
 			if (total_blocks > (MAX_UINT32 - chunk_header->chunk_sz))
 			{
-				FastbootFail("bogus size for chunk DONT CARE type");
+                DEBUG ((EFI_D_ERROR, "bogus size for chunk DONT CARE type\n"));
 				return EFI_INVALID_PARAMETER;
 			}
 			total_blocks += chunk_header->chunk_sz;
@@ -734,13 +748,13 @@ HandleSparseImgFlash(
 		case CHUNK_TYPE_CRC:
 			if (chunk_header->total_sz != sparse_header->chunk_hdr_sz)
 			{
-				FastbootFail("Bogus chunk size for chunk type CRC");
+                DEBUG ((EFI_D_ERROR, "Bogus chunk size for chunk type CRC\n"));
 				return EFI_INVALID_PARAMETER;
 			}
 
 			if (total_blocks > (MAX_UINT32 - chunk_header->chunk_sz))
 			{
-				FastbootFail("Bogus size for chunk type CRC");
+                DEBUG ((EFI_D_ERROR, "Bogus size for chunk type CRC\n"));
 				return EFI_INVALID_PARAMETER;
 			}
 
@@ -754,14 +768,15 @@ HandleSparseImgFlash(
 			Image += (UINT32) chunk_data_sz;
 			if (ImageEnd <  (UINT64)Image)
 			{
-				FastbootFail("buffer overreads occured due to invalid sparse header");
+                DEBUG ((EFI_D_ERROR,
+                    "buffer overreads occured due to " \
+                    "invalid sparse header\n"));
 				return EFI_INVALID_PARAMETER;
 			}
 			break;
 
 		default:
 			DEBUG((EFI_D_ERROR, "Unknown chunk type: %x\n", chunk_header->chunk_type));
-			FastbootFail("Unknown chunk type");
 			return EFI_INVALID_PARAMETER;
     }
   }
@@ -769,7 +784,7 @@ HandleSparseImgFlash(
 	DEBUG((EFI_D_INFO, "Wrote %d blocks, expected to write %d blocks\n", total_blocks, sparse_header->total_blks));
 
 	if (total_blocks != sparse_header->total_blks) {
-		FastbootFail("Sparse Image Write Failure");
+        DEBUG ((EFI_D_ERROR, "Sparse Image Write Failure\n"));
 		Status = EFI_VOLUME_CORRUPTED;
 	}
 
@@ -854,7 +869,8 @@ HandleRawImgFlash(
 	}
 
 	if ((MAX_UINT64 / (BlockIo->Media->LastBlock + 1))  < (UINT64)BlockIo->Media->BlockSize) {
-		DEBUG((EFI_D_ERROR, "Integer overflow while multiplying LastBlock and BlockSize"));
+        DEBUG ((EFI_D_ERROR,
+            "Integer overflow while multiplying LastBlock and BlockSize\n"));
 		return EFI_BAD_BUFFER_SIZE;
 	}
 
@@ -921,6 +937,8 @@ HandleMetaImgFlash(
 
 	for (i = 0; i < images; i++)
 	{
+            PnameTerminated = FALSE;
+
 		if (img_header_entry[i].ptn_name == NULL || img_header_entry[i].start_offset == 0 || img_header_entry[i].size == 0)
 			break;
 
@@ -1026,7 +1044,9 @@ STATIC VOID CmdDownload(
 
 	if (mNumDataBytes > MAX_DOWNLOAD_SIZE)
 	{
-		DEBUG((EFI_D_ERROR, "ERROR: Data size (%d) is more than max download size (%d)", mNumDataBytes, MAX_DOWNLOAD_SIZE));
+        DEBUG ((EFI_D_ERROR,
+            "ERROR: Data size (%d) is more than max download size (%d)\n",
+            mNumDataBytes, MAX_DOWNLOAD_SIZE));
 		FastbootFail("Requested download size is more than max allowed\n");
 		return;
 	}
@@ -1119,7 +1139,8 @@ STATIC VOID ClearFastbootVarsofAB(VOID) {
 		else
 			PrevList->next = CurrentList->next;
 
-		FreePool(CurrentList);
+        FreePool (CurrentList);
+        CurrentList = NULL;
 	}
 }
 
@@ -1198,6 +1219,7 @@ STATIC VOID CmdFlash(
     EFI_HANDLE *Handle = NULL;
     BOOLEAN HasSlot = FALSE;
     CHAR16 SlotSuffix[MAX_SLOT_SUFFIX_SZ];
+    CHAR8 FlashResultStr[MAX_RSP_SIZE] = "";
 
 	ExchangeFlashAndUsbDataBuf();
 	if (mFlashDataBuffer == NULL)
@@ -1399,16 +1421,17 @@ STATIC VOID CmdFlash(
     if ((sparse_header->magic != SPARSE_HEADER_MAGIC) ||
                 (Status != EFI_SUCCESS))
     {
-        if (FlashResult == EFI_NOT_FOUND) {
-            DEBUG ((EFI_D_ERROR, "(%s) No such partition\n", PartitionName));
-            FastbootFail ("No such partition.");
+        if (EFI_ERROR (FlashResult)) {
+            if (FlashResult == EFI_NOT_FOUND) {
+                AsciiSPrint (FlashResultStr, MAX_RSP_SIZE,
+                        "(%s) No such partition", PartitionName);
+            } else {
+                AsciiSPrint (FlashResultStr, MAX_RSP_SIZE,
+                        "%a : %r", "Error flashing partition", FlashResult);
+            }
 
-            /* Reset the Flash Result for next flash command */
-            FlashResult = EFI_SUCCESS;
-            goto out;
-        } else if (EFI_ERROR (FlashResult)) {
-            DEBUG ((EFI_D_ERROR, "Couldn't flash image:  %r\n", FlashResult));
-            FastbootFail ("Error flashing partition.");
+            DEBUG ((EFI_D_ERROR, "%a\n", FlashResultStr));
+            FastbootFail (FlashResultStr);
 
             /* Reset the Flash Result for next flash command */
             FlashResult = EFI_SUCCESS;
@@ -1591,7 +1614,7 @@ STATIC VOID FlashCompleteHandler(IN EFI_EVENT Event, IN VOID *Context)
 	if (!IsFlashComplete) {
 		Status = gBS->SetTimer (Event, TimerRelative, 100000);
 		if (EFI_ERROR (Status)) {
-			DEBUG((EFI_D_ERROR, "ERROR: Failed to set timer for waiting flash completely\n", Status));
+      FastbootFail ("Failed to set timer for waiting flash completely");
 			goto Out;
 		}
 		return;
@@ -1621,15 +1644,15 @@ STATIC EFI_STATUS FastbootOkayDelay(VOID)
 		&FlashCompleteEvent
 	);
 	if (EFI_ERROR (Status)) {
-		DEBUG((EFI_D_ERROR, "ERROR: Failed to creat event for waiting flash completely: %r\n", Status));
+        FastbootFail ("Failed to creat event for waiting flash completely");
 		return Status;
 	}
 
 	Status = gBS->SetTimer (FlashCompleteEvent, TimerRelative, 100000);
 	if (EFI_ERROR (Status)) {
-		DEBUG((EFI_D_ERROR, "ERROR: Failed to set timer for waiting flash completely: %r\n", Status));
 		gBS->CloseEvent (FlashCompleteEvent);
 		FlashCompleteEvent = NULL;
+        FastbootFail ("Failed to set timer for waiting flash completely");
 	}
 
 	return Status;
@@ -1771,7 +1794,8 @@ FastbootCmdsInit (VOID)
 	Status = GetFastbootDeviceData().UsbDeviceProtocol->AllocateTransferBuffer(MAX_BUFFER_SIZE * 2, (VOID**) &FastBootBuffer);
 	if (Status != EFI_SUCCESS)
 	{
-		DEBUG((EFI_D_ERROR, "Not enough memory to Allocate Fastboot Buffer"));
+        DEBUG ((EFI_D_ERROR,
+            "Not enough memory to Allocate Fastboot Buffer\n"));
 		return Status;
 	}
 
@@ -1803,7 +1827,7 @@ STATIC VOID CmdReboot(
 	IN UINT32 sz
 	)
 {
-	DEBUG((EFI_D_INFO, "rebooting the device"));
+    DEBUG ((EFI_D_INFO, "rebooting the device\n"));
 	FastbootOkay("");
 
 	RebootDevice(NORMAL_MODE);
@@ -1893,24 +1917,44 @@ STATIC VOID CmdGetVarAll(VOID)
 
 STATIC VOID CmdGetVar(CONST CHAR8 *Arg, VOID *Data, UINT32 Size)
 {
-	FASTBOOT_VAR *Var;
+  FASTBOOT_VAR *Var;
+  Slot CurrentSlot;
+  CHAR16 PartNameUniStr[MAX_GPT_NAME_SIZE];
+  CHAR8 *Token = AsciiStrStr (Arg, "partition-");
+  CHAR8 CurrentSlotAsc[MAX_SLOT_SUFFIX_SZ];
 
-	UpdateGetVarVariable();
-	if (!(AsciiStrCmp("all", Arg)))
-	{
-		CmdGetVarAll();
-		return;
-	}
-	for (Var = Varlist; Var; Var = Var->next)
-	{
-		if (!AsciiStrCmp(Var->name, Arg))
-		{
-			FastbootOkay(Var->value);
-			return;
-		}
-	}
- 
-	FastbootFail("GetVar Variable Not found");
+  UpdateGetVarVariable ();
+
+  if (! (AsciiStrCmp ("all", Arg))) {
+    CmdGetVarAll ();
+    return;
+  }
+
+  if (Token) {
+    Token = AsciiStrStr (Arg, ":");
+    if (Token) {
+      Token = Token + AsciiStrLen (":");
+      AsciiStrToUnicodeStr (Token, PartNameUniStr);
+
+      if (PartitionHasMultiSlot (PartNameUniStr)) {
+        CurrentSlot = GetCurrentSlotSuffix ();
+        UnicodeStrToAsciiStr (CurrentSlot.Suffix, CurrentSlotAsc);
+        AsciiStrnCat ((CHAR8*) Arg,
+                      CurrentSlotAsc,
+                      AsciiStrLen (CurrentSlotAsc));
+      }
+    }
+  }
+
+  for (Var = Varlist; Var; Var = Var->next)
+  {
+    if (!AsciiStrCmp (Var->name, Arg)) {
+      FastbootOkay (Var->value);
+      return;
+    }
+  }
+
+  FastbootFail ("GetVar Variable Not found");
 }
 
 #ifdef ENABLE_BOOT_CMD
@@ -1979,7 +2023,7 @@ STATIC VOID CmdBoot(CONST CHAR8 *Arg, VOID *Data, UINT32 Size)
 	if (Info.MultiSlotBoot) {
 		Status = ClearUnbootable();
 		if (Status != EFI_SUCCESS) {
-			DEBUG((EFI_D_ERROR, "CmdBoot: ClearUnbootable failed"));
+            FastbootFail ("CmdBoot: ClearUnbootable failed");
 			return;
 		}
 	}
@@ -2224,8 +2268,10 @@ AcceptCmdTimerInit(
 			100000);
 	}
 
-	if (EFI_ERROR (Status))
-		FreePool(AcceptCmdInfo);
+    if (EFI_ERROR (Status)) {
+        FreePool (AcceptCmdInfo);
+        AcceptCmdInfo = NULL;
+    }
 
 	return Status;
 }
@@ -2240,7 +2286,8 @@ STATIC VOID AcceptCmdHandler(IN EFI_EVENT Event, IN VOID *Context)
 	}
 
 	AcceptCmd(AcceptCmdInfo->Size, AcceptCmdInfo->Data);
-	FreePool(AcceptCmdInfo);
+    FreePool (AcceptCmdInfo);
+    AcceptCmdInfo = NULL;
 }
 
 STATIC VOID AcceptCmd(
@@ -2277,11 +2324,10 @@ STATIC VOID AcceptCmd(
 
 	/* Check last flash result */
 	if (FlashResult != EFI_SUCCESS) {
-		AsciiSPrint(FlashResultStr, MAX_RSP_SIZE, "%a", "Error flashing partition.");
-		if (FlashResult == EFI_NOT_FOUND)
-			AsciiSPrint(FlashResultStr, MAX_RSP_SIZE, "%a", "No such partition.");
+        AsciiSPrint (FlashResultStr, MAX_RSP_SIZE,
+                "%a : %r", "Error: Last flash failed", FlashResult);
 
-		DEBUG((EFI_D_ERROR, "Error: %a\n", FlashResultStr));
+        DEBUG ((EFI_D_ERROR, "%a\n", FlashResultStr));
 		if (!AsciiStrnCmp(Data, "flash", AsciiStrLen("flash")) ||
 			!AsciiStrnCmp(Data, "download", AsciiStrLen("download"))) {
 			FastbootFail(FlashResultStr);
