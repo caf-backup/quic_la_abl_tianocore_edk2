@@ -140,6 +140,7 @@ STATIC CHAR8 CurrentSlotFB[MAX_SLOT_SUFFIX_SZ];
  * When PopulateMultiSlotInfo called while flashing each Lun
  */
 STATIC BOOLEAN InitialPopulate = FALSE;
+STATIC UINT32 SlotCount;
 extern struct PartitionEntry PtnEntries[MAX_NUM_PARTITIONS];
 
 STATIC ANDROID_FASTBOOT_STATE mState = ExpectCmdState;
@@ -166,11 +167,11 @@ FastbootUnInit()
 	FASTBOOT_VAR *Var;
 	FASTBOOT_VAR *VarPrev = NULL;
 
-	for (Var = Varlist; Var->next; Var = Var->next)
+    for (Var = Varlist; Var && Var->next; Var = Var->next)
 	{
 		if(VarPrev)
 			FreePool(VarPrev);
-	VarPrev = Var;
+        VarPrev = Var;
 	}
 	if(Var)
 	{
@@ -183,7 +184,7 @@ FastbootUnInit()
 /* Publish a variable readable by the built-in getvar command
  * These Variables must not be temporary, shallow copies are used.
  */
-EFI_STATUS
+STATIC VOID
 FastbootPublishVar (
   IN  CONST CHAR8   *Name,
   IN  CONST CHAR8   *Value
@@ -193,12 +194,15 @@ FastbootPublishVar (
 	Var = AllocatePool(sizeof(*Var));
 	if (Var)
 	{
-	Var->next = Varlist;
-	Varlist = Var;
-	Var->name  = Name;
-	Var->value = Value;
+        Var->next = Varlist;
+        Varlist = Var;
+        Var->name  = Name;
+        Var->value = Value;
+    } else {
+        DEBUG ((EFI_D_VERBOSE,
+            "Failed to publish a variable readable(%a): malloc error!\n",
+            Name));
 	}
-	return EFI_SUCCESS;
 }
 
 /* Returns the Remaining amount of bytes expected
@@ -207,17 +211,10 @@ FastbootPublishVar (
 UINTN GetXfrSize(VOID)
 {
 	UINTN BytesLeft = mNumDataBytes - mBytesReceivedSoFar;
-	if (mState == ExpectDataState)
-	{
-		if (BytesLeft > USB_BUFFER_SIZE)
-			return USB_BUFFER_SIZE;
-		else
-			return BytesLeft;
-	}
-	else
-	{
-		return USB_BUFFER_SIZE;
-	}
+	if ((mState == ExpectDataState) && (BytesLeft < USB_BUFFER_SIZE))
+		return BytesLeft;
+
+	return USB_BUFFER_SIZE;
 }
 
 /* Acknowlege to host, INFO, OKAY and FAILURE */
@@ -341,7 +338,7 @@ STATIC VOID FastbootPublishSlotVars() {
 
 	GetPartitionCount(&PartitionCount);
 	/*Scan through partition entries, populate the attributes*/
-	for (i = 0,j = 0;i < PartitionCount; i++) {
+	for (i = 0,j = 0;i < PartitionCount && j < SlotCount; i++) {
 		UnicodeStrToAsciiStr(PtnEntries[i].PartEntry.PartitionName, PartitionNameAscii);
 
 		if(!(AsciiStrnCmp(PartitionNameAscii,"boot",AsciiStrLen("boot")))) {
@@ -385,7 +382,6 @@ void PopulateMultislotMetadata()
 {
 	UINT32 i;
 	UINT32 j;
-	UINT32 SlotCount =0;
 	UINT32 PartitionCount =0;
 	CHAR8 *Suffix = NULL;
 	CHAR8 PartitionNameAscii[MAX_GPT_NAME_SIZE];
@@ -404,8 +400,6 @@ void PopulateMultislotMetadata()
 				}
 			}
 		}
-		i = AsciiStrLen(SlotSuffixArray);
-		SlotSuffixArray[i] = '\0';
 		FastbootPublishVar("slot-suffixes",SlotSuffixArray);
 
 		/*Allocate memory for available number of slots*/
@@ -420,7 +414,7 @@ void PopulateMultislotMetadata()
 		InitialPopulate = TRUE;
 	} else {
 		/*While updating gpt from fastboot dont need to populate all the variables as above*/
-		for (i = 0; i < MAX_SLOTS; i++) {
+		for (i = 0; i < SlotCount; i++) {
 			AsciiStrnCpyS(BootSlotInfo[i].SlotSuccessfulVal, sizeof(BootSlotInfo[i].SlotSuccessfulVal), "no", AsciiStrLen("no"));
 			AsciiStrnCpyS(BootSlotInfo[i].SlotUnbootableVal, sizeof(BootSlotInfo[i].SlotUnbootableVal), "no", AsciiStrLen("no"));
 			AsciiSPrint(BootSlotInfo[i].SlotRetryCountVal,sizeof(BootSlotInfo[j].SlotRetryCountVal),"%d",MAX_RETRY_COUNT);
@@ -546,6 +540,11 @@ HandleSparseImgFlash(
 		return EFI_BAD_BUFFER_SIZE;
 	}
 
+    if (!sparse_header->blk_sz) {
+        FastbootFail ("Invalid block size in the sparse header\n");
+        return EFI_INVALID_PARAMETER;
+    }
+
 	if ((sparse_header->blk_sz) % (BlockIo->Media->BlockSize)) {
 		DEBUG((EFI_D_ERROR, "Unsupported sparse block size %x\n", sparse_header->blk_sz));
 		FastbootFail("Unsupported sparse block size");
@@ -575,6 +574,11 @@ HandleSparseImgFlash(
 
 	/* Read and skip over chunk header */
 	chunk_header = (chunk_header_t *) Image;
+
+	if (CHECK_ADD64((UINT64)Image, sizeof(chunk_header_t))) {
+		DEBUG((EFI_D_ERROR, "Integer overflow while adding Image and chunk header\n"));
+		return EFI_INVALID_PARAMETER;
+	}
 	Image += sizeof(chunk_header_t);
 
 	if (ImageEnd < (UINT64) Image)
@@ -594,12 +598,6 @@ HandleSparseImgFlash(
 		return EFI_INVALID_PARAMETER;
 	}
 
-	if (!sparse_header->blk_sz)
-	{
-		FastbootFail("Invalid block size in the sparse header\n");
-		return EFI_INVALID_PARAMETER;
-	}
-
 	chunk_data_sz = (UINT64)sparse_header->blk_sz * chunk_header->chunk_sz;
 	/* Make sure that chunk size calculate from sparse image does not exceed the
 	 * partition size
@@ -616,6 +614,11 @@ HandleSparseImgFlash(
 			if ((UINT64)chunk_header->total_sz != ((UINT64)sparse_header->chunk_hdr_sz + chunk_data_sz))
 			{
 				FastbootFail("Bogus chunk size for chunk type Raw");
+				return EFI_INVALID_PARAMETER;
+			}
+
+			if (CHECK_ADD64((UINT64)Image, chunk_data_sz)) {
+				DEBUG((EFI_D_ERROR, "Integer overflow while adding Image and chunk data sz\n"));
 				return EFI_INVALID_PARAMETER;
 			}
 
@@ -656,6 +659,11 @@ HandleSparseImgFlash(
 			{
 				FastbootFail("Malloc failed for: CHUNK_TYPE_FILL");
 				return EFI_OUT_OF_RESOURCES;
+			}
+
+			if (CHECK_ADD64((UINT64)Image, sizeof(UINT32))) {
+				DEBUG((EFI_D_ERROR, "Integer overflow while adding Image and uint32\n"));
+				return EFI_INVALID_PARAMETER;
 			}
 
 			if (ImageEnd < (UINT64)Image + sizeof(UINT32))
@@ -718,11 +726,12 @@ HandleSparseImgFlash(
 			}
 
 			total_blocks += chunk_header->chunk_sz;
-			if ((UINT64) Image > MAX_UINT32 - chunk_data_sz)
-			{
-				FastbootFail("Buffer overflow occured");
+
+			if (CHECK_ADD64((UINT64)Image, chunk_data_sz)) {
+				DEBUG((EFI_D_ERROR, "Integer overflow while adding Image and chunk data sz\n"));
 				return EFI_INVALID_PARAMETER;
 			}
+
 			Image += (UINT32) chunk_data_sz;
 			if (ImageEnd <  (UINT64)Image)
 			{
@@ -771,7 +780,7 @@ STATIC VOID FastbootUpdateAttr(CONST CHAR16 *SlotSuffix)
 	Ptn_Entries_Ptr->PartEntry.Attributes = (Ptn_Entries_Ptr->PartEntry.Attributes | PART_ATT_MAX_RETRY_COUNT_VAL)
 		& (~PART_ATT_SUCCESSFUL_VAL);
 	UpdatePartitionAttributes();
-	for (j = 0; j < MAX_SLOTS; j++)
+	for (j = 0; j < SlotCount; j++)
 	{
 		if(!AsciiStrnCmp(BootSlotInfo[j].SlotSuffix, SlotSuffixAscii, AsciiStrLen(SlotSuffixAscii)))
 		{
@@ -816,7 +825,18 @@ HandleRawImgFlash(
 		DEBUG((EFI_D_ERROR, "EFI handle for %a is corrupted\n",PartitionName));
 		return EFI_VOLUME_CORRUPTED;
 	}
-	// Check image will fit on device
+
+	if (CHECK_ADD64(BlockIo->Media->LastBlock, 1)) {
+		DEBUG((EFI_D_ERROR, "Integer overflow while adding LastBlock and 1\n"));
+		return EFI_INVALID_PARAMETER;
+	}
+
+	if ((MAX_UINT64 / (BlockIo->Media->LastBlock + 1))  < (UINT64)BlockIo->Media->BlockSize) {
+		DEBUG((EFI_D_ERROR, "Integer overflow while multiplying LastBlock and BlockSize"));
+		return EFI_BAD_BUFFER_SIZE;
+	}
+
+	/* Check image will fit on device */
 	PartitionSize = (BlockIo->Media->LastBlock + 1) * BlockIo->Media->BlockSize;
 	if (PartitionSize < Size)
 	{
@@ -850,6 +870,12 @@ HandleMetaImgFlash(
 	BOOLEAN PnameTerminated = FALSE;
 	UINT32 j;
 
+  if (Size < sizeof (meta_header_t)) {
+    DEBUG ((EFI_D_ERROR,
+        "Error: The size is smaller than the image header size\n"));
+    return EFI_INVALID_PARAMETER;
+  }
+
 	meta_header = (meta_header_t *) Image;
 	img_header_entry = (img_header_entry_t *) (Image + sizeof(meta_header_t));
 	images = meta_header->img_hdr_sz / sizeof(img_header_entry_t);
@@ -857,6 +883,12 @@ HandleMetaImgFlash(
 		DEBUG((EFI_D_ERROR, "Error: Number of images(%u)in meta_image are greater than expected\n", images));
 		return EFI_INVALID_PARAMETER;
 	}
+
+  if (Size <= (sizeof (meta_header_t) + meta_header->img_hdr_sz)) {
+    DEBUG ((EFI_D_ERROR,
+        "Error: The size is smaller than image header size + entry size\n"));
+    return EFI_INVALID_PARAMETER;
+  }
 
 	if (CHECK_ADD64((UINT64)Image, Size)) {
 		DEBUG((EFI_D_ERROR, "Integer overflow detected in %d, %a\n", __LINE__, __FUNCTION__));
@@ -930,11 +962,9 @@ FastbootErasePartition(
 		return Status;
 	}
 
-	if (!(StrCmp(L"userdata", PartitionName))) {
-		Status = ResetDeviceState();
-		if (Status != EFI_SUCCESS)
-			return Status;
-	}
+    if (!(StrCmp (L"userdata", PartitionName))) {
+        Status = ResetDeviceState ();
+    }
 
 	return Status;
 }
@@ -987,7 +1017,7 @@ VOID BlockIoCallback(IN EFI_EVENT Event,IN VOID *Context)
 }
 
 #ifdef ENABLE_UPDATE_PARTITIONS_CMDS
-BOOLEAN NamePropertyMatches(CHAR8* Name) {
+STATIC BOOLEAN NamePropertyMatches (CHAR8* Name) {
 
 	return (BOOLEAN)(!AsciiStrnCmp(Name, "has-slot", AsciiStrLen("has-slot")) ||
 		!AsciiStrnCmp(Name, "current-slot", AsciiStrLen("current-slot")) ||
@@ -1003,11 +1033,6 @@ STATIC VOID ClearFastbootVarsofAB() {
 	FASTBOOT_VAR *CurrentList = NULL;
 	FASTBOOT_VAR *PrevList = NULL;
 	FASTBOOT_VAR *NextList = NULL;
-
-	if (!Varlist) {
-		DEBUG((EFI_D_VERBOSE, "Varlist is Empty\n"));
-		return;
-	}
 
 	for (CurrentList = Varlist; CurrentList != NULL; CurrentList = NextList) {
 		NextList = CurrentList->next;
@@ -1030,6 +1055,7 @@ VOID IsBootPtnUpdated(INT32 Lun, BOOLEAN *BootPtnUpdated) {
 	EFI_PARTITION_ENTRY *PartEntry;
 	UINT32 j;
 
+    *BootPtnUpdated = FALSE;
 	if (Lun == NO_LUN)
 		Lun = 0;
 
@@ -1092,6 +1118,11 @@ STATIC VOID CmdFlash(
 		FastbootFail("No data to flash");
 		return;
 	}
+
+    if (AsciiStrLen (arg) >= MAX_GPT_NAME_SIZE) {
+        FastbootFail ("Invalid partition name");
+        return;
+    }
 	AsciiStrToUnicodeStr(arg, PartitionName);
 
 	if (TargetBuildVariantUser()) {
@@ -1182,11 +1213,11 @@ STATIC VOID CmdFlash(
 						SetCurrentSlotSuffix(NullSlot);
 						ClearFastbootVarsofAB();
 						FreePool(BootSlotInfo);
+                        BootSlotInfo = NULL;
 						SetMem((VOID*)SlotSuffixArray, SLOT_SUFFIX_ARRAY_SIZE, 0);
 						InitialPopulate = FALSE;
 					}
 				}
-				BootPtnUpdated = FALSE;
 			}
 
 			DEBUG((EFI_D_INFO, "*************** New partition Table Dump Start *******************\n"));
@@ -1245,6 +1276,11 @@ STATIC VOID CmdErase(
 	CHAR16 SlotSuffix[MAX_SLOT_SUFFIX_SZ];
 	BOOLEAN MultiSlotBoot = PartitionHasMultiSlot(L"boot");
 	CHAR16 PartitionName[MAX_GPT_NAME_SIZE];
+
+    if (AsciiStrLen (arg) >= MAX_GPT_NAME_SIZE) {
+        FastbootFail ("Invalid partition name");
+        return;
+    }
 	AsciiStrToUnicodeStr(arg, PartitionName);
 
 	if (TargetBuildVariantUser()) {
@@ -1322,11 +1358,17 @@ VOID CmdSetActive(CONST CHAR8 *Arg, VOID *Data, UINT32 Size)
 	InputSlot = AsciiStrStr(Arg, Delim);
 	if (InputSlot) {
 		InputSlot++;
+        if (AsciiStrLen (InputSlot) >= MAX_SLOT_SUFFIX_SZ) {
+            FastbootFail ("Invalid Slot");
+            return;
+        }
+
 		AsciiStrToUnicodeStr(InputSlot, InputSlotInUnicode);
 		if (StrnCmp(GetCurrentSlotSuffix(), InputSlotInUnicode, StrLen(InputSlotInUnicode)))
 			SwitchSlot = TRUE;
 
-		if((InputSlot[MAX_SLOT_SUFFIX_SZ-1] != 0) || !AsciiStrStr(SlotSuffixArray, InputSlot)) {
+        if ((InputSlot[MAX_SLOT_SUFFIX_SZ-1] != '\0') ||
+            !AsciiStrStr (SlotSuffixArray, InputSlot)) {
 			DEBUG((EFI_D_ERROR,"%a Invalid InputSlot Suffix\n",InputSlot));
 			FastbootFail("Invalid Slot Suffix");
 			return;
@@ -1388,7 +1430,9 @@ VOID CmdSetActive(CONST CHAR8 *Arg, VOID *Data, UINT32 Size)
 
 STATIC VOID AcceptData (IN UINT64 Size, IN  VOID  *Data)
 {
-	UINT64 RemainingBytes = mNumDataBytes - mBytesReceivedSoFar;
+  UINT64 RemainingBytes = mNumDataBytes - mBytesReceivedSoFar;
+  UINT32 PageSize = 0;
+  UINT32 RoundSize = 0;
 
 	/* Protocol doesn't say anything about sending extra data so just ignore it.*/
 	if (Size > RemainingBytes)
@@ -1405,6 +1449,15 @@ STATIC VOID AcceptData (IN UINT64 Size, IN  VOID  *Data)
 	{
 		/* Download Finished */
 		DEBUG((EFI_D_INFO, "Download Finised\n"));
+    /* Zero initialized the surplus data buffer. It's risky to access the data
+     * buffer which it's not zero initialized, its content might leak
+     */
+    GetPageSize (&PageSize);
+    RoundSize = ROUND_TO_PAGE (mNumDataBytes, PageSize - 1);
+    if (RoundSize < MAX_DOWNLOAD_SIZE) {
+      gBS->SetMem ((VOID *)(Data + mNumDataBytes),
+                   RoundSize - mNumDataBytes, 0);
+    }
 		FastbootOkay("");
 		mState = ExpectCmdState;
 	}
@@ -2018,11 +2071,14 @@ STATIC EFI_STATUS ReadAllowUnlockValue(UINT32 *IsAllowUnlock)
 			BlockIo->Media->LastBlock,
 			BlockIo->Media->BlockSize,
 			Buffer);
-	if (Status != EFI_SUCCESS)
-		return Status;
+    if (Status != EFI_SUCCESS) {
+        goto Exit;
+    }
 
 	/* IsAllowUnlock value stored at the LSB of last byte*/
 	*IsAllowUnlock = Buffer[BlockIo->Media->BlockSize - 1] & 0x01;
+
+Exit:
 	FreePool(Buffer);
 	return Status;
 }
