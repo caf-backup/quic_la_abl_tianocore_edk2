@@ -1064,6 +1064,11 @@ STATIC VOID CmdFlash(
 		FastbootFail("No data to flash");
 		return;
 	}
+
+    if (AsciiStrLen (arg) >= MAX_GPT_NAME_SIZE) {
+        FastbootFail ("Invalid partition name");
+        return;
+    }
 	AsciiStrToUnicodeStr(arg, PartitionName);
 
 	if (TargetBuildVariantUser()) {
@@ -1209,6 +1214,11 @@ STATIC VOID CmdErase(
 	CHAR16 SlotSuffix[MAX_SLOT_SUFFIX_SZ];
 	BOOLEAN MultiSlotBoot = PartitionHasMultiSlot(L"boot");
 	CHAR16 PartitionName[MAX_GPT_NAME_SIZE];
+
+    if (AsciiStrLen (arg) >= MAX_GPT_NAME_SIZE) {
+        FastbootFail ("Invalid partition name");
+        return;
+    }
 	AsciiStrToUnicodeStr(arg, PartitionName);
 
 	if (TargetBuildVariantUser()) {
@@ -1286,6 +1296,11 @@ VOID CmdSetActive(CONST CHAR8 *Arg, VOID *Data, UINT32 Size)
 	InputSlot = AsciiStrStr(Arg, Delim);
 	if (InputSlot) {
 		InputSlot++;
+        if (AsciiStrLen (InputSlot) >= MAX_SLOT_SUFFIX_SZ) {
+            FastbootFail ("Invalid Slot");
+            return;
+        }
+
 		AsciiStrToUnicodeStr(InputSlot, InputSlotInUnicode);
 		if (StrnCmp(GetCurrentSlotSuffix(), InputSlotInUnicode, StrLen(InputSlotInUnicode)))
 			SwitchSlot = TRUE;
