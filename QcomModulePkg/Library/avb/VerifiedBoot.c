@@ -36,7 +36,6 @@
 STATIC CONST CHAR8 *VerityMode = " androidboot.veritymode=";
 STATIC CONST CHAR8 *VerifiedState = " androidboot.verifiedbootstate=";
 STATIC CONST CHAR8 *KeymasterLoadState = " androidboot.keymaster=1";
-STATIC CONST CHAR8 *DmVerityCmd = " root=/dev/dm-0 dm=\"system none ro,0 1 android-verity";
 STATIC CONST CHAR8 *Space = " ";
 STATIC struct verified_boot_verity_mode VbVm[] =
 {
@@ -129,6 +128,14 @@ STATIC EFI_STATUS VBCommonInit(BootInfo *Info)
 		DEBUG((EFI_D_ERROR, "Unable to locate VB protocol: %r\n", Status));
 		return Status;
 	}
+
+    return Status;
+}
+
+STATIC EFI_STATUS VBAllocateCmdLine (BootInfo *Info)
+{
+    EFI_STATUS Status = EFI_SUCCESS;
+
 	/* allocate VB command line*/
 	Info->VBCmdLine = AllocatePool(DTB_PAD_SIZE);
 	if (Info->VBCmdLine == NULL) {
@@ -165,6 +172,28 @@ STATIC EFI_STATUS LoadImageNoAuth(BootInfo *Info)
 	return Status;
 }
 
+STATIC EFI_STATUS LoadImageNoAuthWrapper (BootInfo *Info)
+{
+    EFI_STATUS Status = EFI_SUCCESS;
+    CHAR8 *SystemPath = NULL;
+    UINT32 SystemPathLen = 0;
+
+    GUARD (VBAllocateCmdLine (Info));
+    GUARD (LoadImageNoAuth (Info));
+
+    if (!IsBootDevImage ()) {
+        SystemPathLen = GetSystemPath (&SystemPath);
+        if (SystemPathLen == 0 ||
+                SystemPath == NULL) {
+            DEBUG ((EFI_D_ERROR, "GetSystemPath failed!\n"));
+            return EFI_LOAD_ERROR;
+        }
+        GUARD (AppendVBCmdLine (Info, SystemPath));
+    }
+
+    return Status;
+}
+
 STATIC EFI_STATUS LoadImageAndAuthVB1(BootInfo *Info)
 {
 	EFI_STATUS Status = EFI_SUCCESS;
@@ -175,6 +204,7 @@ STATIC EFI_STATUS LoadImageAndAuthVB1(BootInfo *Info)
 	UINT32 SystemPathLen = 0;
 
 	GUARD(VBCommonInit(Info));
+    GUARD (VBAllocateCmdLine (Info));
 	GUARD(LoadImageNoAuth(Info));
 
 	device_info_vb_t DevInfo_vb;
@@ -212,16 +242,18 @@ STATIC EFI_STATUS LoadImageAndAuthVB1(BootInfo *Info)
 		return Status;
 	}
 
-	SystemPathLen = GetSystemPath(&SystemPath);
-	if (SystemPathLen == 0 || SystemPath == NULL) {
-		DEBUG((EFI_D_ERROR, "GetSystemPath failed!\n"));
-		return EFI_LOAD_ERROR;
-	}
+    if (!IsBootDevImage ()) {
+        SystemPathLen = GetSystemPath (&SystemPath);
+        if (SystemPathLen == 0 ||
+                SystemPath == NULL) {
+            DEBUG ((EFI_D_ERROR, "GetSystemPath failed!\n"));
+            return EFI_LOAD_ERROR;
+        }
+        GUARD (AppendVBCmdLine (Info, SystemPath));
+    }
 	GUARD(AppendVBCommonCmdLine(Info));
 	GUARD(AppendVBCmdLine(Info, VerityMode));
 	GUARD(AppendVBCmdLine(Info, VbVm[IsEnforcing()].name));
-	GUARD(AppendVBCmdLine(Info, DmVerityCmd));
-	GUARD(AppendVBCmdLine(Info, SystemPath));
 
 	Info->VBData = NULL;
 	return Status;
@@ -275,6 +307,7 @@ STATIC EFI_STATUS LoadImageAndAuthVB2(BootInfo *Info)
 
 	Info->BootState = RED;
 	GUARD(VBCommonInit(Info));
+    GUARD (VBAllocateCmdLine (Info));
 
 	UserData = avb_calloc(sizeof(AvbOpsUserData));
 	if (UserData == NULL) {
@@ -584,7 +617,7 @@ EFI_STATUS LoadImageAndAuth(BootInfo *Info)
 	/* Load and Authenticate */
 	switch (AVBVersion) {
 	case NO_AVB:
-		return LoadImageNoAuth(Info);
+            return LoadImageNoAuthWrapper (Info);
 		break;
 	case AVB_1:
 		Status = LoadImageAndAuthVB1(Info);
