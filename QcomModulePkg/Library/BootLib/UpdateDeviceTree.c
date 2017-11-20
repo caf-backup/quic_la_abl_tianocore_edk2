@@ -434,9 +434,11 @@ EFI_STATUS UpdateDeviceTree(VOID *fdt, CONST CHAR8 *cmdline, VOID *ramdisk, UINT
 	}
 
 	/* Update fstab node */
-	DEBUG((EFI_D_VERBOSE, "Start DT fstab node update: %u ms\n", GetTimerCountms()));
+    DEBUG ((EFI_D_VERBOSE, "Start DT fstab node update: %lu ms\n",
+        GetTimerCountms ()));
 	UpdateFstabNode(fdt);
-	DEBUG((EFI_D_VERBOSE, "End DT fstab node update: %u ms\n", GetTimerCountms()));
+    DEBUG ((EFI_D_VERBOSE, "End DT fstab node update: %lu ms\n",
+        GetTimerCountms ()));
 
 	fdt_pack(fdt);
 
