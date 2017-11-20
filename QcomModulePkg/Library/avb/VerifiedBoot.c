@@ -36,6 +36,7 @@
 STATIC CONST CHAR8 *VerityMode = " androidboot.veritymode=";
 STATIC CONST CHAR8 *VerifiedState = " androidboot.verifiedbootstate=";
 STATIC CONST CHAR8 *KeymasterLoadState = " androidboot.keymaster=1";
+STATIC CONST CHAR8 *DmVerityCmd = " root=/dev/dm-0 dm=\"system none ro,0 1 android-verity";
 STATIC CONST CHAR8 *Space = " ";
 STATIC struct verified_boot_verity_mode VbVm[] =
 {
@@ -249,6 +250,7 @@ STATIC EFI_STATUS LoadImageAndAuthVB1(BootInfo *Info)
             DEBUG ((EFI_D_ERROR, "GetSystemPath failed!\n"));
             return EFI_LOAD_ERROR;
         }
+        GUARD (AppendVBCmdLine (Info, DmVerityCmd));
         GUARD (AppendVBCmdLine (Info, SystemPath));
     }
 	GUARD(AppendVBCommonCmdLine(Info));
