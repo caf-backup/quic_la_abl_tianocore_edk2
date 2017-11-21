@@ -190,8 +190,9 @@ UINT32 fdt_check_header_ext(VOID *fdt)
 	UINT32 sum;
 	fdt_start = (UINT64) fdt;
 
-	if(fdt_start + fdt_totalsize(fdt) < fdt_start)
-		return FDT_ERR_BADOFFSET;
+    if (fdt_start + fdt_totalsize (fdt) <= fdt_start) {
+        return FDT_ERR_BADOFFSET;
+    }
 	fdt_end = fdt_start + fdt_totalsize(fdt);
 
 	if (!(sum = ADD_OF(fdt_off_dt_struct(fdt), fdt_size_dt_struct(fdt)))) {
@@ -433,9 +434,11 @@ EFI_STATUS UpdateDeviceTree(VOID *fdt, CONST CHAR8 *cmdline, VOID *ramdisk, UINT
 	}
 
 	/* Update fstab node */
-	DEBUG((EFI_D_VERBOSE, "Start DT fstab node update: %u ms\n", GetTimerCountms()));
+    DEBUG ((EFI_D_VERBOSE, "Start DT fstab node update: %lu ms\n",
+        GetTimerCountms ()));
 	UpdateFstabNode(fdt);
-	DEBUG((EFI_D_VERBOSE, "End DT fstab node update: %u ms\n", GetTimerCountms()));
+    DEBUG ((EFI_D_VERBOSE, "End DT fstab node update: %lu ms\n",
+        GetTimerCountms ()));
 
 	fdt_pack(fdt);
 
