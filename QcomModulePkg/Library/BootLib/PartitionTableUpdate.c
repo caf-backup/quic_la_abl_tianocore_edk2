@@ -241,10 +241,11 @@ VOID UpdatePartitionAttributes()
 			SkipUpdation = TRUE;
 			Status = BlockIo->ReadBlocks (BlockIo, BlockIo->Media->MediaId, Offset, MaxGptPartEntrySzBytes, GptHdr);
 
-			if(EFI_ERROR(Status)) {
-				DEBUG ((EFI_D_ERROR, "Unable to read the media \n"));
-				return;
-			}
+        if (EFI_ERROR (Status)) {
+                DEBUG ((EFI_D_ERROR, "Unable to read the media \n"));
+                goto Exit;
+        }
+
 			if(Iter == 0x1) {
 				/* This is the back up GPT */
 				Ptn_Entries = GptHdr;
@@ -292,13 +293,13 @@ VOID UpdatePartitionAttributes()
             if (((UINT64)(MaxPtnCount) * PtnEntrySz) >
                 MAX_PARTITION_ENTRIES_SZ ) {
 				DEBUG((EFI_D_ERROR, "Invalid GPT header fields MaxPtnCount = %x, PtnEntrySz = %x\n", MaxPtnCount, PtnEntrySz));
-				return;
+                goto Exit;
 			}
 
 			Status = gBS->CalculateCrc32(Ptn_Entries, ((MaxPtnCount) * (PtnEntrySz)),&CrcVal);
 			if (Status != EFI_SUCCESS) {
 				DEBUG((EFI_D_ERROR, "Error Calculating CRC32 on the Gpt header: %x\n", Status));
-				return;
+                goto Exit;
 			}
 
 			PUT_LONG(&GptHdr[PARTITION_CRC_OFFSET], CrcVal);
@@ -310,7 +311,7 @@ VOID UpdatePartitionAttributes()
 			Status  = gBS->CalculateCrc32(GptHdr, HdrSz, &CrcVal);
 			if (Status != EFI_SUCCESS) {
 				DEBUG((EFI_D_ERROR, "Error Calculating CRC32 on the Gpt header: %x\n", Status));
-				return;
+                goto Exit;
 			}
 
 			PUT_LONG(&GptHdr[HEADER_CRC_OFFSET], CrcVal);
@@ -324,11 +325,18 @@ VOID UpdatePartitionAttributes()
 
 			if (EFI_ERROR(Status)) {
 				DEBUG((EFI_D_ERROR, "Error writing primary GPT header: %r\n", Status));
-				return;
-			}
-		}
-		FreePool(GptHdrPtr);
-	}
+                goto Exit;
+            }
+        }
+        FreePool (GptHdrPtr);
+        GptHdrPtr = NULL;
+    }
+
+Exit:
+    if (GptHdrPtr) {
+        FreePool (GptHdrPtr);
+        GptHdrPtr = NULL;
+    }
 }
 
 VOID MarkPtnActive(CHAR16 *ActiveSlot)
@@ -1179,6 +1187,7 @@ EFI_STATUS SetActiveSlot(Slot *NewSlot)
 		DEBUG((EFI_D_INFO, "Alternate slot %s, New slot %s\n", AlternateSlot->Suffix,
                        NewSlot->Suffix));
 		SwitchPtnSlots(NewSlot->Suffix);
+            MarkPtnActive (NewSlot->Suffix);
 	}
 
 	UpdatePartitionAttributes();
