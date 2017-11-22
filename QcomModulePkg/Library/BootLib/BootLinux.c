@@ -182,7 +182,8 @@ EFI_STATUS BootLinux (VOID *ImageBuffer, UINT32 ImageSize, CHAR16 *PartitionName
 			return EFI_BAD_BUFFER_SIZE;
 		}
 
-		DEBUG((EFI_D_INFO, "Decompressing kernel image start: %u ms\n", GetTimerCountms()));
+  DEBUG ((EFI_D_INFO, "Decompressing kernel image start: %lu ms\n",
+          GetTimerCountms ()));
 		Status = decompress(
 				(unsigned char *)(ImageBuffer + PageSize), //Read blob using BlockIo
 				KernelSize,                                 //Blob size
@@ -196,24 +197,37 @@ EFI_STATUS BootLinux (VOID *ImageBuffer, UINT32 ImageSize, CHAR16 *PartitionName
 			return Status;
 		}
 
-		DEBUG((EFI_D_INFO, "Decompressing kernel image done: %u ms\n", GetTimerCountms()));
+        if (out_len <= sizeof (struct kernel64_hdr*)) {
+            DEBUG ((EFI_D_ERROR,
+              "Decompress kernel size is smaller than image header size\n"));
+            return RETURN_OUT_OF_RESOURCES;
+        }
+
+        DEBUG ((EFI_D_INFO, "Decompressing kernel image done: %lu ms\n",
+            GetTimerCountms ()));
 		Kptr = (struct kernel64_hdr*)KernelLoadAddr;
+
 	} else {
-		if (CHECK_ADD64((UINT64)ImageBuffer, PageSize)) {
-			DEBUG((EFI_D_ERROR, "Integer Overflow: in Kernel header fields addition\n"));
-			return EFI_BAD_BUFFER_SIZE;
-		}
-		Kptr = ImageBuffer + PageSize;
-	}
-	if (Kptr->magic_64 != KERNEL64_HDR_MAGIC) {
-		BootingWith32BitKernel = TRUE;
-		KernelLoadAddr = (EFI_PHYSICAL_ADDRESS)(BaseMemory | PcdGet32(KernelLoadAddress32));
-		if (CHECK_ADD64((UINT64)Kptr, DTB_OFFSET_LOCATION_IN_ARCH32_KERNEL_HDR)) {
-			DEBUG((EFI_D_ERROR, "Integer Overflow: in DTB offset addition\n"));
-			return EFI_BAD_BUFFER_SIZE;
-		}
-		CopyMem((VOID*)&DtbOffset, ((VOID*)Kptr + DTB_OFFSET_LOCATION_IN_ARCH32_KERNEL_HDR), sizeof(DtbOffset));
-	}
+        Kptr = ImageBuffer + PageSize;
+
+        /* Uncompress kernel - zImage*/
+        if (Kptr->magic_64 != KERNEL64_HDR_MAGIC) {
+            KernelLoadAddr = (EFI_PHYSICAL_ADDRESS)(BaseMemory | \
+                            PcdGet32 (KernelLoadAddress32));
+            if (KernelSize <= DTB_OFFSET_LOCATION_IN_ARCH32_KERNEL_HDR) {
+                DEBUG ((EFI_D_ERROR,
+                    "Dtb offset location goes beyond the kernel size\n"));
+                return EFI_BAD_BUFFER_SIZE;
+            }
+            gBS->CopyMem ((VOID*)&DtbOffset,
+                    ((VOID*)Kptr + DTB_OFFSET_LOCATION_IN_ARCH32_KERNEL_HDR),
+                    sizeof (DtbOffset));
+        }
+    }
+
+    if (Kptr->magic_64 != KERNEL64_HDR_MAGIC) {
+        BootingWith32BitKernel = TRUE;
+    }
 
 	/*Finds out the location of device tree image and ramdisk image within the boot image
 	 *Kernel, Ramdisk and Second sizes all rounded to page
@@ -280,6 +294,19 @@ EFI_STATUS BootLinux (VOID *ImageBuffer, UINT32 ImageSize, CHAR16 *PartitionName
 		return EFI_NOT_FOUND;
 	}
 
+    RamdiskEndAddr = (EFI_PHYSICAL_ADDRESS)(BaseMemory | \
+                    PcdGet32 (RamdiskEndAddress));
+    if (RamdiskEndAddr - RamdiskLoadAddr < RamdiskSize) {
+        DEBUG ((EFI_D_ERROR, "Error: Ramdisk size is over the limit\n"));
+        return EFI_BAD_BUFFER_SIZE;
+    }
+
+    if (CHECK_ADD64 ((UINT64)ImageBuffer, RamdiskOffset)) {
+        DEBUG ((EFI_D_ERROR, "Integer Oveflow: ImageBuffer=%u, " \
+            "RamdiskOffset=%u\n", ImageBuffer, RamdiskOffset));
+            return EFI_BAD_BUFFER_SIZE;
+    }
+
 	Status = UpdateDeviceTree((VOID*)DeviceTreeLoadAddr , FinalCmdLine, (VOID *)RamdiskLoadAddr, RamdiskSize);
 	if (Status != EFI_SUCCESS)
 	{
@@ -287,18 +314,6 @@ EFI_STATUS BootLinux (VOID *ImageBuffer, UINT32 ImageSize, CHAR16 *PartitionName
 		return Status;
 	}
 
-	RamdiskEndAddr = (EFI_PHYSICAL_ADDRESS)(BaseMemory | PcdGet32(RamdiskEndAddress));
-	if (RamdiskEndAddr - RamdiskLoadAddr < RamdiskSize){
-		DEBUG((EFI_D_ERROR, "Error: Ramdisk size is over the limit\n"));
-		return EFI_BAD_BUFFER_SIZE;
-	}
-
-	if (CHECK_ADD64((UINT64)ImageBuffer, RamdiskOffset))
-	{
-		DEBUG((EFI_D_ERROR, "Integer Oveflow: ImageBuffer=%u, RamdiskOffset=%u\n",
-			ImageBuffer, RamdiskOffset));
-		return EFI_BAD_BUFFER_SIZE;
-	}
 	CopyMem ((CHAR8*)RamdiskLoadAddr, ImageBuffer + RamdiskOffset, RamdiskSize);
 
 	if (BootingWith32BitKernel) {
@@ -366,7 +381,8 @@ EFI_STATUS BootLinux (VOID *ImageBuffer, UINT32 ImageSize, CHAR16 *PartitionName
 		}
 	}
 
-	DEBUG((EFI_D_INFO, "\nShutting Down UEFI Boot Services: %u ms\n", GetTimerCountms()));
+    DEBUG ((EFI_D_INFO, "\nShutting Down UEFI Boot Services: %lu ms\n",
+        GetTimerCountms ()));
 	/*Shut down UEFI boot services*/
 	Status = ShutdownUefiBootServices ();
 	if(EFI_ERROR(Status)) {
@@ -529,6 +545,12 @@ EFI_STATUS LoadImage (CHAR16 *Pname, VOID **ImageBuffer, UINT32 *ImageSizeActual
 	// Setup page size information for nv storage
 	GetPageSize(&ImageHdrSize);
 
+    if (!ADD_OF (ImageHdrSize, ALIGNMENT_MASK_4KB - 1)) {
+        DEBUG ((EFI_D_ERROR,
+            "Integer Oveflow: in ALIGNMENT_MASK_4KB addition\n"));
+        return EFI_BAD_BUFFER_SIZE;
+    }
+
 	ImageHdrBuffer = AllocatePages(ALIGN_PAGES(ImageHdrSize, ALIGNMENT_MASK_4KB));
 	if (!ImageHdrBuffer)
 	{
@@ -558,6 +580,12 @@ EFI_STATUS LoadImage (CHAR16 *Pname, VOID **ImageBuffer, UINT32 *ImageSizeActual
 		DEBUG((EFI_D_ERROR, "Integer Oveflow: ImgSize=%u\n", tempImgSize));
 		return EFI_BAD_BUFFER_SIZE;
 	}
+
+    if (!ADD_OF (ImageSize, ALIGNMENT_MASK_4KB - 1)) {
+        DEBUG ((EFI_D_ERROR,
+            "Integer Oveflow: in ALIGNMENT_MASK_4KB addition\n"));
+        return EFI_BAD_BUFFER_SIZE;
+    }
 
 	*ImageBuffer = AllocatePages(ALIGN_PAGES(ImageSize, ALIGNMENT_MASK_4KB));
 	if (!*ImageBuffer)
