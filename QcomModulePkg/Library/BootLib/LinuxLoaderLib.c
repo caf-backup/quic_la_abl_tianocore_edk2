@@ -348,7 +348,8 @@ EFI_STATUS LoadImageFromPartition(VOID *ImageBuffer, UINT32 *ImageSize, CHAR16 *
 
 	if(Status == EFI_SUCCESS)
 	{
-		DEBUG ((DEBUG_INFO, "Loading Image Done : %u ms\n",GetTimerCountms()));
+        DEBUG ((DEBUG_INFO, "Loading Image Done : %lu ms\n",
+            GetTimerCountms ()));
 		DEBUG ((DEBUG_INFO, "Total Image Read size : %d Bytes\n", *ImageSize));
 	}
 
@@ -452,11 +453,10 @@ LaunchApp (
   return Status;
 }
 
-UINT32
-GetTimerCountms (VOID)
+UINT64 GetTimerCountms (VOID)
 {
 	UINT64 TempFreq, StartVal, EndVal;
-	UINT32 TimerCount, Ms;
+    UINT64 TimerCount, Ms;
 
 	if (!TimerFreq && !FactormS)
 	{
@@ -472,7 +472,7 @@ GetTimerCountms (VOID)
 		FactormS  = TimerFreq / 1000;
 	}
 
-	TimerCount = (UINT32) GetPerformanceCounter();
+    TimerCount = GetPerformanceCounter ();
 	Ms = TimerCount / FactormS;
 	return Ms;
 }
@@ -568,7 +568,7 @@ BOOLEAN IsSecureBootEnabled()
 	if (Status != EFI_SUCCESS)
 	{
 		DEBUG((EFI_D_ERROR, "Unable to locate VB protocol: %r\n", Status));
-		return Status;
+        return FALSE;
 	}
 
 	Status = VbIntf->VBIsDeviceSecure(VbIntf, &IsSecure);
