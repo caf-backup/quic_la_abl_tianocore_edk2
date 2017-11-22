@@ -41,7 +41,7 @@
 
 #include <Protocol/EFIVerifiedBoot.h>
 
-STATIC UINT32 StartTimer;
+STATIC UINT64 StartTimer;
 STATIC EFI_EVENT CallbackKeyDetection;
 
 typedef VOID (*Keys_Action_Func)(OPTION_MENU_INFO *gMsgInfo);
@@ -351,7 +351,7 @@ STATIC BOOLEAN IsKeyPressed(UINT32 KeyType)
  **/
 VOID EFIAPI MenuKeysHandler(IN EFI_EVENT Event, IN VOID *Context)
 {
-	UINT32 TimerDiff;
+	UINT64 TimerDiff;
 	OPTION_MENU_INFO  *MenuInfo = Context;
 
 	if (MenuInfo->Info.TimeoutTime > 0) {
