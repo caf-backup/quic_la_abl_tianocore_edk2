@@ -178,6 +178,11 @@ EFI_STATUS BackUpBootLogoBltBuffer()
 		Width * sizeof (EFI_GRAPHICS_OUTPUT_BLT_PIXEL)
 		);
 
+    if (Status != EFI_SUCCESS) {
+        FreePool (LogoBlt);
+        LogoBlt = NULL;
+    }
+
 	return Status;
 }
 
@@ -227,10 +232,11 @@ VOID RestoreBootLogoBitBuffer (VOID)
 
 VOID FreeBootLogoBltBuffer()
 {
-	if(LogoBlt)
-		FreePool (LogoBlt);
+    if (LogoBlt) {
+        FreePool (LogoBlt);
+        LogoBlt = NULL;
+    }
 }
-
 
 /* Get Max font count per row */
 STATIC UINT32 GetMaxFontCount()
@@ -463,8 +469,8 @@ EFI_STATUS DrawMenu(MENU_MSG_INFO *TargetMenu, UINT32 *pHeight)
 
 Exit:
 	if (RowInfoArray) {
-		FreePool(RowInfoArray);
-		BltBuffer = NULL;
+        FreePool (RowInfoArray);
+        RowInfoArray = NULL;
 	}
 
 	if (BltBuffer) {
