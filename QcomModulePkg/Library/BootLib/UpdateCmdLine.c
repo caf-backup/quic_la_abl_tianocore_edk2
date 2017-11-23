@@ -250,26 +250,30 @@ STATIC UINT32 GetSystemPath(CHAR8 **SysPath)
 	CHAR8 LunCharMapping[] = { 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'};
 	CHAR8 RootDevStr[BOOT_DEV_NAME_SIZE_MAX];
 
-	*SysPath = AllocatePool(sizeof(char) * MAX_PATH_SIZE);
+    *SysPath = AllocateZeroPool (sizeof (CHAR8) * MAX_PATH_SIZE);
 	if (!*SysPath) {
 		DEBUG((EFI_D_ERROR, "Failed to allocated memory for System path query\n"));
 		return 0;
 	}
 
-	StrnCpyS(PartitionName, StrLen(L"system") + 1, L"system", StrLen(L"system"));
-	StrnCatS(PartitionName, MAX_GPT_NAME_SIZE - 1, CurSlotSuffix, StrLen(CurSlotSuffix));
+    StrnCpyS (PartitionName, MAX_GPT_NAME_SIZE, (CONST CHAR16 *)L"system",
+            StrLen ((CONST CHAR16 *)L"system"));
+    StrnCatS (PartitionName, MAX_GPT_NAME_SIZE, CurSlotSuffix,
+            StrLen (CurSlotSuffix));
 
 	Index = GetPartitionIndex(PartitionName);
 	if (Index == INVALID_PTN || Index >= MAX_NUM_PARTITIONS) {
 		DEBUG((EFI_D_ERROR, "System partition does not exit\n"));
-		FreePool(*SysPath);
+        FreePool (*SysPath);
+        *SysPath = NULL;
 		return 0;
 	}
 
 	Lun = GetPartitionLunFromIndex(Index);
 	GetRootDeviceType(RootDevStr, BOOT_DEV_NAME_SIZE_MAX);
 	if (!AsciiStrCmp("Unknown", RootDevStr)) {
-		FreePool(*SysPath);
+        FreePool (*SysPath);
+        *SysPath = NULL;
 		return 0;
 	}
 
@@ -359,7 +363,8 @@ EFI_STATUS UpdateCmdLine(CONST CHAR8 * CmdLine,
 	Status = GetBootDevice(BootDevBuf, BOOT_DEV_MAX_LEN);
 	if (Status != EFI_SUCCESS) {
 		DEBUG((EFI_D_ERROR, "Failed to get Boot Device: %r\n", Status));
-		FreePool(BootDevBuf);
+        FreePool (BootDevBuf);
+        BootDevBuf = NULL;
 		return Status;
 	}
 
@@ -390,6 +395,8 @@ EFI_STATUS UpdateCmdLine(CONST CHAR8 * CmdLine,
 
 	if (NULL == BoardPlatformChipBaseBand()) {
 		DEBUG((EFI_D_ERROR, "Invalid BaseBand String\n"));
+        FreePool (BootDevBuf);
+        BootDevBuf = NULL;
 		return EFI_NOT_FOUND;
 	}
 
@@ -469,6 +476,7 @@ EFI_STATUS UpdateCmdLine(CONST CHAR8 * CmdLine,
 		HaveCmdLine = 1;
 		STR_COPY(Dst,Src);
 		FreePool(BootDevBuf);
+        BootDevBuf = NULL;
 
 		Src = UsbSerialCmdLine;
 		if (HaveCmdLine) --Dst;
