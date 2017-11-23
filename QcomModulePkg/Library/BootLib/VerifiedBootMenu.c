@@ -359,9 +359,8 @@ EFI_STATUS VerifiedBootMenuShowScreen(OPTION_MENU_INFO *OptionMenuInfo, UINT32 T
 			GetDisplayOutPut(mCommonMsgInfo[Type].Fingerprint.Msg,
 					 MAX_MSG_SIZE, DisplayStr,
 					 DisplayStrLen);
-			if (DisplayStr) {
-				FreePool(DisplayStr);
-			}
+            FreePool (DisplayStr);
+            DisplayStr = NULL;
 		}else {
 			AsciiSPrint(mCommonMsgInfo[Type].Fingerprint.Msg,
 				MAX_MSG_SIZE, "ID: %a\n", "unsupported");
