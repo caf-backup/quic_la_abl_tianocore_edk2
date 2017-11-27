@@ -85,17 +85,6 @@ BOOLEAN VerifiedBootEnbled()
 	return (GetAVBVersion() > NO_AVB);
 }
 
-STATIC CHAR8 DtboImageName[] = "dtbo";
-STATIC EFI_STATUS TempLoadDtboImage(AvbOps *Ops, VOID **DtboImage, UINTN *DtboSize)
-{
-	/* Hardcoded reading from dtbo_a partition
-	   And reading 8192KB size as mentioned in partition.xml */
-	*DtboSize = 8192 * 1024;
-	*DtboImage = AllocatePool(*DtboSize);
-	Ops->read_from_partition(Ops, "dtbo_a", 0, *DtboSize, *DtboImage, DtboSize);
-	return EFI_SUCCESS;
-}
-
 STATIC EFI_STATUS AppendVBCmdLine(BootInfo *Info, CONST CHAR8 *Src)
 {
 	EFI_STATUS Status = EFI_SUCCESS;
@@ -140,6 +129,14 @@ STATIC EFI_STATUS VBCommonInit(BootInfo *Info)
 		DEBUG((EFI_D_ERROR, "Unable to locate VB protocol: %r\n", Status));
 		return Status;
 	}
+
+    return Status;
+}
+
+STATIC EFI_STATUS VBAllocateCmdLine (BootInfo *Info)
+{
+    EFI_STATUS Status = EFI_SUCCESS;
+
 	/* allocate VB command line*/
 	Info->VBCmdLine = AllocatePool(DTB_PAD_SIZE);
 	if (Info->VBCmdLine == NULL) {
@@ -176,6 +173,28 @@ STATIC EFI_STATUS LoadImageNoAuth(BootInfo *Info)
 	return Status;
 }
 
+STATIC EFI_STATUS LoadImageNoAuthWrapper (BootInfo *Info)
+{
+    EFI_STATUS Status = EFI_SUCCESS;
+    CHAR8 *SystemPath = NULL;
+    UINT32 SystemPathLen = 0;
+
+    GUARD (VBAllocateCmdLine (Info));
+    GUARD (LoadImageNoAuth (Info));
+
+    if (!IsBootDevImage ()) {
+        SystemPathLen = GetSystemPath (&SystemPath);
+        if (SystemPathLen == 0 ||
+                SystemPath == NULL) {
+            DEBUG ((EFI_D_ERROR, "GetSystemPath failed!\n"));
+            return EFI_LOAD_ERROR;
+        }
+        GUARD (AppendVBCmdLine (Info, SystemPath));
+    }
+
+    return Status;
+}
+
 STATIC EFI_STATUS LoadImageAndAuthVB1(BootInfo *Info)
 {
 	EFI_STATUS Status = EFI_SUCCESS;
@@ -186,6 +205,7 @@ STATIC EFI_STATUS LoadImageAndAuthVB1(BootInfo *Info)
 	UINT32 SystemPathLen = 0;
 
 	GUARD(VBCommonInit(Info));
+    GUARD (VBAllocateCmdLine (Info));
 	GUARD(LoadImageNoAuth(Info));
 
 	device_info_vb_t DevInfo_vb;
@@ -223,16 +243,19 @@ STATIC EFI_STATUS LoadImageAndAuthVB1(BootInfo *Info)
 		return Status;
 	}
 
-	SystemPathLen = GetSystemPath(&SystemPath);
-	if (SystemPathLen == 0 || SystemPath == NULL) {
-		DEBUG((EFI_D_ERROR, "GetSystemPath failed!\n"));
-		return EFI_LOAD_ERROR;
-	}
+    if (!IsBootDevImage ()) {
+        SystemPathLen = GetSystemPath (&SystemPath);
+        if (SystemPathLen == 0 ||
+                SystemPath == NULL) {
+            DEBUG ((EFI_D_ERROR, "GetSystemPath failed!\n"));
+            return EFI_LOAD_ERROR;
+        }
+        GUARD (AppendVBCmdLine (Info, DmVerityCmd));
+        GUARD (AppendVBCmdLine (Info, SystemPath));
+    }
 	GUARD(AppendVBCommonCmdLine(Info));
 	GUARD(AppendVBCmdLine(Info, VerityMode));
 	GUARD(AppendVBCmdLine(Info, VbVm[IsEnforcing()].name));
-	GUARD(AppendVBCmdLine(Info, DmVerityCmd));
-	GUARD(AppendVBCmdLine(Info, SystemPath));
 
 	Info->VBData = NULL;
 	return Status;
@@ -286,6 +309,7 @@ STATIC EFI_STATUS LoadImageAndAuthVB2(BootInfo *Info)
 
 	Info->BootState = RED;
 	GUARD(VBCommonInit(Info));
+    GUARD (VBAllocateCmdLine (Info));
 
 	UserData = avb_calloc(sizeof(AvbOpsUserData));
 	if (UserData == NULL) {
@@ -382,28 +406,14 @@ STATIC EFI_STATUS LoadImageAndAuthVB2(BootInfo *Info)
 		}
 	}
 
-	if (Info->NumLoadedImages < (ARRAY_SIZE(RequestedPartitionAll) - 1)) {
-		VOID *DtboImage = NULL;
-		UINTN DtboSize = 0;
-
-		DEBUG((EFI_D_ERROR,
-		       "ERROR: AvbSlotVerify slot data error: num of "
-		       "loaded partitions %d, requested %d\n",
-		       Info->NumLoadedImages, ARRAY_SIZE(RequestedPartitionAll) - 1));
-		/* Temporary workaround load dtbo image here, probably dtbo is not
-		   included in vbmeta */
-		Status = TempLoadDtboImage(Ops, &DtboImage, &DtboSize);
-		if (Status == EFI_SUCCESS) {
-			Info->Images[Info->NumLoadedImages].Name = DtboImageName;
-			Info->Images[Info->NumLoadedImages].ImageBuffer = DtboImage;
-			Info->Images[Info->NumLoadedImages].ImageSize = DtboSize;
-			Info->NumLoadedImages++;
-		} else {
-			DEBUG((EFI_D_ERROR, "LoadDtboImage failed!"));
-			Status = EFI_LOAD_ERROR;
-			goto out;
-		}
-	}
+  if (Info->NumLoadedImages < (ARRAY_SIZE (RequestedPartitionAll) - 1)) {
+    DEBUG ((EFI_D_ERROR,
+          "ERROR: AvbSlotVerify slot data error: num of "
+          "loaded partitions %d, requested %d\n",
+          Info->NumLoadedImages, ARRAY_SIZE (RequestedPartitionAll) - 1));
+    Status = EFI_LOAD_ERROR;
+    goto out;
+  }
 
 	DEBUG((EFI_D_VERBOSE, "Total loaded partition %d\n", Info->NumLoadedImages));
 
@@ -609,7 +619,7 @@ EFI_STATUS LoadImageAndAuth(BootInfo *Info)
 	/* Load and Authenticate */
 	switch (AVBVersion) {
 	case NO_AVB:
-		return LoadImageNoAuth(Info);
+            return LoadImageNoAuthWrapper (Info);
 		break;
 	case AVB_1:
 		Status = LoadImageAndAuthVB1(Info);

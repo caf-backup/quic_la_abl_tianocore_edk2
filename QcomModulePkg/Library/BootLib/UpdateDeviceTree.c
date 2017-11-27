@@ -190,8 +190,9 @@ UINT32 fdt_check_header_ext(VOID *fdt)
 	UINT32 sum;
 	fdt_start = (UINT64) fdt;
 
-	if(fdt_start + fdt_totalsize(fdt) < fdt_start)
-		return FDT_ERR_BADOFFSET;
+    if (fdt_start + fdt_totalsize (fdt) <= fdt_start) {
+        return FDT_ERR_BADOFFSET;
+    }
 	fdt_end = fdt_start + fdt_totalsize(fdt);
 
 	if (!(sum = ADD_OF(fdt_off_dt_struct(fdt), fdt_size_dt_struct(fdt)))) {
@@ -246,6 +247,7 @@ EFI_STATUS AddMemMap(VOID *fdt, UINT32 memory_node_offset)
 		}
 	}
 	FreePool(RamPartitions);
+    RamPartitions = NULL;
 
 	return EFI_SUCCESS;
 }
@@ -433,9 +435,11 @@ EFI_STATUS UpdateDeviceTree(VOID *fdt, CONST CHAR8 *cmdline, VOID *ramdisk, UINT
 	}
 
 	/* Update fstab node */
-	DEBUG((EFI_D_VERBOSE, "Start DT fstab node update: %u ms\n", GetTimerCountms()));
+    DEBUG ((EFI_D_VERBOSE, "Start DT fstab node update: %lu ms\n",
+        GetTimerCountms ()));
 	UpdateFstabNode(fdt);
-	DEBUG((EFI_D_VERBOSE, "End DT fstab node update: %u ms\n", GetTimerCountms()));
+    DEBUG ((EFI_D_VERBOSE, "End DT fstab node update: %lu ms\n",
+        GetTimerCountms ()));
 
 	fdt_pack(fdt);
 
@@ -474,7 +478,8 @@ EFI_STATUS UpdateFstabNode(VOID *fdt)
 	Status = GetBootDevice(BootDevBuf, BOOT_DEV_MAX_LEN);
 	if (Status != EFI_SUCCESS) {
 		DEBUG((EFI_D_ERROR, "Failed to get Boot Device: %r\n", Status));
-		FreePool(BootDevBuf);
+        FreePool (BootDevBuf);
+        BootDevBuf = NULL;
 		return Status;
 	}
 
@@ -506,6 +511,7 @@ EFI_STATUS UpdateFstabNode(VOID *fdt)
 		}
 	}
 
-	FreePool(BootDevBuf);
+    FreePool (BootDevBuf);
+    BootDevBuf = NULL;
 	return Status;
 }
