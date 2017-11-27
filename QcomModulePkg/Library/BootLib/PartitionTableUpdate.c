@@ -78,8 +78,10 @@ INT32 GetPartitionIdxInLun(CHAR16 *Pname, UINT32 Lun)
 
 	for (n = 0; n < PartitionCount; n++) {
 		if (Lun == PtnEntries[n].lun) {
-			if (!StrCmp(Pname, PtnEntries[n].PartEntry.PartitionName))
-				return RelativeIndex;
+            if (!StrnCmp (Pname, PtnEntries[n].PartEntry.PartitionName,
+                       ARRAY_SIZE (PtnEntries[n].PartEntry.PartitionName))) {
+                return RelativeIndex;
+            }
 			RelativeIndex++;
 		}
 	}
@@ -119,8 +121,10 @@ INT32 GetPartitionIndex(CHAR16 *Pname)
 	INT32 i;
 
 	for (i = 0; i < PartitionCount; i++) {
-		if (!StrCmp(PtnEntries[i].PartEntry.PartitionName, Pname))
-			return i;
+        if (!StrnCmp (PtnEntries[i].PartEntry.PartitionName, Pname,
+                    ARRAY_SIZE (PtnEntries[i].PartEntry.PartitionName))) {
+            return i;
+        }
 	}
 
 	return INVALID_PTN;
@@ -234,10 +238,11 @@ VOID UpdatePartitionAttributes()
 
 			Status = BlockIo->ReadBlocks (BlockIo, BlockIo->Media->MediaId, Offset, MaxGptPartEntrySzBytes, GptHdr);
 
-			if(EFI_ERROR(Status)) {
-				DEBUG ((EFI_D_ERROR, "Unable to read the media \n"));
-				return;
-			}
+        if (EFI_ERROR (Status)) {
+                DEBUG ((EFI_D_ERROR, "Unable to read the media \n"));
+                goto Exit;
+        }
+
 			if(Iter == 0x1) {
 				/* This is the back up GPT */
 				Ptn_Entries = GptHdr;
@@ -274,15 +279,16 @@ VOID UpdatePartitionAttributes()
 			MaxPtnCount = GET_LWORD_FROM_BYTE(&GptHdr[PARTITION_COUNT_OFFSET]);
 			PtnEntrySz =  GET_LWORD_FROM_BYTE(&GptHdr[PENTRY_SIZE_OFFSET]);
 
-			if (((MaxPtnCount) * (PtnEntrySz)) >  MAX_PARTITION_ENTRIES_SZ) {
+            if (((UINT64)(MaxPtnCount) * PtnEntrySz) >
+                MAX_PARTITION_ENTRIES_SZ ) {
 				DEBUG((EFI_D_ERROR, "Invalid GPT header fields MaxPtnCount = %x, PtnEntrySz = %x\n", MaxPtnCount, PtnEntrySz));
-				return;
+                goto Exit;
 			}
 
 			Status = gBS->CalculateCrc32(Ptn_Entries, ((MaxPtnCount) * (PtnEntrySz)),&CrcVal);
 			if (Status != EFI_SUCCESS) {
 				DEBUG((EFI_D_ERROR, "Error Calculating CRC32 on the Gpt header: %x\n", Status));
-				return;
+                goto Exit;
 			}
 
 			PUT_LONG(&GptHdr[PARTITION_CRC_OFFSET], CrcVal);
@@ -294,7 +300,7 @@ VOID UpdatePartitionAttributes()
 			Status  = gBS->CalculateCrc32(GptHdr, HdrSz, &CrcVal);
 			if (Status != EFI_SUCCESS) {
 				DEBUG((EFI_D_ERROR, "Error Calculating CRC32 on the Gpt header: %x\n", Status));
-				return;
+                goto Exit;
 			}
 
 			PUT_LONG(&GptHdr[HEADER_CRC_OFFSET], CrcVal);
@@ -308,13 +314,20 @@ VOID UpdatePartitionAttributes()
 
 			if (EFI_ERROR(Status)) {
 				DEBUG((EFI_D_ERROR, "Error writing primary GPT header: %r\n", Status));
-				return;
+                goto Exit;
 			}
 
 			Offset = CardSizeSec - MaxGptPartEntrySzBytes/BlkSz;
 		}
-		FreePool(GptHdrPtr);
+        FreePool (GptHdrPtr);
+        GptHdrPtr = NULL;
 	}
+
+Exit:
+    if (GptHdrPtr) {
+        FreePool (GptHdrPtr);
+        GptHdrPtr = NULL;
+    }
 }
 
 VOID MarkPtnActive(CHAR16 *ActiveSlot)
@@ -410,11 +423,18 @@ VOID SwitchPtnSlots(CONST CHAR16 *SetActive)
 	}
 
 	for (TempNode = HeadNode; TempNode; TempNode = TempNode->Next) {
-		StrnCpyS(CurSlot, StrLen(TempNode->PartName) + 1,  TempNode->PartName, StrLen(TempNode->PartName));
-		StrnCatS(CurSlot, BOOT_PART_SIZE - 1, SetInactive, StrLen(SetInactive));
+        gBS->SetMem (CurSlot, BOOT_PART_SIZE, 0);
+        gBS->SetMem (NewSlot, BOOT_PART_SIZE, 0);
 
-		StrnCpyS(NewSlot, StrLen(TempNode->PartName) + 1, TempNode->PartName, StrLen(TempNode->PartName));
-		StrnCatS(NewSlot, BOOT_PART_SIZE - 1, SetActive, StrLen(SetActive));
+        StrnCpyS (CurSlot, BOOT_PART_SIZE, TempNode->PartName,
+                StrLen (TempNode->PartName));
+        StrnCatS (CurSlot, BOOT_PART_SIZE, SetInactive,
+                StrLen (SetInactive));
+
+        StrnCpyS (NewSlot, BOOT_PART_SIZE, TempNode->PartName,
+                StrLen (TempNode->PartName));
+        StrnCatS (NewSlot, BOOT_PART_SIZE, SetActive,
+                StrLen ( SetActive));
 
 		/* Find the pointer to partition table entry for active and non-active slots*/
 		for (i = 0; i < PartitionCount; i++) {
@@ -426,8 +446,6 @@ VOID SwitchPtnSlots(CONST CHAR16 *SetActive)
 		}
 		/* Swap the guids for the slots */
 		SwapPtnGuid(&PtnCurrent->PartEntry, &PtnNew->PartEntry);
-		SetMem(CurSlot, BOOT_PART_SIZE, 0);
-		SetMem(NewSlot, BOOT_PART_SIZE, 0);
 		PtnCurrent = PtnNew = NULL;
 	}
 
@@ -701,8 +719,7 @@ TryNextSlot:
 
 STATIC UINT32 PartitionVerifyMbrSignature(UINT32 Sz, UINT8 *Gpt)
 {
-	if ((MBR_SIGNATURE + 1) > Sz)
-	{
+    if ((MBR_SIGNATURE + 1) >= Sz) {
 		DEBUG((EFI_D_ERROR, "Gpt Image size is invalid\n"));
 		return FAILURE;
 	}
@@ -721,8 +738,7 @@ STATIC UINT32 MbrGetPartitionType(UINT32 Sz, UINT8 *Gpt, UINT32 *Ptype)
 {
 	UINT32 PtypeOffset = MBR_PARTITION_RECORD + OS_TYPE;
 
-	if (Sz < (PtypeOffset + sizeof(*Ptype)))
-	{
+    if (Sz <= PtypeOffset) {
 		DEBUG((EFI_D_ERROR, "Input gpt image does not have gpt partition record data\n"));
 		return FAILURE;
 	}

@@ -51,7 +51,8 @@
 
 static void zlib_free(voidpf qpaque, void *addr)
 {
-	return FreePool(addr);
+    FreePool (addr);
+    addr = NULL;
 }
 
 //typedef voidpf (*alloc_func) OF((voidpf opaque, uInt items, uInt size));
@@ -136,7 +137,8 @@ int decompress(unsigned char *in_buf, unsigned int in_len,
 		*out_len = stream->total_out;
 
 gunzip_end:
-	FreePool(stream);
+    FreePool (stream);
+    stream = NULL;
 	return rc; /* returns 0 if decompressed successful */
 }
 

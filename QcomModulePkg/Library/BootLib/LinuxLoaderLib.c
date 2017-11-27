@@ -165,8 +165,12 @@ GetBlkIOHandles (
 			if ((SelectionAttrib & (BLK_IO_SEL_SELECT_ROOT_DEVICE_ONLY  |
 							BLK_IO_SEL_MATCH_ROOT_DEVICE)) != 0)
 			{
-				if (!FilterData || FilterData->RootDeviceType == 0)
-					return EFI_INVALID_PARAMETER;
+                if (!FilterData ||
+                        (FilterData->RootDeviceType == NULL)) {
+                    FreePool (BlkIoHandles);
+                    BlkIoHandles = NULL;
+                    return EFI_INVALID_PARAMETER;
+                }
 
 				/* If this is not the root device that we are looking for, ignore this
 				 * handle */
@@ -212,8 +216,13 @@ GetBlkIOHandles (
 				if ((SelectionAttrib & BLK_IO_SEL_MATCH_PARTITION_TYPE_GUID) != 0)
 				{
 					GUID *PartiType;
-					if (!FilterData || FilterData->PartitionType == 0)
-						return EFI_INVALID_PARAMETER;
+
+                    if (!FilterData ||
+                            (FilterData->PartitionType == NULL)) {
+                        FreePool (BlkIoHandles);
+                        BlkIoHandles = NULL;
+                        return EFI_INVALID_PARAMETER;
+                    }
 
 					Status = gBS->HandleProtocol (BlkIoHandles[i],
 							&gEfiPartitionTypeGuid,
@@ -251,9 +260,11 @@ GetBlkIOHandles (
 
 	*MaxBlkIopCnt = BlkIoCnt;
 
-	/* Free the handle buffer */
-	if (BlkIoHandles != NULL)
-		FreePool(BlkIoHandles);
+    /* Free the handle buffer */
+    if (BlkIoHandles != NULL) {
+        FreePool (BlkIoHandles);
+        BlkIoHandles = NULL;
+    }
 
 	return EFI_SUCCESS;
 }
@@ -348,7 +359,8 @@ EFI_STATUS LoadImageFromPartition(VOID *ImageBuffer, UINT32 *ImageSize, CHAR16 *
 
 	if(Status == EFI_SUCCESS)
 	{
-		DEBUG ((DEBUG_INFO, "Loading Image Done : %u ms\n",GetTimerCountms()));
+        DEBUG ((DEBUG_INFO, "Loading Image Done : %lu ms\n",
+            GetTimerCountms ()));
 		DEBUG ((DEBUG_INFO, "Total Image Read size : %d Bytes\n", *ImageSize));
 	}
 
@@ -417,8 +429,8 @@ LaunchApp (
 
     Status = gBS->LoadImage (FALSE, gImageHandle, DevicePath, Buffer, BufferSize, &ImageHandle);
 
-    if (Buffer != NULL)
-      FreePool (Buffer);
+    FreePool (Buffer);
+    Buffer = NULL;
   }
 
   EfiClose (File);
@@ -452,11 +464,10 @@ LaunchApp (
   return Status;
 }
 
-UINT32
-GetTimerCountms (VOID)
+UINT64 GetTimerCountms (VOID)
 {
 	UINT64 TempFreq, StartVal, EndVal;
-	UINT32 TimerCount, Ms;
+    UINT64 TimerCount, Ms;
 
 	if (!TimerFreq && !FactormS)
 	{
@@ -472,7 +483,7 @@ GetTimerCountms (VOID)
 		FactormS  = TimerFreq / 1000;
 	}
 
-	TimerCount = (UINT32) GetPerformanceCounter();
+    TimerCount = GetPerformanceCounter ();
 	Ms = TimerCount / FactormS;
 	return Ms;
 }
@@ -554,6 +565,7 @@ EFI_STATUS WriteToPartition (EFI_GUID *Ptype, VOID *Msg, UINT32 MsgSize)
                                MsgBuffer);
 
   FreePool (MsgBuffer);
+  MsgBuffer = NULL;
   return Status;
 }
 
@@ -568,7 +580,7 @@ BOOLEAN IsSecureBootEnabled()
 	if (Status != EFI_SUCCESS)
 	{
 		DEBUG((EFI_D_ERROR, "Unable to locate VB protocol: %r\n", Status));
-		return Status;
+        return FALSE;
 	}
 
 	Status = VbIntf->VBIsDeviceSecure(VbIntf, &IsSecure);
