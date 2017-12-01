@@ -79,7 +79,7 @@ int decompress(unsigned char *in_buf, unsigned int in_len,
 	int rc = -1;
 	int i;
 
-	if (in_len < GZIP_HEADER_LEN) {
+	if (in_len <= GZIP_HEADER_LEN) {
 		DEBUG((EFI_D_ERROR, "the input data is not a gzip package.\n"));
 		return rc;
 	}
