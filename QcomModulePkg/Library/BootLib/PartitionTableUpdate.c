@@ -209,6 +209,7 @@ VOID UpdatePartitionAttributes (VOID)
   UINT32 PartEntriesblocks = 0;
   BOOLEAN SkipUpdation;
   UINT64 Attr;
+  struct PartitionEntry *InMemPtnEnt;
 
   GetRootDeviceType (BootDeviceType, BOOT_DEV_NAME_SIZE_MAX);
   for (Lun = 0; Lun < MaxLuns; Lun++) {
@@ -273,6 +274,7 @@ VOID UpdatePartitionAttributes (VOID)
       PtnEntriesPtr = Ptn_Entries;
 
       for (i = 0; i < PartitionCount; i++) {
+        InMemPtnEnt = (struct PartitionEntry *)PtnEntriesPtr;
         /*If GUID is not present, then it is BlkIo Handle of the Lun. Skip*/
         if (!(PtnEntries[i].PartEntry.PartitionTypeGUID.Data1)) {
           DEBUG ((EFI_D_VERBOSE, " Skipping Lun:%d, i=%d\n", Lun, i));
@@ -291,7 +293,9 @@ VOID UpdatePartitionAttributes (VOID)
             continue;
         }
         Attr = GET_LLWORD_FROM_BYTE (&PtnEntriesPtr[ATTRIBUTE_FLAG_OFFSET]);
-        if (Attr != PtnEntries[i].PartEntry.Attributes) {
+        if ((Attr != PtnEntries[i].PartEntry.Attributes) ||
+            memcmp (&InMemPtnEnt->PartEntry.PartitionTypeGUID,
+            &PtnEntries[i].PartEntry.PartitionTypeGUID, sizeof (EFI_GUID))) {
           /* Update the partition attributes  and partiton GUID values */
           PUT_LONG_LONG (&PtnEntriesPtr[ATTRIBUTE_FLAG_OFFSET],
                          PtnEntries[i].PartEntry.Attributes);
@@ -404,6 +408,7 @@ STATIC EFI_STATUS GetMultiSlotPartsList (VOID)
   UINT32 i = 0;
   UINT32 j = 0;
   UINT32 Len = 0;
+  UINT32 PtnLen = 0;
   CHAR16 *SearchString = NULL;
   struct BootPartsLinkedList *TempNode = NULL;
 
@@ -416,12 +421,14 @@ STATIC EFI_STATUS GetMultiSlotPartsList (VOID)
       if (!PtnEntries[j].PartEntry.PartitionName[0])
         continue;
       Len = StrLen (SearchString);
+      PtnLen = StrLen (PtnEntries[j].PartEntry.PartitionName);
 
       /*Need to compare till "boot_"a hence skip last Char from StrLen value*/
-      if (!StrnCmp (PtnEntries[j].PartEntry.PartitionName, SearchString,
-                    Len - 1) &&
+      if ((PtnLen == Len) &&
+          !StrnCmp (PtnEntries[j].PartEntry.PartitionName,
+          SearchString, Len - 1) &&
           (StrStr (SearchString, (CONST CHAR16 *)L"_a") ||
-           (StrStr (SearchString, (CONST CHAR16 *)L"_b")))) {
+          StrStr (SearchString, (CONST CHAR16 *)L"_b"))) {
         TempNode = AllocatePool (sizeof (struct BootPartsLinkedList));
         if (TempNode) {
           /*Skip _a/_b from partition name*/
@@ -1225,6 +1232,10 @@ SetActiveSlot (Slot *NewSlot)
   Slot CurrentSlot = {{0}};
   Slot *AlternateSlot = NULL;
   Slot Slots[] = {{L"_a"}, {L"_b"}};
+  BOOLEAN UfsGet = TRUE;
+  BOOLEAN UfsSet = FALSE;
+  UINT32 UfsBootLun = 0;
+  CHAR8 BootDeviceType[BOOT_DEV_NAME_SIZE_MAX];
   struct PartitionEntry *BootEntry = NULL;
 
   if (NewSlot == NULL) {
@@ -1269,9 +1280,29 @@ SetActiveSlot (Slot *NewSlot)
 
   if (StrnCmp (CurrentSlot.Suffix, NewSlot->Suffix,
                StrLen (CurrentSlot.Suffix)) == 0) {
-    /* This Slot is already active do nothing */
     DEBUG ((EFI_D_INFO, "SetActiveSlot: %s already active slot\n",
             NewSlot->Suffix));
+
+    /* Check if BootLun is matching with Slot */
+    GetRootDeviceType (BootDeviceType, BOOT_DEV_NAME_SIZE_MAX);
+    if (!AsciiStrnCmp (BootDeviceType, "UFS", AsciiStrLen ("UFS"))) {
+      UfsGetSetBootLun (&UfsBootLun, UfsGet);
+      if (UfsBootLun == 0x1 &&
+          !StrnCmp (CurrentSlot.Suffix, (CONST CHAR16 *)L"_b",
+          StrLen ((CONST CHAR16 *)L"_b"))) {
+        DEBUG ((EFI_D_INFO, "Boot lun mismatch switch from 1 to 2\n"));
+        DEBUG ((EFI_D_INFO, "Reboot Required\n"));
+        UfsBootLun = 0x2;
+        UfsGetSetBootLun (&UfsBootLun, UfsSet);
+      } else if (UfsBootLun == 0x2 &&
+               !StrnCmp (CurrentSlot.Suffix, (CONST CHAR16 *)L"_a",
+               StrLen ((CONST CHAR16 *)L"_a"))) {
+        DEBUG ((EFI_D_INFO, "Boot lun mismatch switch from 2 to 1\n"));
+        DEBUG ((EFI_D_INFO, "Reboot Required\n"));
+        UfsBootLun = 0x1;
+        UfsGetSetBootLun (&UfsBootLun, UfsSet);
+      }
+    }
   } else {
     DEBUG ((EFI_D_INFO, "Alternate slot %s, New slot %s\n",
             AlternateSlot->Suffix, NewSlot->Suffix));
@@ -1451,7 +1482,7 @@ FindBootableSlot (Slot *BootableSlot)
     return EFI_INVALID_PARAMETER;
   }
 
-  GUARD_OUT (GetActiveSlot (BootableSlot));
+  GUARD (GetActiveSlot (BootableSlot));
 
   /* Validate Active Slot is bootable */
   BootEntry = GetBootPartitionEntry (BootableSlot);
@@ -1559,6 +1590,27 @@ LoadAndValidateDtboImg (BootInfo *Info, VOID **DtboImgBuffer)
   if (fdt32_to_cpu (DtboTableHdr->DtEntryOffset) > DTBO_MAX_SIZE_ALLOWED) {
     DEBUG ((EFI_D_ERROR, "Dtbo Table DtEntryOffset got corrupted\n"));
     return FALSE;
+  }
+
+  if ((UINT64)fdt32_to_cpu (DtboTableHdr->DtEntryCount) *
+          fdt32_to_cpu (DtboTableHdr->DtEntrySize) > DtboImgSize) {
+      DEBUG ((EFI_D_ERROR,
+              "DTB header is corrupted, DtEntryCount %x, DtEntrySize %x,"
+              " DtboImgSize %x\n", fdt32_to_cpu (DtboTableHdr->DtEntryCount),
+              fdt32_to_cpu (DtboTableHdr->DtEntrySize), DtboImgSize));
+      return FALSE;
+  }
+
+  if (fdt32_to_cpu (DtboTableHdr->DtEntryOffset) +
+          (UINT64)fdt32_to_cpu (DtboTableHdr->DtEntryCount) *
+          fdt32_to_cpu (DtboTableHdr->DtEntrySize) > DtboImgSize) {
+      DEBUG ((EFI_D_ERROR,
+              "DTB header is corrupted, DtEntryOffset %x, DtEntryCount %x,"
+              "DtEntrySize %x, DtboImgSize %x\n",
+              fdt32_to_cpu (DtboTableHdr->DtEntryOffset),
+              fdt32_to_cpu (DtboTableHdr->DtEntryCount),
+              fdt32_to_cpu (DtboTableHdr->DtEntrySize), DtboImgSize));
+      return FALSE;
   }
 
   return TRUE;
