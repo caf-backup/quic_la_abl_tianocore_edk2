@@ -61,8 +61,6 @@
 #include <Library/BoardCustom.h>
 #include <Library/DeviceInfo.h>
 
-#include <Protocol/BlockIo.h>
-
 #include <Guid/EventGroup.h>
 
 #include <Protocol/BlockIo.h>
@@ -529,12 +527,6 @@ HandleSparseImgFlash(
 
 	Image += sizeof(sparse_header_t);
 
-	if (ImageEnd < (UINT64) Image)
-	{
-		FastbootFail("buffer overreads occured due to invalid sparse header");
-		return EFI_BAD_BUFFER_SIZE;
-	}
-
 	if (sparse_header->file_hdr_sz != sizeof(sparse_header_t))
 	{
 		FastbootFail("Sparse header size mismatch");
@@ -983,7 +975,8 @@ STATIC VOID CmdDownload(
 	IN UINT32 sz
 	)
 {
-	CHAR8       Response[12] = "DATA";
+    CHAR8 Response[13] = "DATA";
+    UINT32 InitStrLen = AsciiStrLen ("DATA");
 	CHAR16      OutputString[FASTBOOT_STRING_MAX_LENGTH];
 	CHAR8       *NumBytesString = (CHAR8 *)arg;
 
@@ -1009,11 +1002,15 @@ STATIC VOID CmdDownload(
 	}
 
 	UnicodeSPrint (OutputString, sizeof (OutputString), L"Downloading %d bytes\r\n", mNumDataBytes);
-	AsciiStrnCpyS(Response + 4, sizeof(Response), NumBytesString, sizeof(Response)-4);
-	gBS->CopyMem(GetFastbootDeviceData().gTxBuffer, Response, 12);
+    /* NumBytesString is a 8 bit string, InitStrLen is 4, and the AsciiStrnCpyS()
+     * require "DestMax > SourceLen", so init length of Response as 13.
+     */
+    AsciiStrnCpyS (Response + InitStrLen, sizeof (Response) - InitStrLen,
+                   NumBytesString, AsciiStrLen (NumBytesString));
+    gBS->CopyMem(GetFastbootDeviceData().gTxBuffer, Response, sizeof (Response));
 	mState = ExpectDataState;
 	mBytesReceivedSoFar = 0;
-	GetFastbootDeviceData().UsbDeviceProtocol->Send(ENDPOINT_OUT, 12 , GetFastbootDeviceData().gTxBuffer);
+	GetFastbootDeviceData().UsbDeviceProtocol->Send(ENDPOINT_OUT, sizeof (Response), GetFastbootDeviceData().gTxBuffer);
 	DEBUG((EFI_D_VERBOSE, "CmdDownload: Send 12 %a\n", GetFastbootDeviceData().gTxBuffer));
 }
 
