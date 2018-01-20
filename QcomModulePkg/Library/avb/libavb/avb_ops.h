@@ -32,6 +32,11 @@
 #include "avb_sysdeps.h"
 #include <Library/DeviceInfo.h>
 
+extern EFI_GUID gEfiVbmetaPartitionGuid;
+extern EFI_GUID gEfiBootImgPartitionGuid;
+extern EFI_GUID gEfiDtboPartitionGuid;
+extern EFI_GUID gEfiRecoveryImgPartitionGuid;
+
 #ifdef __cplusplus
 extern "C" {
 #endif
