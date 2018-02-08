@@ -2,7 +2,7 @@
  * Copyright (c) 2009, Google Inc.
  * All rights reserved.
  *
- * Copyright (c) 2009-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2018, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -261,6 +261,12 @@ BootLinux (BootInfo *Info)
 
   if (Kptr->magic_64 != KERNEL64_HDR_MAGIC) {
     BootingWith32BitKernel = TRUE;
+  } else {
+    if ((KernelLoadAddr + Kptr->ImageSize) >= DeviceTreeLoadAddr) {
+      DEBUG ((EFI_D_ERROR,
+        "Dtb header can get corrupted due to runtime kernel size\n"));
+      return EFI_BAD_BUFFER_SIZE;
+    }
   }
 
   /*Finds out the location of device tree image and ramdisk image within the
@@ -395,7 +401,7 @@ BootLinux (BootInfo *Info)
 
       SocDtbHdr = ufdt_install_blob (SocDtb, fdt_totalsize (SocDtb));
       if (!SocDtbHdr) {
-        DEBUG ((EFI_D_ERROR, "Error: Istall blob failed\n"));
+        DEBUG ((EFI_D_ERROR, "Error: Install blob failed\n"));
         return EFI_NOT_FOUND;
       }
 
