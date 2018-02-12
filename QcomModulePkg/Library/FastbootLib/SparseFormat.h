@@ -1,4 +1,6 @@
-/*
+/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Not a Contribution.
+ *
  * Copyright (C) 2010 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -49,3 +51,15 @@ typedef struct chunk_header {
  * chunk_sz * blk_sz.
  *  For a Fill chunk, it's 4 bytes of the fill data.
  */
+
+typedef struct SparseImgParams {
+  UINT32 Chunk;
+  UINT32 TotalBlocks;
+  UINT64 ChunkDataSz;
+  UINT64 ImageEnd;
+  UINT64 WrittenBlockCount;
+  UINT64 BlockCountFactor;
+  UINT64 PartitionSize;
+  EFI_BLOCK_IO_PROTOCOL *BlockIo;
+  EFI_HANDLE *Handle;
+} SparseImgParam;

@@ -261,6 +261,12 @@ BootLinux (BootInfo *Info)
 
   if (Kptr->magic_64 != KERNEL64_HDR_MAGIC) {
     BootingWith32BitKernel = TRUE;
+  } else {
+    if ((KernelLoadAddr + Kptr->ImageSize) >= DeviceTreeLoadAddr) {
+      DEBUG ((EFI_D_ERROR,
+        "Dtb header can get corrupted due to runtime kernel size\n"));
+      return EFI_BAD_BUFFER_SIZE;
+    }
   }
 
   /*Finds out the location of device tree image and ramdisk image within the
@@ -296,12 +302,6 @@ BootLinux (BootInfo *Info)
     return EFI_BAD_BUFFER_SIZE;
   }
 
-  if ((KernelLoadAddr + Kptr->ImageSize) >= DeviceTreeLoadAddr) {
-    DEBUG ((EFI_D_ERROR,
-      "Dtb header can get corrupted because of kernel size\n"));
-    return EFI_BAD_BUFFER_SIZE;
-  }
-
   DEBUG ((EFI_D_VERBOSE, "Kernel Load Address: 0x%x\n", KernelLoadAddr));
   DEBUG ((EFI_D_VERBOSE, "Kernel Size Actual: 0x%x\n", KernelSizeActual));
   DEBUG ((EFI_D_VERBOSE, "Second Size Actual: 0x%x\n", SecondSizeActual));
@@ -312,12 +312,6 @@ BootLinux (BootInfo *Info)
       (EFI_D_VERBOSE, "Device Tree Load Address: 0x%x\n", DeviceTreeLoadAddr));
   DEBUG ((EFI_D_VERBOSE, "Device TreeOffset: 0x%x\n", DeviceTreeOffset));
 
-  /* Populate board data required for dtb selection and command line */
-  Status = BoardInit ();
-  if (Status != EFI_SUCCESS) {
-    DEBUG ((EFI_D_ERROR, "Error finding board information: %r\n", Status));
-    return Status;
-  }
 
   /*Updates the command line from boot image, appends device serial no.,
    *baseband information, etc
@@ -412,6 +406,15 @@ BootLinux (BootInfo *Info)
         return EFI_NOT_FOUND;
       }
     }
+
+    if (CHECK_ADD64 ((UINT64)DeviceTreeLoadAddr,
+            fdt_totalsize (FinalDtbHdr))) {
+        DEBUG ((EFI_D_ERROR, "Integer Oveflow: DeviceTreeLoadAddr=%u, "
+                         "FinalDtbHdr=%u\n",
+            (UINT64)DeviceTreeLoadAddr, fdt_totalsize (FinalDtbHdr)));
+        return EFI_BAD_BUFFER_SIZE;
+    }
+
     gBS->CopyMem ((VOID *)DeviceTreeLoadAddr, FinalDtbHdr,
                   fdt_totalsize (FinalDtbHdr));
     post_overlay_free ();
@@ -437,6 +440,13 @@ BootLinux (BootInfo *Info)
   if (Status != EFI_SUCCESS) {
     DEBUG ((EFI_D_ERROR, "Device Tree update failed Status:%r\n", Status));
     return Status;
+  }
+
+  if (CHECK_ADD64 ((UINT64)RamdiskLoadAddr, RamdiskSize)) {
+    DEBUG ((EFI_D_ERROR, "Integer Oveflow: ImageBuffer=%u, "
+                         "RamdiskSize=%u\n",
+            (UINT64)RamdiskLoadAddr, RamdiskSize));
+    return EFI_BAD_BUFFER_SIZE;
   }
 
   gBS->CopyMem ((CHAR8 *)RamdiskLoadAddr, ImageBuffer + RamdiskOffset,
