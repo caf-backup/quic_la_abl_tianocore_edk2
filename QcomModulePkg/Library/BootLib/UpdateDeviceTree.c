@@ -186,8 +186,9 @@ UINT32 fdt_check_header_ext(VOID *fdt)
 	UINT32 sum;
 	fdt_start = (UINT64) fdt;
 
-	if(fdt_start + fdt_totalsize(fdt) < fdt_start)
-		return FDT_ERR_BADOFFSET;
+    if (fdt_start + fdt_totalsize (fdt) <= fdt_start) {
+        return FDT_ERR_BADOFFSET;
+    }
 	fdt_end = fdt_start + fdt_totalsize(fdt);
 
 	if (!(sum = ADD_OF(fdt_off_dt_struct(fdt), fdt_size_dt_struct(fdt)))) {
@@ -241,7 +242,8 @@ EFI_STATUS AddMemMap(VOID *fdt, UINT32 memory_node_offset)
 			DEBUG((EFI_D_ERROR, "Failed to add Base: 0x%016lx Available Length: 0x%016lx \r\n", RamPartitions[i].Base, RamPartitions[i].AvailableLength));
 		}
 	}
-	FreePool(RamPartitions);
+    FreePool (RamPartitions);
+    RamPartitions = NULL;
 
 	return EFI_SUCCESS;
 }
