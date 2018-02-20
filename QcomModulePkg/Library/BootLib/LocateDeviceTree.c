@@ -116,8 +116,9 @@ DeviceTreeCompatible (VOID *dtb,
   int min_plat_id_len = 0;
   int len_pmic_id;
   UINT32 dtb_ver;
-  UINT32 num_entries = 0;
-  UINT32 i, j, k, n;
+  UINT64 NumEntries = 0;
+  UINT64 i;
+  UINT32 j, k, n;
   UINT32 msm_data_count;
   UINT32 board_data_count;
   UINT32 pmic_data_count;
@@ -246,6 +247,12 @@ DeviceTreeCompatible (VOID *dtb,
       plat_prop += sizeof (struct plat_id);
     }
 
+    if ((pmic_data_count != 0) &&
+      (MAX_UINT64 / pmic_data_count < (msm_data_count * board_data_count))) {
+        DEBUG ((EFI_D_ERROR, "NumEntries exceeds MAX_UINT64\n"));
+        goto Exit;
+    }
+
     if (dtb_ver == DEV_TREE_VERSION_V3 && pmic_prop) {
       /* Extract pmic data from DTB */
       for (i = 0; i < pmic_data_count; i++) {
@@ -262,23 +269,15 @@ DeviceTreeCompatible (VOID *dtb,
       }
 
       /* We need to merge board & platform data into dt entry structure */
-      num_entries = msm_data_count * board_data_count * pmic_data_count;
+      NumEntries = (uint64_t)msm_data_count * board_data_count *
+              pmic_data_count;
     } else {
       /* We need to merge board & platform data into dt entry structure */
-      num_entries = msm_data_count * board_data_count;
-    }
-
-    if ((((uint64_t)msm_data_count * (uint64_t)board_data_count *
-          (uint64_t)pmic_data_count) !=
-         msm_data_count * board_data_count * pmic_data_count) ||
-        (((uint64_t)msm_data_count * (uint64_t)board_data_count) !=
-         msm_data_count * board_data_count)) {
-
-      goto Exit;
+      NumEntries = (uint64_t)msm_data_count * board_data_count;
     }
 
     dt_entry_array = (struct dt_entry *)AllocatePool (sizeof (struct dt_entry) *
-                                                      num_entries);
+                                                      NumEntries);
     if (!dt_entry_array) {
       DEBUG ((EFI_D_ERROR, "Failed to allocate memory for dt_entry_array\n"));
       goto Exit;
@@ -325,7 +324,7 @@ DeviceTreeCompatible (VOID *dtb,
       }
     }
 
-    for (i = 0; i < num_entries; i++) {
+    for (i = 0; i < NumEntries; i++) {
       if (platform_dt_absolute_match (&(dt_entry_array[i]), dtb_list)) {
         DEBUG ((EFI_D_VERBOSE, "Device tree exact match the board: <0x%x 0x%x "
                                "0x%x 0x%x> == <0x%x 0x%x 0x%x 0x%x>\n",
@@ -608,52 +607,18 @@ ReadBestPmicMatch (CONST CHAR8 *PmicProp, UINT32 PmicEntCount,
   }
 }
 
-
-/* Dt selection table for quick reference
-  | SNO | Dt Property   | CDT Property    | Exact | Best | Default |
-  |-----+---------------+-----------------+-------+------+---------+
-  |     | qcom, msm-id  |                 |       |      |         |
-  |     |               | PlatformId      | Y     | N    | N       |
-  |     |               | SocRev          | N     | Y    | N       |
-  |     |               | FoundryId       | Y     | N    | 0       |
-  |     | qcom,board-id |                 |       |      |         |
-  |     |               | VariantId       | Y     | N    | N       |
-  |     |               | VariantMajor    | N     | Y    | N       |
-  |     |               | VariantMinor    | N     | Y    | N       |
-  |     |               | PlatformSubtype | Y     | N    | 0       |
-  |     | qcom,pmic-id  |                 |       |      |         |
-  |     |               | PmicModelId     | Y     | N    | 0       |
-  |     |               | PmicMetalRev    | N     | Y    | N       |
-  |     |               | PmicLayerRev    | N     | Y    | N       |
-  |     |               | PmicVariantRev  | N     | Y    | N       |
-*/
-STATIC VOID
-ReadDtbFindMatch (DtInfo *CurDtbInfo, DtInfo *BestDtbInfo, UINT32 ExactMatch)
+STATIC EFI_STATUS GetPlatformMatchDtb (DtInfo * CurDtbInfo,
+                                       CONST CHAR8 *PlatProp,
+                                       INT32 LenPlatId,
+                                       INT32 MinPlatIdLen)
 {
-  const char *PlatProp = NULL;
-  const char *BoardProp = NULL;
-  const char *PmicProp = NULL;
-  INT32 LenBoardId;
-  INT32 LenPlatId;
-  INT32 LenPmicId;
-  INT32 MinPlatIdLen = PLAT_ID_SIZE;
-  INT32 RootOffset = 0;
-  VOID *Dtb = CurDtbInfo->Dtb;
-  UINT32 Idx;
-  UINT32 PmicEntCount;
-  PmicIdInfo BestPmicInfo;
 
-  /*Ensure MatchVal to 0 initially*/
-  CurDtbInfo->DtMatchVal = 0;
-  RootOffset = fdt_path_offset (Dtb, "/");
-  if (RootOffset < 0) {
-    DEBUG ((EFI_D_ERROR, "Unable to locate root node\n"));
-    return;
+  if (CurDtbInfo == NULL ||
+      PlatProp == NULL) {
+    DEBUG ((EFI_D_VERBOSE, "Input parameters null\n"));
+    return EFI_INVALID_PARAMETER;
   }
 
-  /* Get the msm-id prop from DTB */
-  PlatProp =
-      (const char *)fdt_getprop (Dtb, RootOffset, "qcom,msm-id", &LenPlatId);
   if (PlatProp && (LenPlatId > 0) && (!(LenPlatId % MinPlatIdLen))) {
     /*Compare msm-id of the dtb vs Board*/
     CurDtbInfo->DtPlatformId =
@@ -668,7 +633,7 @@ ReadDtbFindMatch (DtInfo *CurDtbInfo, DtInfo *BestDtbInfo, UINT32 ExactMatch)
       DEBUG ((EFI_D_VERBOSE, "qcom,msm-id doesnot match\n"));
       /* If it's neither exact nor default match don't select dtb */
       CurDtbInfo->DtMatchVal = BIT (NONE_MATCH);
-      goto cleanup;
+      return EFI_NOT_FOUND;
     }
     /*Compare soc rev of the dtb vs Board*/
     CurDtbInfo->DtSocRev = fdt32_to_cpu (((struct plat_id *)PlatProp)->soc_rev);
@@ -697,18 +662,26 @@ ReadDtbFindMatch (DtInfo *CurDtbInfo, DtInfo *BestDtbInfo, UINT32 ExactMatch)
       DEBUG ((EFI_D_VERBOSE, "soc foundry doesnot match\n"));
       /* If it's neither exact nor default match don't select dtb */
       CurDtbInfo->DtMatchVal = BIT (NONE_MATCH);
-      goto cleanup;
+      return EFI_NOT_FOUND;
     }
   } else {
     DEBUG ((EFI_D_VERBOSE, "qcom, msm-id does not exist (or) is"
                            " (%d) not a multiple of (%d)\n",
             LenPlatId, MinPlatIdLen));
   }
+  return EFI_SUCCESS;
+}
 
-  /* Get the properties like variant id, subtype from Dtb then compare the
-   * dtb vs Board*/
-  BoardProp = (CONST CHAR8 *)fdt_getprop (Dtb, RootOffset, "qcom,board-id",
-                                          &LenBoardId);
+STATIC EFI_STATUS GetBoardMatchDtb (DtInfo *CurDtbInfo,
+                                    CONST CHAR8 *BoardProp,
+                                    INT32 LenBoardId)
+{
+  if (CurDtbInfo == NULL ||
+      BoardProp == NULL) {
+    DEBUG ((EFI_D_VERBOSE, "Input parameters null\n"));
+    return EFI_INVALID_PARAMETER;
+  }
+
   if (BoardProp && (LenBoardId > 0) && (!(LenBoardId % BOARD_ID_SIZE))) {
     CurDtbInfo->DtVariantId =
         fdt32_to_cpu (((struct board_id *)BoardProp)->variant_id);
@@ -733,7 +706,7 @@ ReadDtbFindMatch (DtInfo *CurDtbInfo, DtInfo *BestDtbInfo, UINT32 ExactMatch)
                              " match\n"));
       /* If it's neither exact nor default match don't select dtb */
       CurDtbInfo->DtMatchVal = BIT (NONE_MATCH);
-      goto cleanup;
+      return EFI_NOT_FOUND;
     }
 
     if (CurDtbInfo->DtVariantMajor == (BoardTargetId () & VARIANT_MAJOR_MASK)) {
@@ -766,12 +739,77 @@ ReadDtbFindMatch (DtInfo *CurDtbInfo, DtInfo *BestDtbInfo, UINT32 ExactMatch)
       DEBUG ((EFI_D_VERBOSE, "subtype-id doesnot match\n"));
       /* If it's neither exact nor default match don't select dtb */
       CurDtbInfo->DtMatchVal = BIT (NONE_MATCH);
-      goto cleanup;
+      return EFI_NOT_FOUND;
     }
   } else {
     DEBUG ((EFI_D_VERBOSE, "qcom,board-id does not exist (or) (%d) "
                            "is not a multiple of (%d)\n",
             LenBoardId, BOARD_ID_SIZE));
+  }
+  return EFI_SUCCESS;
+}
+
+/* Dt selection table for quick reference
+  | SNO | Dt Property   | CDT Property    | Exact | Best | Default |
+  |-----+---------------+-----------------+-------+------+---------+
+  |     | qcom, msm-id  |                 |       |      |         |
+  |     |               | PlatformId      | Y     | N    | N       |
+  |     |               | SocRev          | N     | Y    | N       |
+  |     |               | FoundryId       | Y     | N    | 0       |
+  |     | qcom,board-id |                 |       |      |         |
+  |     |               | VariantId       | Y     | N    | N       |
+  |     |               | VariantMajor    | N     | Y    | N       |
+  |     |               | VariantMinor    | N     | Y    | N       |
+  |     |               | PlatformSubtype | Y     | N    | 0       |
+  |     | qcom,pmic-id  |                 |       |      |         |
+  |     |               | PmicModelId     | Y     | N    | 0       |
+  |     |               | PmicMetalRev    | N     | Y    | N       |
+  |     |               | PmicLayerRev    | N     | Y    | N       |
+  |     |               | PmicVariantRev  | N     | Y    | N       |
+*/
+STATIC VOID
+ReadDtbFindMatch (DtInfo *CurDtbInfo, DtInfo *BestDtbInfo, UINT32 ExactMatch)
+{
+  EFI_STATUS Status;
+  CONST CHAR8 *PlatProp = NULL;
+  CONST CHAR8 *BoardProp = NULL;
+  CONST CHAR8 *PmicProp = NULL;
+  INT32 LenBoardId;
+  INT32 LenPlatId;
+  INT32 LenPmicId;
+  INT32 MinPlatIdLen = PLAT_ID_SIZE;
+  INT32 RootOffset = 0;
+  VOID *Dtb = CurDtbInfo->Dtb;
+  UINT32 Idx;
+  UINT32 PmicEntCount;
+  PmicIdInfo BestPmicInfo;
+
+  memset (&BestPmicInfo, 0, sizeof (PmicIdInfo));
+  /*Ensure MatchVal to 0 initially*/
+  CurDtbInfo->DtMatchVal = 0;
+  RootOffset = fdt_path_offset (Dtb, "/");
+  if (RootOffset < 0) {
+    DEBUG ((EFI_D_ERROR, "Unable to locate root node\n"));
+    return;
+  }
+
+  /* Get the msm-id prop from DTB */
+  PlatProp = (CONST CHAR8 *)fdt_getprop (Dtb, RootOffset, "qcom,msm-id",
+                                         &LenPlatId);
+  Status = GetPlatformMatchDtb (CurDtbInfo, PlatProp, LenPlatId, MinPlatIdLen);
+  if (Status != EFI_SUCCESS) {
+    DEBUG ((EFI_D_ERROR, "Platform dt prop search failed."));
+    goto cleanup;
+  }
+
+  /* Get the properties like variant id, subtype from Dtb then compare the
+     * dtb vs Board*/
+  BoardProp = (CONST CHAR8 *)fdt_getprop (Dtb, RootOffset, "qcom,board-id",
+                                          &LenBoardId);
+  Status = GetBoardMatchDtb (CurDtbInfo, BoardProp, LenBoardId);
+  if (Status != EFI_SUCCESS) {
+    DEBUG ((EFI_D_ERROR, "Board dt prop search failed."));
+    goto cleanup;
   }
 
   /*Get the pmic property from Dtb then compare the dtb vs Board*/
