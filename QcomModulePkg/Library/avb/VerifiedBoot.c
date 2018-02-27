@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -36,6 +36,8 @@
 STATIC CONST CHAR8 *VerityMode = " androidboot.veritymode=";
 STATIC CONST CHAR8 *VerifiedState = " androidboot.verifiedbootstate=";
 STATIC CONST CHAR8 *KeymasterLoadState = " androidboot.keymaster=1";
+STATIC CONST CHAR8 *DmVerityCmd = " root=/dev/dm-0 dm=\"system none ro,0 1 "
+                                    "android-verity";
 STATIC CONST CHAR8 *Space = " ";
 
 STATIC struct verified_boot_verity_mode VbVm[] = {
@@ -112,6 +114,29 @@ AppendVBCommonCmdLine (BootInfo *Info)
 }
 
 STATIC EFI_STATUS
+NoAVBLoadDtboImage (BootInfo *Info, VOID **DtboImage,
+        UINT32 *DtboSize, CHAR16 *Pname)
+{
+  EFI_STATUS Status = EFI_SUCCESS;
+  Slot CurrentSlot;
+
+  *DtboSize = (UINT32) DTBO_MAX_SIZE_ALLOWED;
+  *DtboImage = AllocatePool (DTBO_MAX_SIZE_ALLOWED);
+  GUARD ( StrnCpyS (Pname,
+              (UINTN)MAX_GPT_NAME_SIZE,
+              (CONST CHAR16 *)L"dtbo",
+              StrLen (L"dtbo")));
+
+  if (Info->MultiSlotBoot) {
+      CurrentSlot = GetCurrentSlotSuffix ();
+      GUARD ( StrnCatS (Pname, MAX_GPT_NAME_SIZE,
+                  CurrentSlot.Suffix, StrLen (CurrentSlot.Suffix)));
+  }
+  Status = LoadImageFromPartition (*DtboImage, DtboSize, Pname);
+  return Status;
+}
+
+STATIC EFI_STATUS
 VBCommonInit (BootInfo *Info)
 {
   EFI_STATUS Status = EFI_SUCCESS;
@@ -179,6 +204,7 @@ STATIC EFI_STATUS
 LoadImageNoAuth (BootInfo *Info)
 {
   EFI_STATUS Status = EFI_SUCCESS;
+  CHAR16 Pname[MAX_GPT_NAME_SIZE];
 
   if (Info->Images[0].ImageBuffer != NULL && Info->Images[0].ImageSize > 0) {
     /* fastboot boot option image already loaded */
@@ -195,6 +221,25 @@ LoadImageNoAuth (BootInfo *Info)
   Info->NumLoadedImages = 1;
   Info->Images[0].Name = AllocatePool (StrLen (Info->Pname) + 1);
   UnicodeStrToAsciiStr (Info->Pname, Info->Images[0].Name);
+
+  /*load dt overlay when avb is disabled*/
+  Status = NoAVBLoadDtboImage (Info, (VOID **)&(Info->Images[1].ImageBuffer),
+          (UINT32 *)&(Info->Images[1].ImageSize), Pname);
+  if (Status == EFI_NO_MEDIA) {
+      DEBUG ((EFI_D_ERROR, "No dtbo partition is found, Skip dtbo\n"));
+      FreePool (Info->Images[1].ImageBuffer);
+      return EFI_SUCCESS;
+  }
+  else if (Status != EFI_SUCCESS) {
+      DEBUG ((EFI_D_ERROR,
+                  "ERROR: Failed to load dtbo from partition: %r\n", Status));
+      FreePool (Info->Images[1].ImageBuffer);
+      return EFI_LOAD_ERROR;
+  }
+  Info-> NumLoadedImages = 2;
+  Info-> Images[1].Name = AllocatePool (StrLen (Pname) + 1);
+  UnicodeStrToAsciiStr (Pname, Info->Images[1].Name);
+
   return Status;
 }
 
@@ -229,6 +274,7 @@ LoadImageAndAuthVB1 (BootInfo *Info)
   CHAR8 PnameAscii[MAX_GPT_NAME_SIZE];
   CHAR8 *SystemPath = NULL;
   UINT32 SystemPathLen = 0;
+  CHAR8 *Temp = NULL;
 
   GUARD (VBCommonInit (Info));
   GUARD (VBAllocateCmdLine (Info));
@@ -276,7 +322,17 @@ LoadImageAndAuthVB1 (BootInfo *Info)
       DEBUG ((EFI_D_ERROR, "GetSystemPath failed!\n"));
       return EFI_LOAD_ERROR;
     }
+    GUARD (AppendVBCmdLine (Info, DmVerityCmd));
+    /* Copy only the portion after "root=" in the SystemPath */
+    Temp = AsciiStrStr (SystemPath, "root=");
+    if (Temp) {
+      CopyMem (Temp, SystemPath + AsciiStrLen ("root=") + 1,
+          SystemPathLen - AsciiStrLen ("root=") - 1);
+      SystemPath[SystemPathLen - AsciiStrLen ("root=")] = '\0';
+    }
+
     GUARD (AppendVBCmdLine (Info, SystemPath));
+    GUARD (AppendVBCmdLine (Info, "\""));
   }
   GUARD (AppendVBCommonCmdLine (Info));
   GUARD (AppendVBCmdLine (Info, VerityMode));
