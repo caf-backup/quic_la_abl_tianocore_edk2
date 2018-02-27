@@ -85,10 +85,7 @@
 
 
 [Guids]
-	gEfiVbmetaPartitionGuid
-	gEfiBootImgPartitionGuid
-	gEfiDtboPartitionGuid
-	gEfiRecoveryImgPartitionGuid
+
 
 [Protocols]
 	gQcomQseecomProtocolGuid
