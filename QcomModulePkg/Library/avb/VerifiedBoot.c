@@ -352,6 +352,7 @@ LoadImageAndAuthVB2 (BootInfo *Info)
     Status = EFI_OUT_OF_RESOURCES;
     goto out;
   }
+  UserData->IsMultiSlot = Info->MultiSlotBoot;
 
   UnicodeStrToAsciiStr (Info->Pname, PnameAscii);
   if ((MAX_SLOT_SUFFIX_SZ + 1) > AsciiStrLen (PnameAscii)) {
