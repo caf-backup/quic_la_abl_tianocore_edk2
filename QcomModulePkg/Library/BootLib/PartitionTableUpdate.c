@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -1533,19 +1533,100 @@ out:
   return Status;
 }
 
+/* This function should be called only if header revision > 0 */
+STATIC EFI_STATUS GetRecoveryDtboInfo (BootInfo *Info,
+                                       VOID **ImageBuffer,
+                                       UINT64 ImageSize,
+                                       VOID **DtboImgBuffer,
+                                       UINT64 *DtboImageSize)
+{
+  UINT32 HeaderVersion = 0;
+  UINT64 RecoveryDtboOffset = 0;
+  UINT32 RecoveryDtboSize = 0;
+  UINT32 ImageHeaderSize = 0;
+  UINT32 PageSize = 0;
+  struct boot_img_hdr_v1 *BootImgHdrV1Addr;
+
+  if (Info == NULL ||
+    ImageBuffer == NULL ||
+    DtboImgBuffer == NULL ||
+    DtboImageSize == NULL) {
+    DEBUG ((EFI_D_ERROR, "Invalid input parameters\n"));
+    return EFI_INVALID_PARAMETER;
+  }
+
+  HeaderVersion = Info->HeaderVersion;
+  PageSize = ((boot_img_hdr *)(*ImageBuffer))->page_size;
+
+  /* Finds out the location of recovery dtbo size and offset */
+  BootImgHdrV1Addr = (struct boot_img_hdr_v1 *)((UINT64) *ImageBuffer +
+                     BOOT_IMAGE_HEADER_V1_RECOVERY_DTBO_SIZE_OFFSET);
+
+  if (HeaderVersion == BOOT_HEADER_VERSION_ONE) {
+    ImageHeaderSize = BootImgHdrV1Addr->header_size;
+
+    if ((ImageHeaderSize != (sizeof (struct boot_img_hdr_v1) +
+         BOOT_IMAGE_HEADER_V1_RECOVERY_DTBO_SIZE_OFFSET)) ||
+         ImageHeaderSize > PageSize) {
+      DEBUG ((EFI_D_ERROR,
+             "Invalid boot image header: %d\n", ImageHeaderSize));
+      return EFI_BAD_BUFFER_SIZE;
+    }
+  }
+
+  RecoveryDtboOffset = BootImgHdrV1Addr->recovery_dtbo_offset;
+  RecoveryDtboSize = ROUND_TO_PAGE (BootImgHdrV1Addr->recovery_dtbo_size,
+                     PageSize - 1);
+
+  if (CHECK_ADD64 (RecoveryDtboOffset, RecoveryDtboSize)) {
+    DEBUG ((EFI_D_ERROR, "Integer Oveflow: RecoveryDtboOffset=%u "
+           "RecoveryDtboSize=%u\n", RecoveryDtboOffset, RecoveryDtboSize));
+    return EFI_BAD_BUFFER_SIZE;
+  }
+
+  if (RecoveryDtboOffset + RecoveryDtboSize > ImageSize) {
+    DEBUG ((EFI_D_ERROR, "Invalid recovery dtbo: RecoveryDtboOffset=%u,"
+            " RecoveryDtboSize=%u, ImageSize=%u\n",
+            RecoveryDtboOffset, RecoveryDtboSize,
+            ImageSize));
+    return EFI_BAD_BUFFER_SIZE;
+  }
+
+  *DtboImgBuffer = (VOID *)((UINT64) *ImageBuffer + RecoveryDtboOffset);
+  *DtboImageSize = RecoveryDtboSize;
+
+  DEBUG ((EFI_D_VERBOSE, "Image Header Version: 0x%x\n", HeaderVersion));
+  DEBUG ((EFI_D_VERBOSE, "Recovery Dtbo Offset: 0x%x\n",
+          RecoveryDtboOffset));
+  DEBUG ((EFI_D_VERBOSE, "Recovery Dtbo Size: 0x%x\n", *DtboImageSize));
+
+  return EFI_SUCCESS;
+}
+
 /*Function to provide Dtbo Present info
  *return: TRUE or FALSE.
  */
 BOOLEAN
-LoadAndValidateDtboImg (BootInfo *Info, VOID **DtboImgBuffer)
+LoadAndValidateDtboImg (BootInfo *Info,
+                        VOID **DtboImgBuffer,
+                        VOID **ImageBuffer,
+                        UINT64 ImageSize)
 {
-  UINTN DtboImgSize = 0;
+  UINT64 DtboImgSize = 0;
   EFI_STATUS Status = EFI_SUCCESS;
   struct DtboTableHdr *DtboTableHdr = NULL;
 
-  Status = GetImage (Info, DtboImgBuffer, &DtboImgSize, "dtbo");
+  if (!Info->MultiSlotBoot &&
+      Info->BootIntoRecovery &&
+      Info->HeaderVersion > BOOT_HEADER_VERSION_ZERO) {
+    Status = GetRecoveryDtboInfo (Info, ImageBuffer, ImageSize,
+                                  DtboImgBuffer, &DtboImgSize);
+  } else {
+    Status = GetImage (Info, DtboImgBuffer, (UINTN *)&DtboImgSize, "dtbo");
+  }
+
   if (Status != EFI_SUCCESS) {
-    DEBUG ((EFI_D_ERROR, "BootLinux: GetImage failed!"));
+    DEBUG ((EFI_D_ERROR, "BootLinux: failed to get dtbo image\n"));
     return FALSE;
   }
   if (!*DtboImgBuffer) {
