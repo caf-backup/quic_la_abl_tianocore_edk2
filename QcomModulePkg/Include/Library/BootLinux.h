@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -105,6 +105,7 @@ typedef struct BootInfo {
   UINT32 VBCmdLineLen;
   UINT32 VBCmdLineFilledLen;
   VOID *VBData;
+  UINT32 HeaderVersion;
 } BootInfo;
 
 EFI_STATUS
@@ -126,7 +127,10 @@ GetImage (CONST BootInfo *Info,
           UINTN *ImageSize,
           CHAR8 *ImageName);
 BOOLEAN
-LoadAndValidateDtboImg (BootInfo *Info, VOID **DtboImgBuffer);
+LoadAndValidateDtboImg (BootInfo *Info,
+                        VOID **DtboImgBuffer,
+                        VOID **ImageBuffer,
+                        UINT64 ImageSize);
 VOID SetBootDevImage (VOID);
 VOID ResetBootDevImage (VOID);
 BOOLEAN IsBootDevImage (VOID);
