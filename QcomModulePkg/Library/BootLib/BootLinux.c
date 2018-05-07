@@ -177,16 +177,15 @@ DTBImgCheckAndAppendDT (BootInfo *Info,
     return EFI_INVALID_PARAMETER;
   }
 
-  DtboImgInvalid = LoadAndValidateDtboImg (Info,
-                                           &(BootParamlistPtr->DtboImgBuffer));
-
-if (!DtboImgInvalid) {
+  DtboImgInvalid = LoadAndValidateDtboImg (Info, BootParamlistPtr);
+  if (!DtboImgInvalid) {
     // appended device tree
     Dtb = DeviceTreeAppended ((VOID *)(BootParamlistPtr->ImageBuffer +
-                              BootParamlistPtr->PageSize),
-                                BootParamlistPtr->KernelSize,
-                                DtbOffset,
-                                (VOID *)BootParamlistPtr->DeviceTreeLoadAddr);
+                             BootParamlistPtr->PageSize +
+                             BootParamlistPtr->PatchedKernelHdrSize),
+                             BootParamlistPtr->KernelSize,
+                             DtbOffset,
+                             (VOID *)BootParamlistPtr->DeviceTreeLoadAddr);
     if (!Dtb) {
       if (DtbOffset >= BootParamlistPtr->KernelSize) {
         DEBUG ((EFI_D_ERROR, "Dtb offset goes beyond the kernel size\n"));
@@ -229,7 +228,8 @@ if (!DtboImgInvalid) {
      /*It is the case of DTB overlay Get the Soc specific dtb */
       FinalDtbHdr = SocDtb =
       GetSocDtb ((VOID *)(BootParamlistPtr->ImageBuffer +
-                 BootParamlistPtr->PageSize),
+                 BootParamlistPtr->PageSize +
+                 BootParamlistPtr->PatchedKernelHdrSize),
                  BootParamlistPtr->KernelSize,
                  DtbOffset,
                  (VOID *)BootParamlistPtr->DeviceTreeLoadAddr);
@@ -332,9 +332,28 @@ GZipPkgCheck (BootParamlist *BootParamlistPtr,
 
     Kptr = (struct kernel64_hdr *)*KernelLoadAddr;
   } else {
-    Kptr = BootParamlistPtr->ImageBuffer + BootParamlistPtr->PageSize;
+    Kptr = (struct kernel64_hdr *)(BootParamlistPtr->ImageBuffer
+                         + BootParamlistPtr->PageSize);
+    DEBUG ((EFI_D_INFO, "Uncompressed kernel in use\n"));
+    /* Patch kernel support only for 64-bit */
+    if (!AsciiStrnCmp ((char*)(BootParamlistPtr->ImageBuffer
+                 + BootParamlistPtr->PageSize), PATCHED_KERNEL_MAGIC,
+                 sizeof (PATCHED_KERNEL_MAGIC) - 1)) {
+      DEBUG ((EFI_D_VERBOSE, "Patched kernel detected\n"));
 
-    /* Uncompress kernel - zImage*/
+      /* The size of the kernel is stored at start of kernel image + 16
+       * The dtb would start just after the kernel */
+      gBS->CopyMem ((VOID *)DtbOffset, (VOID *) (BootParamlistPtr->ImageBuffer
+                 + BootParamlistPtr->PageSize + sizeof (PATCHED_KERNEL_MAGIC)
+                 - 1), sizeof (*DtbOffset));
+
+      BootParamlistPtr->PatchedKernelHdrSize = PATCHED_KERNEL_HEADER_SIZE;
+      Kptr = (struct kernel64_hdr *)((VOID *)Kptr +
+                 BootParamlistPtr->PatchedKernelHdrSize);
+      gBS->CopyMem ((VOID *)*KernelLoadAddr, (VOID *)Kptr,
+                 BootParamlistPtr->KernelSize);
+    }
+
     if (Kptr->magic_64 != KERNEL64_HDR_MAGIC) {
       *KernelLoadAddr =
       (EFI_PHYSICAL_ADDRESS) (BootParamlistPtr->BaseMemory |
@@ -445,7 +464,6 @@ BootLinux (BootInfo *Info)
 {
 
   EFI_STATUS Status;
-  UINTN ImageSize = 0;
   CHAR16 *PartitionName = NULL;
   BOOLEAN Recovery = FALSE;
   BOOLEAN AlarmBoot = FALSE;
@@ -482,12 +500,12 @@ BootLinux (BootInfo *Info)
 
   Status = GetImage (Info,
                      &BootParamlistPtr.ImageBuffer,
-                     &ImageSize,
+                     (UINTN *)&BootParamlistPtr.ImageSize,
                      (!Info->MultiSlotBoot &&
                       Recovery)? "recovery" : "boot");
   if (Status != EFI_SUCCESS ||
       BootParamlistPtr.ImageBuffer == NULL ||
-      ImageSize <= 0) {
+      BootParamlistPtr.ImageSize <= 0) {
     DEBUG ((EFI_D_ERROR, "BootLinux: Get%aImage failed!\n",
             (!Info->MultiSlotBoot &&
              Recovery)? "Recovery" : "Boot"));
@@ -590,6 +608,8 @@ BootLinux (BootInfo *Info)
     return Status;
   }
 
+  Info->HeaderVersion = ((boot_img_hdr *)
+                         (BootParamlistPtr.ImageBuffer))->header_version;
   Status = DTBImgCheckAndAppendDT (Info, &BootParamlistPtr,
                                    DtbOffset);
   if (Status != EFI_SUCCESS) {
@@ -681,10 +701,10 @@ CheckImageHeader (VOID *ImageHdrBuffer,
   UINT32 RamdiskSizeActual = 0;
 
   // Boot Image header information variables
+  UINT32 HeaderVersion = 0;
   UINT32 KernelSize = 0;
   UINT32 RamdiskSize = 0;
   UINT32 SecondSize = 0;
-  UINT32 DeviceTreeSize = 0;
   UINT32 tempImgSize = 0;
 
   if (CompareMem ((void *)((boot_img_hdr *)(ImageHdrBuffer))->magic, BOOT_MAGIC,
@@ -693,11 +713,11 @@ CheckImageHeader (VOID *ImageHdrBuffer,
     return EFI_NO_MEDIA;
   }
 
+  HeaderVersion = ((boot_img_hdr *)(ImageHdrBuffer))->header_version;
   KernelSize = ((boot_img_hdr *)(ImageHdrBuffer))->kernel_size;
   RamdiskSize = ((boot_img_hdr *)(ImageHdrBuffer))->ramdisk_size;
   SecondSize = ((boot_img_hdr *)(ImageHdrBuffer))->second_size;
   *PageSize = ((boot_img_hdr *)(ImageHdrBuffer))->page_size;
-  DeviceTreeSize = ((boot_img_hdr *)(ImageHdrBuffer))->dt_size;
 
   if (!KernelSize || !*PageSize) {
     DEBUG ((EFI_D_ERROR, "Invalid image Sizes\n"));
@@ -722,13 +742,6 @@ CheckImageHeader (VOID *ImageHdrBuffer,
   RamdiskSizeActual = ROUND_TO_PAGE (RamdiskSize, *PageSize - 1);
   if (RamdiskSize && !RamdiskSizeActual) {
     DEBUG ((EFI_D_ERROR, "Integer Oveflow: Ramdisk Size = %u\n", RamdiskSize));
-    return EFI_BAD_BUFFER_SIZE;
-  }
-
-  DtSizeActual = ROUND_TO_PAGE (DeviceTreeSize, *PageSize - 1);
-  if (DeviceTreeSize && !(DtSizeActual)) {
-    DEBUG (
-        (EFI_D_ERROR, "Integer Oveflow: Device Tree = %u\n", DeviceTreeSize));
     return EFI_BAD_BUFFER_SIZE;
   }
 
@@ -759,9 +772,8 @@ CheckImageHeader (VOID *ImageHdrBuffer,
   DEBUG ((EFI_D_VERBOSE, "Boot Image Header Info...\n"));
   DEBUG ((EFI_D_VERBOSE, "Kernel Size 1            : 0x%x\n", KernelSize));
   DEBUG ((EFI_D_VERBOSE, "Kernel Size 2            : 0x%x\n", SecondSize));
-  DEBUG ((EFI_D_VERBOSE, "Device Tree Size         : 0x%x\n", DeviceTreeSize));
   DEBUG ((EFI_D_VERBOSE, "Ramdisk Size             : 0x%x\n", RamdiskSize));
-  DEBUG ((EFI_D_VERBOSE, "Device Tree Size         : 0x%x\n", DeviceTreeSize));
+  DEBUG ((EFI_D_VERBOSE, "Image Header version     : 0x%x\n", HeaderVersion));
 
   return Status;
 }
@@ -895,6 +907,18 @@ BOOLEAN IsLEVariant (VOID)
 }
 #else
 BOOLEAN IsLEVariant (VOID)
+{
+  return FALSE;
+}
+#endif
+
+#ifdef BUILD_SYSTEM_ROOT_IMAGE
+BOOLEAN IsBuildAsSystemRootImage (VOID)
+{
+  return TRUE;
+}
+#else
+BOOLEAN IsBuildAsSystemRootImage (VOID)
 {
   return FALSE;
 }

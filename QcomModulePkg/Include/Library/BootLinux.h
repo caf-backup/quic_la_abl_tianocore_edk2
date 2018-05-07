@@ -57,6 +57,10 @@
 #include <Protocol/LoadedImage.h>
 #include <Protocol/SerialIo.h>
 #include <Protocol/SimpleFileSystem.h>
+#include <Protocol/EFISecRSA.h>
+#include <Protocol/Hash.h>
+#include <Protocol/Hash2.h>
+#include <Protocol/EFIASN1X509.h>
 
 #include "Board.h"
 #include "BootImage.h"
@@ -78,6 +82,12 @@
 #define DECOMPRESS_SIZE_FACTOR 8
 #define ALIGNMENT_MASK_4KB 4096
 #define MAX_NUMBER_OF_LOADED_IMAGES 32
+/* Size of the header that is used in case the boot image has
+ * a uncompressed kernel + appended dtb */
+#define PATCHED_KERNEL_HEADER_SIZE 20
+/* String used to determine if the boot image has
+ * a uncompressed kernel + appended dtb */
+#define PATCHED_KERNEL_MAGIC "UNCOMPRESSED_IMG"
 
 typedef VOID (*LINUX_KERNEL) (UINT64 ParametersBase,
                               UINT64 Reserved0,
@@ -105,6 +115,7 @@ typedef struct BootInfo {
   UINT32 VBCmdLineLen;
   UINT32 VBCmdLineFilledLen;
   VOID *VBData;
+  UINT32 HeaderVersion;
 } BootInfo;
 
 typedef struct BootLinuxParamlist {
@@ -117,11 +128,13 @@ typedef struct BootLinuxParamlist {
   UINT64 RamdiskLoadAddr;
   UINT32 RamdiskSize;
   UINT32 RamdiskOffset;
+  UINT32 PatchedKernelHdrSize;
   CHAR8 *FinalCmdLine;
   CHAR8 *CmdLine;
   BOOLEAN BootingWith32BitKernel;
   UINT32 KernelSizeActual;
   VOID *ImageBuffer;
+  UINT64 ImageSize;
   VOID *DtboImgBuffer;
 } BootParamlist;
 
@@ -138,13 +151,15 @@ EFI_STATUS
 LaunchApp (IN UINT32 Argc, IN CHAR8 **Argv);
 BOOLEAN TargetBuildVariantUser (VOID);
 BOOLEAN IsLEVariant (VOID);
+BOOLEAN IsBuildAsSystemRootImage (VOID);
 EFI_STATUS
 GetImage (CONST BootInfo *Info,
           VOID **ImageBuffer,
           UINTN *ImageSize,
           CHAR8 *ImageName);
 BOOLEAN
-LoadAndValidateDtboImg (BootInfo *Info, VOID **DtboImgBuffer);
+LoadAndValidateDtboImg (BootInfo *Info,
+                        BootParamlist *BootParamlistPtr);
 VOID SetBootDevImage (VOID);
 VOID ResetBootDevImage (VOID);
 BOOLEAN IsBootDevImage (VOID);

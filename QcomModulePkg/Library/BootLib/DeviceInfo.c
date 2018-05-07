@@ -29,7 +29,6 @@
 #include "LinuxLoaderLib.h"
 #include "Board.h"
 #include <FastbootLib/FastbootCmds.h>
-#include <Library/BoardCustom.h>
 #include <Library/MemoryAllocationLib.h>
 #include <Library/PartitionTableUpdate.h>
 #include <Library/Recovery.h>
@@ -149,6 +148,8 @@ SetDeviceUnlockValue (UINT32 Type, BOOLEAN State)
 {
   EFI_STATUS Status = EFI_SUCCESS;
   struct RecoveryMessage Msg;
+  EFI_GUID Ptype = gEfiMiscPartitionGuid;
+  MemCardType CardType = UNKNOWN;
 
   switch (Type) {
   case UNLOCK:
@@ -179,7 +180,15 @@ SetDeviceUnlockValue (UINT32 Type, BOOLEAN State)
   Status = AsciiStrnCpyS (Msg.recovery, sizeof (Msg.recovery),
                           RECOVERY_WIPE_DATA, AsciiStrLen (RECOVERY_WIPE_DATA));
   if (Status == EFI_SUCCESS) {
-    Status = WriteToPartition (&gEfiMiscPartitionGuid, &Msg, sizeof (Msg));
+    CardType = CheckRootDeviceType ();
+    if (CardType == NAND) {
+      Status = GetNandMiscPartiGuid (&Ptype);
+      if (Status != EFI_SUCCESS) {
+        return Status;
+      }
+    }
+
+    Status = WriteToPartition (&Ptype, &Msg, sizeof (Msg));
   }
 
   return Status;
@@ -191,17 +200,15 @@ UpdateDevInfo (CHAR16 *Pname, CHAR8 *ImgVersion)
   EFI_STATUS Status = EFI_SUCCESS;
 
   if (!StrCmp ((CONST CHAR16 *)Pname, (CONST CHAR16 *)L"bootloader")) {
-    AsciiStrnCpyS (DevInfo.bootloader_version, MAX_VERSION_LEN,
-                   BoardPlatformChipBaseBand (),
-                   AsciiStrLen (BoardPlatformChipBaseBand ()));
+    AsciiStrnCpyS (DevInfo.bootloader_version, MAX_VERSION_LEN, PRODUCT_NAME,
+                   AsciiStrLen (PRODUCT_NAME));
     AsciiStrnCatS (DevInfo.bootloader_version, MAX_VERSION_LEN, "-",
                    AsciiStrLen ("-"));
     AsciiStrnCatS (DevInfo.bootloader_version, MAX_VERSION_LEN, ImgVersion,
                    AsciiStrLen (ImgVersion));
   } else {
-    AsciiStrnCpyS (DevInfo.radio_version, MAX_VERSION_LEN,
-                   BoardPlatformChipBaseBand (),
-                   AsciiStrLen (BoardPlatformChipBaseBand ()));
+    AsciiStrnCpyS (DevInfo.radio_version, MAX_VERSION_LEN, PRODUCT_NAME,
+                   AsciiStrLen (PRODUCT_NAME));
     AsciiStrnCatS (DevInfo.radio_version, MAX_VERSION_LEN, "-",
                    AsciiStrLen ("-"));
     AsciiStrnCatS (DevInfo.radio_version, MAX_VERSION_LEN, ImgVersion,
