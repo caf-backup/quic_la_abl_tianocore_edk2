@@ -506,9 +506,7 @@ WriteToDisk (IN EFI_BLOCK_IO_PROTOCOL *BlockIo,
              IN UINT64 Size,
              IN UINT64 offset)
 {
-  return BlockIo->WriteBlocks (
-      BlockIo, BlockIo->Media->MediaId, offset,
-      ROUND_TO_PAGE (Size, BlockIo->Media->BlockSize - 1), Image);
+  return WriteBlockToPartition (BlockIo, offset, Size, Image);
 }
 
 STATIC BOOLEAN
@@ -1032,9 +1030,12 @@ HandleRawImgFlash (IN CHAR16 *PartitionName,
 
     return EFI_VOLUME_FULL;
   }
-  Status = BlockIo->WriteBlocks (
-      BlockIo, BlockIo->Media->MediaId, 0,
-      ROUND_TO_PAGE (Size, BlockIo->Media->BlockSize - 1), Image);
+
+  Status = WriteBlockToPartition (BlockIo, 0, Size, Image);
+  if (EFI_ERROR (Status)) {
+    DEBUG ((EFI_D_ERROR, "Writing Block to partition Failure\n"));
+  }
+
   if (MultiSlotBoot && HasSlot &&
       !(StrnCmp (PartitionName, (CONST CHAR16 *)L"boot",
                  StrLen ((CONST CHAR16 *)L"boot"))))
@@ -2075,7 +2076,8 @@ FastbootCmdsInit (VOID)
   /* Allocate buffer used to store images passed by the download command */
   Status =
         GetFastbootDeviceData ().UsbDeviceProtocol->AllocateTransferBuffer (
-               IsLEVariant () ? MAX_BUFFER_SIZE : (MAX_BUFFER_SIZE * 2),
+               (CheckRootDeviceType () == NAND) ?
+                      MAX_BUFFER_SIZE : (MAX_BUFFER_SIZE * 2),
                (VOID **)&FastBootBuffer);
 
   if (Status != EFI_SUCCESS) {
@@ -2794,7 +2796,8 @@ FastbootCommandSetup (IN VOID *base, IN UINT32 size)
   mFlashNumDataBytes = size;
   mUsbDataBuffer = base;
 
-  mFlashDataBuffer = IsLEVariant () ? base : (base + MAX_BUFFER_SIZE);
+  mFlashDataBuffer = (CheckRootDeviceType () == NAND) ?
+                           base : (base + MAX_BUFFER_SIZE);
 
   /* Find all Software Partitions in the User Partition */
   UINT32 i;
