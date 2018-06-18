@@ -186,6 +186,13 @@ typedef struct {
   VOID *Data;
 } CmdInfo;
 
+STATIC BOOLEAN UsbTimerStarted;
+
+BOOLEAN IsUsbTimerStarted (VOID)
+{
+  return UsbTimerStarted;
+}
+
 #ifdef DISABLE_PARALLEL_DOWNLOAD_FLASH
 BOOLEAN IsDisableParallelDownloadFlash (VOID)
 {
@@ -508,7 +515,7 @@ WriteToDisk (IN EFI_BLOCK_IO_PROTOCOL *BlockIo,
              IN UINT64 Size,
              IN UINT64 offset)
 {
-  return WriteBlockToPartition (BlockIo, offset, Size, Image);
+  return WriteBlockToPartition (BlockIo, Handle, offset, Size, Image);
 }
 
 STATIC BOOLEAN
@@ -1033,7 +1040,7 @@ HandleRawImgFlash (IN CHAR16 *PartitionName,
     return EFI_VOLUME_FULL;
   }
 
-  Status = WriteBlockToPartition (BlockIo, 0, Size, Image);
+  Status = WriteBlockToPartition (BlockIo, Handle, 0, Size, Image);
   if (EFI_ERROR (Status)) {
     DEBUG ((EFI_D_ERROR, "Writing Block to partition Failure\n"));
   }
@@ -1352,6 +1359,7 @@ STATIC VOID StopUsbTimer (VOID)
     gBS->CloseEvent (UsbTimerEvent);
     UsbTimerEvent = NULL;
   }
+  UsbTimerStarted = FALSE;
 }
 #else
 STATIC VOID StopUsbTimer (VOID)
@@ -1666,6 +1674,7 @@ CmdFlash (IN CONST CHAR8 *arg, IN VOID *data, IN UINT32 sz)
         IsFlashComplete = TRUE;
         StopUsbTimer ();
       } else {
+        UsbTimerStarted = TRUE;
         FastbootOkay ("");
       }
     }
@@ -2398,7 +2407,6 @@ SetDeviceUnlock (UINT32 Type, BOOLEAN State)
          return;
     }
     FastbootOkay ("");
-    RebootDevice (RECOVERY_MODE);
   }
 }
 #endif
