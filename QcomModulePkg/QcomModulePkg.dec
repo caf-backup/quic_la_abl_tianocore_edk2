@@ -145,5 +145,3 @@
   gQcomTokenSpaceGuid.EnableMdtpSupport|FALSE|BOOLEAN|0x00015007
   gQcomTokenSpaceGuid.AllowEio|FALSE|BOOLEAN|0x00015008
   gQcomTokenSpaceGuid.EnableBatteryVoltageCheck|TRUE|BOOLEAN|0x00015009
-  gQcomTokenSpaceGuid.CvmKernelLoadAddress|0xA0080000|UINT32|0x0001500A
-  gQcomTokenSpaceGuid.CvmDtLoadAddress|0xA3200000|UINT32|0x0001500B

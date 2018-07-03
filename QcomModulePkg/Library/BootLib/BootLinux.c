@@ -160,19 +160,75 @@ CheckMDTPStatus (CHAR16 *PartitionName, BootInfo *Info)
 }
 
 STATIC EFI_STATUS
+ApplyOverlay (BootParamlist *BootParamlistPtr,
+              VOID *AppendedDtHdr,
+              VOID *OverlayDtHdr)
+{
+  VOID *FinalDtbHdr = AppendedDtHdr;
+  VOID *TmpDtbHdr = NULL;
+
+  if (BootParamlistPtr == NULL ||
+      AppendedDtHdr == NULL) {
+    DEBUG ((EFI_D_ERROR, "ApplyOverlay: Invalid input parameters\n"));
+    return EFI_INVALID_PARAMETER;
+  }
+  if (OverlayDtHdr == NULL) {
+    DEBUG ((EFI_D_VERBOSE, "ApplyOverlay: Overlay DT is NULL\n"));
+    goto out;
+  }
+
+  if (!pre_overlay_malloc ()) {
+    DEBUG ((EFI_D_ERROR,
+           "ApplyOverlay: Unable to Allocate Pre Buffer for Overlay\n"));
+    return EFI_OUT_OF_RESOURCES;
+  }
+
+  TmpDtbHdr = ufdt_install_blob (AppendedDtHdr, fdt_totalsize (AppendedDtHdr));
+  if (!TmpDtbHdr) {
+    DEBUG ((EFI_D_ERROR, "ApplyOverlay: Install blob failed\n"));
+    return EFI_NOT_FOUND;
+  }
+
+  FinalDtbHdr = ufdt_apply_overlay (TmpDtbHdr,
+                                    fdt_totalsize (TmpDtbHdr),
+                                    OverlayDtHdr,
+                                    fdt_totalsize (OverlayDtHdr));
+  if (!FinalDtbHdr) {
+    DEBUG ((EFI_D_ERROR, "ApplyOverlay: ufdt apply overlay failed\n"));
+    return EFI_NOT_FOUND;
+  }
+
+out:
+  if ((BootParamlistPtr->RamdiskLoadAddr -
+       BootParamlistPtr->DeviceTreeLoadAddr) <
+            fdt_totalsize (FinalDtbHdr)) {
+    DEBUG ((EFI_D_ERROR, "ApplyOverlay: After overlay DTB size exceeded than supported\n"));
+    return EFI_UNSUPPORTED;
+  }
+  /* If DeviceTreeLoadAddr == AppendedDtHdr
+     CopyMem will not copy Source Buffer to Destination Buffer
+     and return Destination BUffer.
+  */
+  gBS->CopyMem ((VOID *)BootParamlistPtr->DeviceTreeLoadAddr,
+                FinalDtbHdr,
+                fdt_totalsize (FinalDtbHdr));
+  post_overlay_free ();
+  return EFI_SUCCESS;
+}
+
+STATIC EFI_STATUS
 DTBImgCheckAndAppendDT (BootInfo *Info,
                         BootParamlist *BootParamlistPtr,
                         UINT32 DtbOffset)
 {
   VOID *SingleDtHdr = NULL;
   VOID *NextDtHdr = NULL;
-  VOID *FinalDtbHdr = NULL;
   VOID *BoardDtb = NULL;
   VOID *SocDtb = NULL;
   VOID *Dtb;
-  VOID *SocDtbHdr = NULL;
   BOOLEAN DtboCheckNeeded = FALSE;
   BOOLEAN DtboImgInvalid = FALSE;
+  EFI_STATUS Status;
 
   if (Info == NULL ||
       BootParamlistPtr == NULL) {
@@ -230,7 +286,7 @@ if (!DtboImgInvalid) {
      }
    } else {
      /*It is the case of DTB overlay Get the Soc specific dtb */
-      FinalDtbHdr = SocDtb =
+      SocDtb =
       GetSocDtb ((VOID *)(BootParamlistPtr->ImageBuffer +
                  BootParamlistPtr->PageSize),
                  BootParamlistPtr->KernelSize,
@@ -250,30 +306,23 @@ if (!DtboImgInvalid) {
           DEBUG ((EFI_D_ERROR, "Error: Board Dtbo blob not found\n"));
           return EFI_NOT_FOUND;
         }
-        if (!pre_overlay_malloc ()) {
-          DEBUG ((EFI_D_ERROR,
-                  "Error: Unable to Allocate Pre Buffer for Overlay\n"));
-          return EFI_OUT_OF_RESOURCES;
-        }
-
-        SocDtbHdr = ufdt_install_blob (SocDtb, fdt_totalsize (SocDtb));
-        if (!SocDtbHdr) {
-          DEBUG ((EFI_D_ERROR, "Error: Install blob failed\n"));
-          return EFI_NOT_FOUND;
-        }
-
-        FinalDtbHdr = ufdt_apply_overlay (SocDtbHdr,
-                                          fdt_totalsize (SocDtbHdr),
-                                          BoardDtb,
-                                          fdt_totalsize (BoardDtb));
-        if (!FinalDtbHdr) {
-          DEBUG ((EFI_D_ERROR, "ufdt apply overlay failed\n"));
-          return EFI_NOT_FOUND;
+      }
+      Status = ApplyOverlay (BootParamlistPtr,
+                             SocDtb, BoardDtb);
+      if (Status != EFI_SUCCESS) {
+        DEBUG ((EFI_D_ERROR, "Error: Dtb overlay failed\n"));
+        return Status;
+      }
+      if (IsVmEnabled ()) {
+        /* Apply Hyp Overlay */
+        Status = ApplyOverlay (BootParamlistPtr,
+                               (VOID *)BootParamlistPtr->DeviceTreeLoadAddr,
+                               (VOID *)BootParamlistPtr->HypDtboAddr);
+        if (Status != EFI_SUCCESS) {
+          DEBUG ((EFI_D_ERROR, "Error: Hyp Dtb overlay failed\n"));
+          return Status;
         }
       }
-      gBS->CopyMem ((VOID *)BootParamlistPtr->DeviceTreeLoadAddr, FinalDtbHdr,
-                     fdt_totalsize (FinalDtbHdr));
-      post_overlay_free ();
   }
   return EFI_SUCCESS;
 }
@@ -445,12 +494,87 @@ LoadAddrAndDTUpdate (BootParamlist *BootParamlistPtr)
 
 STATIC
 EFI_STATUS
-CheckAndLoadComputeVM (BootInfo *Info, BootParamlist *CvmBootParamList)
+UpdateMemRegions (BootParamlist *BootParamlistPtr,
+                  BootParamlist *CvmBootParamList,
+                  HypBootInfo *HypInfo)
+{
+  if (HypInfo->hyp_bootinfo_magic != HYP_BOOTINFO_MAGIC) {
+    DEBUG ((EFI_D_ERROR, "Invalid HYP MAGIC\n"));
+    return EFI_UNSUPPORTED;
+  }
+
+  if ((HypInfo->num_vms > MAX_SUPPORTED_VMS) ||
+      (HypInfo->num_vms < MIN_SUPPORTED_VMS)) {
+    DEBUG ((EFI_D_ERROR, "Invalid No. of VMs:%d,Supported VMs range:(%d-%d)\n",
+            HypInfo->num_vms, MIN_SUPPORTED_VMS, MAX_SUPPORTED_VMS));
+    return EFI_UNSUPPORTED;
+  }
+
+  /* HLOS: get ddr regions from HypInfo */
+  BootParamlistPtr->BaseMemory =
+         HypInfo->vm[HypInfo->hlos_vm].ddr_region[KERNEL_ADDR_IDX].base;
+  DEBUG ((EFI_D_INFO, "Memory Base Address: 0x%x\n",
+                       BootParamlistPtr->BaseMemory));
+  BootParamlistPtr->KernelLoadAddr =
+        (EFI_PHYSICAL_ADDRESS)
+        (BootParamlistPtr->BaseMemory | PcdGet32 (KernelLoadAddress));
+  BootParamlistPtr->RamdiskLoadAddr =
+        (EFI_PHYSICAL_ADDRESS)
+        (BootParamlistPtr->BaseMemory | PcdGet32 (RamdiskLoadAddress));
+  BootParamlistPtr->DeviceTreeLoadAddr =
+        (EFI_PHYSICAL_ADDRESS)
+        (BootParamlistPtr->BaseMemory | PcdGet32 (TagsAddress));
+  BootParamlistPtr->HypDtboAddr =
+        HypInfo->vm[HypInfo->hlos_vm].info.linux_arm.dtbo_base;
+
+  /* If Hyp is enabled & HLOS DTBO is invalid,
+     no need to continue further */
+  if (!BootParamlistPtr->HypDtboAddr ||
+      fdt_check_header ((VOID *)BootParamlistPtr->HypDtboAddr)) {
+    DEBUG ((EFI_D_ERROR, "HLOS overlay DT Addr is NULL or Bad DT Header\n"));
+    return EFI_UNSUPPORTED;
+  }
+
+  /*
+   * Right now only one vm is supported
+   * Support for more than one vm can be extended later.
+   */
+
+  /* MLVM: get ddr regions from HypInfo */
+  for (int i=0; i < HypInfo->num_vms; i++) {
+    if (i == HypInfo->hlos_vm)
+      continue;
+    if (HypInfo->vm[i].vm_type == HYP_VM_TYPE_LINUX_AARCH64) {
+      CvmBootParamList->BaseMemory =
+            HypInfo->vm[i].ddr_region[KERNEL_ADDR_IDX].base;
+      CvmBootParamList->KernelLoadAddr =
+           (EFI_PHYSICAL_ADDRESS)
+           (CvmBootParamList->BaseMemory | PcdGet32 (KernelLoadAddress));
+      CvmBootParamList->RamdiskLoadAddr =
+           (EFI_PHYSICAL_ADDRESS)
+           (CvmBootParamList->BaseMemory | PcdGet32 (RamdiskLoadAddress));
+      CvmBootParamList->DeviceTreeLoadAddr =
+           (EFI_PHYSICAL_ADDRESS)
+           (CvmBootParamList->BaseMemory | PcdGet32 (TagsAddress));
+      CvmBootParamList->HypDtboAddr =
+           HypInfo->vm[i].info.linux_arm.dtbo_base;
+      break;
+    }
+  }
+
+  return EFI_SUCCESS;
+}
+
+STATIC
+EFI_STATUS
+CheckAndLoadComputeVM (BootInfo *Info,
+                       BootParamlist *CvmBootParamList)
 {
   EFI_STATUS Status;
   UINTN CvmImageSize;
   UINT32 DtbOffset = 0;
   VOID *SingleDtHdr = NULL;
+  VOID *MlVmDtHdr = (VOID *)CvmBootParamList->HypDtboAddr;
   IsVmComputed = FALSE;
 
   /* Call GetImage here.*/
@@ -473,10 +597,6 @@ CheckAndLoadComputeVM (BootInfo *Info, BootParamlist *CvmBootParamList)
                 ((boot_img_hdr *)(CvmBootParamList->ImageBuffer))->page_size;
   CvmBootParamList->CmdLine =
     (CHAR8 *)&(((boot_img_hdr *) (CvmBootParamList->ImageBuffer))->cmdline[0]);
-
-  /* Retrieve Compute VM Load address from PCD */
-  CvmBootParamList->KernelLoadAddr = (EFI_PHYSICAL_ADDRESS) PcdGet32 (CvmKernelLoadAddress);
-  CvmBootParamList->DeviceTreeLoadAddr = (EFI_PHYSICAL_ADDRESS) PcdGet32 (CvmDtLoadAddress);
 
   Status = GZipPkgCheck (CvmBootParamList, &DtbOffset,
                          &CvmBootParamList->KernelLoadAddr,
@@ -502,7 +622,6 @@ CheckAndLoadComputeVM (BootInfo *Info, BootParamlist *CvmBootParamList)
                                        CvmBootParamList->RamdiskOffset));
 
   /*No Ram disk loading and command line update support for Compute VM*/
-
   if (DtbOffset >= CvmBootParamList->KernelSize) {
     DEBUG ((EFI_D_ERROR, "Dtb offset goes beyond the kernel size\n"));
     return EFI_BAD_BUFFER_SIZE;
@@ -521,14 +640,25 @@ CheckAndLoadComputeVM (BootInfo *Info, BootParamlist *CvmBootParamList)
     }
 
     if (CHECK_ADD64 (CvmBootParamList->DeviceTreeLoadAddr,
-			      fdt_totalsize (SingleDtHdr))) {
-      DEBUG ((EFI_D_ERROR, "Integer Overflow: in single dtb header addition\n"));
+                     fdt_totalsize (SingleDtHdr))) {
+      DEBUG ((EFI_D_ERROR, "Integer Overflow: "
+                           "in single dtb header addition\n"));
       return EFI_BAD_BUFFER_SIZE;
     }
 
     DEBUG ((EFI_D_VERBOSE, "Loading Compute VM DT - Start\n"));
-    gBS->CopyMem ((VOID *)CvmBootParamList->DeviceTreeLoadAddr,
-			      SingleDtHdr, fdt_totalsize (SingleDtHdr));
+    if (!MlVmDtHdr || fdt_check_header (MlVmDtHdr)) {
+      DEBUG ((EFI_D_VERBOSE, "VM overlay DT Addr is NULL or Bad DT Header"
+                             "\nContinue with appended DTB\n"));
+      MlVmDtHdr = NULL;
+    }
+    Status = ApplyOverlay (CvmBootParamList,
+                           SingleDtHdr,
+                           MlVmDtHdr);
+    if (Status != EFI_SUCCESS) {
+      DEBUG ((EFI_D_ERROR, "VM DT Overlay Failed: %r\n", Status));
+      return Status;
+    }
     DEBUG ((EFI_D_VERBOSE, "Loading Compute VM DT- Complete\n"));
   } else {
     DEBUG ((EFI_D_ERROR, "Compute DT is not appended/found\n"));
@@ -562,6 +692,12 @@ BootLinux (BootInfo *Info)
   BootParamlist CvmBootParamList = {0};
   struct HypMsg Msg = {0};
   UINT32 RetVal;
+
+  HypBootInfo *HypInfo = GetVmData ();
+  if (IsVmEnabled () && HypInfo == NULL) {
+    DEBUG ((EFI_D_ERROR, "HypInfo is NULL\n"));
+    return EFI_UNSUPPORTED;
+  }
 
   if (Info == NULL) {
     DEBUG ((EFI_D_ERROR, "BootLinux: invalid parameter Info\n"));
@@ -612,24 +748,34 @@ BootLinux (BootInfo *Info)
   BootParamlistPtr.CmdLine = (CHAR8 *)&(((boot_img_hdr *)
                              (BootParamlistPtr.ImageBuffer))->cmdline[0]);
 
-  // Retrive Base Memory Address from Ram Partition Table
-  Status = BaseMem (&BootParamlistPtr.BaseMemory);
-  if (Status != EFI_SUCCESS) {
-    DEBUG ((EFI_D_ERROR, "Base memory not found!!! Status:%r\n", Status));
-    return Status;
-  }
+  if (IsVmEnabled ()) {
+    Status = UpdateMemRegions (&BootParamlistPtr,
+                               &CvmBootParamList,
+                               HypInfo);
+    if (Status != EFI_SUCCESS) {
+      DEBUG ((EFI_D_ERROR, "Failed to update HLOS Mem regions !!! "
+                           "Status:%r\n", Status));
+      return Status;
+    }
+  } else {
+    // Retrive Base Memory Address from Ram Partition Table
+    Status = BaseMem (&BootParamlistPtr.BaseMemory);
+    if (Status != EFI_SUCCESS) {
+      DEBUG ((EFI_D_ERROR, "Base memory not found!!! Status:%r\n", Status));
+      return Status;
+    }
 
-  // These three regions should be reserved in memory map.
-  BootParamlistPtr.KernelLoadAddr =
+    // These three regions should be reserved in memory map.
+    BootParamlistPtr.KernelLoadAddr =
       (EFI_PHYSICAL_ADDRESS) (BootParamlistPtr.BaseMemory |
                               PcdGet32 (KernelLoadAddress));
-  BootParamlistPtr.RamdiskLoadAddr =
+    BootParamlistPtr.RamdiskLoadAddr =
       (EFI_PHYSICAL_ADDRESS) (BootParamlistPtr.BaseMemory |
                               PcdGet32 (RamdiskLoadAddress));
-  BootParamlistPtr.DeviceTreeLoadAddr =
+    BootParamlistPtr.DeviceTreeLoadAddr =
       (EFI_PHYSICAL_ADDRESS) (BootParamlistPtr.BaseMemory |
                               PcdGet32 (TagsAddress));
-
+  }
   Status = GZipPkgCheck (&BootParamlistPtr, &DtbOffset,
                          &BootParamlistPtr.KernelLoadAddr,
                          &BootParamlistPtr.BootingWith32BitKernel);
@@ -697,17 +843,17 @@ BootLinux (BootInfo *Info)
     return Status;
   }
 
-  if((!Recovery) && (IsVmEnabled()))
-  {
-      Status = CheckAndLoadComputeVM (Info, &CvmBootParamList);
-      if (EFI_ERROR (Status)) {
-        DEBUG ((EFI_D_ERROR, "Compute VM Not Loaded - %r\n", Status));
-      }
-  }
-
   Status = LoadAddrAndDTUpdate (&BootParamlistPtr);
   if (Status != EFI_SUCCESS) {
        return Status;
+  }
+
+  if((!Recovery) && (IsVmEnabled()))
+  {
+    Status = CheckAndLoadComputeVM (Info, &CvmBootParamList);
+    if (EFI_ERROR (Status)) {
+      DEBUG ((EFI_D_ERROR, "Compute VM Not Loaded - %r\n", Status));
+    }
   }
 
   FreeVerifiedBootResource (Info);
@@ -738,7 +884,8 @@ BootLinux (BootInfo *Info)
 
   if (IsVmEnabled()) {
     /* Call into Hypervisor if MLVM needs to loaded */
-    RetVal = HvcSysPipeControl (PIPE_ID, CONTROL_STATE);
+    UINT32 PipeId = GET_PIPE_ID_SEND(HypInfo->pipe_id);
+    RetVal = HvcSysPipeControl (PipeId, CONTROL_STATE);
     if (RetVal) {
       DEBUG ((EFI_D_ERROR, "Error: Pipe Ctrl %d, Boot in Fastboot\n", RetVal));
       return EFI_NOT_STARTED;
@@ -752,7 +899,7 @@ BootLinux (BootInfo *Info)
       Msg.HypBootMgr.StartParams.Is64BitMode =
         (!CvmBootParamList.BootingWith32BitKernel);
 
-      RetVal = HvcSysPipeSend(PIPE_ID,
+      RetVal = HvcSysPipeSend(PipeId,
                               (UINT32) sizeof(struct HypMsg),
                               (UINT8 *)(&Msg));
       if (RetVal) {
@@ -767,8 +914,8 @@ BootLinux (BootInfo *Info)
     Msg.HypBootMgr.StartParams.Is64BitMode =
                                     (!BootParamlistPtr.BootingWith32BitKernel);
 
-    RetVal = HvcSysPipeSend (PIPE_ID,
-                        (UINT32)sizeof (struct HypMsg),
+    RetVal = HvcSysPipeSend (PipeId,
+                             (UINT32)sizeof (struct HypMsg),
                              (UINT8 *)(&Msg));
     if (RetVal) {
       DEBUG ((EFI_D_ERROR, "Error: Kernel %d, Boot into Fastboot\n", RetVal));
