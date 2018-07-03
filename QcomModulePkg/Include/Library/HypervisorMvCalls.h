@@ -58,6 +58,15 @@
 #define HYP_VM_TYPE_APP 1  /* Light weight - no OS C VM */
 #define HYP_VM_TYPE_LINUX_AARCH64 2
 
+#define MAX_SUPPORTED_VMS 2
+#define MIN_SUPPORTED_VMS 1
+#define KERNEL_ADDR_IDX 0
+#define RAMDISK_ADDR_IDX 1
+#define DTB_ADDR_IDX 2
+
+#define GET_PIPE_ID_SEND(x) ((x) & (0xFFFF))
+#define GET_PIPE_ID_RECEIVE(x) (((x) >> 16) & (0xFFFF))
+
 /*
 DDR regions.
 * Unused regions have base = 0, size = 0.
@@ -65,7 +74,7 @@ DDR regions.
 typedef struct vm_mem_region {
     UINT64 base;
     UINT64 size;
-}VmMemRegion;
+}VmMemRegion  __attribute__ ((packed));
 
 typedef struct hyp_boot_info {
     UINT32 hyp_bootinfo_magic;
@@ -100,7 +109,7 @@ typedef struct hyp_boot_info {
         /* (areas valid for loading the kernel/dtb/initramfs) */
         struct vm_mem_region ddr_region[8];
     } vm[];
-}HypBootInfo;
+}HypBootInfo __attribute__ ((packed));
 
 struct HypBootMgrStartParams {
 	UINT64 EntryAddr; /* Physical load address / entry point of Linux */
@@ -117,7 +126,6 @@ struct HypMsg {
 	} HypBootMgr;
 };
 
-#define PIPE_ID 819
 #define CONTROL_STATE 3
 /* hypervisor calls */
 UINT32 HvcSysPipeSend(UINT32 PipeId, UINT32 Size, const UINT8 *Data);

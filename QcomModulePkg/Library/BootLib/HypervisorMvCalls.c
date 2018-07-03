@@ -73,7 +73,7 @@ HypBootInfo *GetVmData ()
 
   HypInfo = (HypBootInfo *)Results[1];
   if (!HypInfo) {
-    DEBUG ((EFI_D_ERROR, "GetVmData: ScmSipSysCall returned NULL"));
+    DEBUG ((EFI_D_ERROR, "GetVmData: ScmSipSysCall returned NULL\n"));
     return NULL;
   }
   VmEnabled = TRUE;
