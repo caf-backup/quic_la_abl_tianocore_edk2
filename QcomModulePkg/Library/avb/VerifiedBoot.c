@@ -32,6 +32,7 @@
 #include "libavb/libavb.h"
 #include <Library/MenuKeysDetection.h>
 #include <Library/VerifiedBootMenu.h>
+#include <Library/HypervisorMvCalls.h>
 
 STATIC CONST CHAR8 *VerityMode = " androidboot.veritymode=";
 STATIC CONST CHAR8 *VerifiedState = " androidboot.verifiedbootstate=";
@@ -370,6 +371,7 @@ LoadImageAndAuthVB2 (BootInfo *Info)
   CHAR8 *SlotSuffix = NULL;
   BOOLEAN AllowVerificationError = IsUnlocked ();
   CONST CHAR8 *RequestedPartitionMission[] = {"boot", "dtbo", NULL};
+  CONST CHAR8 *RequestedPartWithVmLinux[] = {"boot", "dtbo", "vm-linux", NULL};
   CONST CHAR8 *RequestedPartitionRecovery[] = {"recovery", "dtbo", NULL};
   CONST CHAR8 *CONST *RequestedPartition = NULL;
   UINTN NumRequestedPartition = 0;
@@ -430,12 +432,27 @@ LoadImageAndAuthVB2 (BootInfo *Info)
        RequestedPartition = &RequestedPartitionRecovery[1];
      }
   } else {
-     RequestedPartition = RequestedPartitionMission;
-     NumRequestedPartition = ARRAY_SIZE (RequestedPartitionMission) - 1;
-     if (Info->NumLoadedImages) {
-       /* fastboot boot option, skip Index 0, as boot image already
-        * loaded */
-       RequestedPartition = &RequestedPartitionMission[1];
+     INT32 Index = INVALID_PTN;
+     if (IsVmEnabled ()) {
+       Index = GetPartitionIndex ((CHAR16 *)L"vm-linux");
+     }
+     if (Index == INVALID_PTN ||
+              Index >= MAX_NUM_PARTITIONS) {
+          RequestedPartition = RequestedPartitionMission;
+          NumRequestedPartition = ARRAY_SIZE (RequestedPartitionMission) - 1;
+          if (Info->NumLoadedImages) {
+             /* fastboot boot option, skip Index 0, as boot image already
+              * loaded */
+             RequestedPartition = &RequestedPartitionMission[1];
+          }
+     } else {
+         RequestedPartition = RequestedPartWithVmLinux;
+         NumRequestedPartition = ARRAY_SIZE (RequestedPartWithVmLinux) - 1;
+         if (Info->NumLoadedImages) {
+            /* fastboot boot option, skip Index 0, as boot image already
+             * loaded */
+            RequestedPartition = &RequestedPartWithVmLinux[1];
+         }
      }
   }
 
