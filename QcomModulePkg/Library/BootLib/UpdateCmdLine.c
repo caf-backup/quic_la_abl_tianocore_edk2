@@ -534,7 +534,14 @@ UpdateCmdLineParams (UpdateCmdLineParamList *Param,
     --Dst;
     STR_COPY (Dst, Src);
   }
-   return EFI_SUCCESS;
+
+  /* Update commandline for VM System partition */
+  if (Param->CvmSystemPtnCmdLine) {
+    Src = Param->CvmSystemPtnCmdLine;
+    --Dst;
+    STR_COPY(Dst, Src);
+  }
+  return EFI_SUCCESS;
 }
 
 /*Update command line: appends boot information to the original commandline
@@ -558,6 +565,7 @@ UpdateCmdLine (CONST CHAR8 *CmdLine,
   BOOLEAN BatteryStatus;
   CHAR8 StrSerialNum[SERIAL_NUM_SIZE];
   BOOLEAN MdtpActive = FALSE;
+  CHAR8 *CvmSystemPtnCmdLine = NULL;
   UpdateCmdLineParamList Param = {0};
   CHAR8 DtboIdxStr[MAX_DTBO_IDX_STR] = "\0";
   INT32 DtboIdx = INVALID_PTN;
@@ -662,6 +670,11 @@ UpdateCmdLine (CONST CHAR8 *CmdLine,
     }
   }
 
+  CvmSystemPtnCmdLine = CvmSystemPathCmdLine ();
+  if (CvmSystemPtnCmdLine) {
+    CmdLineLen += AsciiStrLen (CvmSystemPtnCmdLine);
+  }
+
   Param.Recovery = Recovery;
   Param.MultiSlotBoot = MultiSlotBoot;
   Param.AlarmBoot = AlarmBoot;
@@ -689,6 +702,7 @@ UpdateCmdLine (CONST CHAR8 *CmdLine,
   Param.RootCmdLine = RootCmdLine;
   Param.InitCmdline = InitCmdline;
   Param.DtboIdxStr = DtboIdxStr;
+  Param.CvmSystemPtnCmdLine = CvmSystemPtnCmdLine;
 
   Status = UpdateCmdLineParams (&Param, FinalCmdLine);
   if (Status != EFI_SUCCESS) {
