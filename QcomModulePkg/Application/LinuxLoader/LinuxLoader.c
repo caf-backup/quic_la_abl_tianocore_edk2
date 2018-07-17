@@ -42,6 +42,7 @@
 #include <Library/PartitionTableUpdate.h>
 #include <Library/ShutdownServices.h>
 #include <Library/StackCanary.h>
+#include <Library/HypervisorMvCalls.h>
 
 #define MAX_APP_STR_LEN 64
 #define MAX_NUM_FS 10
@@ -231,6 +232,9 @@ LinuxLoaderEntry (IN EFI_HANDLE ImageHandle, IN EFI_SYSTEM_TABLE *SystemTable)
     Info.MultiSlotBoot = MultiSlotBoot;
     Info.BootIntoRecovery = BootIntoRecovery;
     Info.BootReasonAlarm = BootReasonAlarm;
+    if (!GetVmData ()) {
+      DEBUG ((EFI_D_ERROR, "VM Hyp calls not present\n"));
+    }
     Status = LoadImageAndAuth (&Info);
     if (Status != EFI_SUCCESS) {
       DEBUG ((EFI_D_ERROR, "LoadImageAndAuth failed: %r\n", Status));

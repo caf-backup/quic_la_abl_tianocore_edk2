@@ -123,5 +123,5 @@ struct HypMsg {
 UINT32 HvcSysPipeSend(UINT32 PipeId, UINT32 Size, const UINT8 *Data);
 UINT32 HvcSysPipeControl(UINT32 PipeId, UINT32 Control);
 /* SCM call related functions */
-EFI_STATUS GetVmData (HypBootInfo *HypInfo);
+HypBootInfo *GetVmData (VOID);
 BOOLEAN IsVmEnabled (VOID);

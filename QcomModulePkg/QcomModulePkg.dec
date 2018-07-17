@@ -137,10 +137,12 @@
   gQcomTokenSpaceGuid.KernelLoadAddress|0x00080000|UINT32|0x00015000
   gQcomTokenSpaceGuid.TagsAddress|0x03200000|UINT32|0x00015001
   gQcomTokenSpaceGuid.RamdiskLoadAddress|0x03400000|UINT32|0x00015002
-  gQcomTokenSpaceGuid.RamdiskEndAddress|0x05700000|UINT32|0x00015003
+  gQcomTokenSpaceGuid.RamdiskEndAddress|0x05600000|UINT32|0x00015003
   gQcomTokenSpaceGuid.EnablePartialGoods|TRUE|BOOLEAN|0x00015004
   gQcomTokenSpaceGuid.EnableDisplayMenu|TRUE|BOOLEAN|0x00015005
   gQcomTokenSpaceGuid.KernelLoadAddress32|0x00008000|UINT32|0x00015006
   gQcomTokenSpaceGuid.EnableMdtpSupport|FALSE|BOOLEAN|0x00015007
   gQcomTokenSpaceGuid.AllowEio|FALSE|BOOLEAN|0x00015008
   gQcomTokenSpaceGuid.EnableBatteryVoltageCheck|TRUE|BOOLEAN|0x00015009
+  gQcomTokenSpaceGuid.CvmKernelLoadAddress|0xA0080000|UINT32|0x0001500A
+  gQcomTokenSpaceGuid.CvmDtLoadAddress|0xA3200000|UINT32|0x0001500B
