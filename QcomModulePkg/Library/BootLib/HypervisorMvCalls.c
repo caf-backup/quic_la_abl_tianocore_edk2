@@ -33,30 +33,31 @@
 #include <Library/HypervisorMvCalls.h>
 
 static BOOLEAN VmEnabled = FALSE;
+static HypBootInfo *HypInfo = NULL;
 
 BOOLEAN IsVmEnabled () {
   return VmEnabled;
 }
 
-EFI_STATUS GetVmData (HypBootInfo *HypInfo)
+HypBootInfo *GetVmData ()
 {
-  EFI_STATUS Status = EFI_SUCCESS;
+  EFI_STATUS Status;
   QCOM_SCM_PROTOCOL *QcomScmProtocol = NULL;
   UINT64 Parameters[SCM_MAX_NUM_PARAMETERS] = {0};
   UINT64 Results[SCM_MAX_NUM_RESULTS] = {0};
 
-  if (HypInfo == NULL) {
-    DEBUG ((EFI_D_ERROR, "CheckVmEnabled: NULL"));
-    return EFI_INVALID_PARAMETER;
+  if (IsVmEnabled ()) {
+    return HypInfo;
   }
 
+  DEBUG ((EFI_D_INFO, "GetVmData: making ScmCall to get HypInfo\n"));
   /* Locate QCOM_SCM_PROTOCOL */
   Status = gBS->LocateProtocol (&gQcomScmProtocolGuid, NULL,
                                 (VOID **)&QcomScmProtocol);
   if (EFI_ERROR (Status)) {
     DEBUG ((EFI_D_ERROR, "GetVmData: Locate SCM Protocol failed, "
                          "Status: (0x%x)\n", Status));
-    return Status;
+    return NULL;
   }
 
   /* Make ScmSipSysCall */
@@ -67,17 +68,17 @@ EFI_STATUS GetVmData (HypBootInfo *HypInfo)
   if (EFI_ERROR (Status)) {
     DEBUG ((EFI_D_ERROR, "GetVmData: ScmSipSysCall failed to get hypervisor "
                          "info, Status = (0x%x)\n", Status));
-    return Status;
+    return NULL;
   }
 
   HypInfo = (HypBootInfo *)Results[1];
   if (!HypInfo) {
     DEBUG ((EFI_D_ERROR, "GetVmData: ScmSipSysCall returned NULL"));
-    return EFI_PROTOCOL_ERROR;
+    return NULL;
   }
   VmEnabled = TRUE;
 
-  return Status;
+  return HypInfo;
 }
 
 /* From Linux Kernel asm/system.h */
