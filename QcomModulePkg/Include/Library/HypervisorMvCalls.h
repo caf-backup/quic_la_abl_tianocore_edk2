@@ -51,6 +51,57 @@
 #define BOOT_MGR_START_SELF_REPLY 0x80420002
 /* boot_mgr: BOOLEAN success */
 
+#define HYP_BOOTINFO_MAGIC 0xC06B0071
+#define HYP_BOOTINFO_VERSION 1
+
+#define HYP_VM_TYPE_NONE 0
+#define HYP_VM_TYPE_APP 1  /* Light weight - no OS C VM */
+#define HYP_VM_TYPE_LINUX_AARCH64 2
+
+/*
+DDR regions.
+* Unused regions have base = 0, size = 0.
+*/
+typedef struct vm_mem_region {
+    UINT64 base;
+    UINT64 size;
+}VmMemRegion;
+
+typedef struct hyp_boot_info {
+    UINT32 hyp_bootinfo_magic;
+    UINT32 hyp_bootinfo_version;
+    /* Size of this structure, in bytes */
+    UINT32 hyp_bootinfo_size;
+    /* the number of VMs controlled by the resource manager */
+    UINT32 num_vms;
+    /* the index of the HLOS VM */
+    UINT32 hlos_vm;
+    /* to communicate with resource manager */
+    UINT32 pipe_id;
+    /* for future extension */
+    UINT32 reserved_0[2];
+
+    struct {
+        /* HYP_VM_TYPE_ */
+        UINT32 vm_type;
+        /* vm name - e.g. for partition name matching */
+        CHAR8 vm_name[28];
+        /* uuid currently unused */
+        CHAR8 uuid[16];
+        union {
+            struct {
+                UINT64 dtbo_base;
+                UINT64 dtbo_size;
+            } linux_arm;
+            /* union padding */
+            UINT32 vm_info[12];
+        } info;
+        /* ddr ranges for the VM */
+        /* (areas valid for loading the kernel/dtb/initramfs) */
+        struct vm_mem_region ddr_region[8];
+    } vm[];
+}HypBootInfo;
+
 struct HypBootMgrStartParams {
 	UINT64 EntryAddr; /* Physical load address / entry point of Linux */
 	UINT64 DtbAddr; /* Physical address of DTB */
@@ -71,3 +122,6 @@ struct HypMsg {
 /* hypervisor calls */
 UINT32 HvcSysPipeSend(UINT32 PipeId, UINT32 Size, const UINT8 *Data);
 UINT32 HvcSysPipeControl(UINT32 PipeId, UINT32 Control);
+/* SCM call related functions */
+EFI_STATUS GetVmData (HypBootInfo *HypInfo);
+BOOLEAN IsVmEnabled (VOID);
