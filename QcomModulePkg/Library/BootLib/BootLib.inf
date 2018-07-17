@@ -154,6 +154,8 @@
 	gQcomTokenSpaceGuid.EnableDisplayMenu
 	gQcomTokenSpaceGuid.KernelLoadAddress32
 	gQcomTokenSpaceGuid.EnableMdtpSupport
+	gQcomTokenSpaceGuid.CvmKernelLoadAddress
+	gQcomTokenSpaceGuid.CvmDtLoadAddress
 
 [Depex]
 	TRUE
