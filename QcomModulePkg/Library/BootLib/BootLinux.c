@@ -52,6 +52,7 @@
 STATIC QCOM_SCM_MODE_SWITCH_PROTOCOL *pQcomScmModeSwitchProtocol = NULL;
 STATIC BOOLEAN BootDevImage;
 STATIC BOOLEAN IsVmComputed = FALSE;
+STATIC CHAR8 *CvmSysPath = NULL;
 
 STATIC EFI_STATUS
 SwitchTo32bitModeBooting (UINT64 KernelLoadAddr, UINT64 DeviceTreeLoadAddr)
@@ -1067,4 +1068,61 @@ SetBootDevImage (VOID)
 BOOLEAN IsBootDevImage (VOID)
 {
   return BootDevImage;
+}
+
+CHAR8* CvmSystemPathCmdLine(VOID)
+{
+ /*Log Compute System index */
+  if((!CvmSysPath) && (IsVmEnabled()))
+  {
+    INT32 Index;
+    UINT32 Lun;
+    CHAR16 PartitionName[MAX_GPT_NAME_SIZE];
+    CHAR8 LunCharMapping[] = {'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'};
+    CHAR8 RootDevStr[BOOT_DEV_NAME_SIZE_MAX];
+
+    StrnCpyS (PartitionName, MAX_GPT_NAME_SIZE, (CONST CHAR16 *)L"vm-system",
+                                      StrLen ((CONST CHAR16 *)L"vm-system"));
+
+     Index = GetPartitionIndex (PartitionName);
+     if (Index == INVALID_PTN || Index >= MAX_NUM_PARTITIONS) {
+       DEBUG ((EFI_D_ERROR, "vm-system partition not found\n"));
+       goto ExitCmdLine;
+     }
+
+     Lun = GetPartitionLunFromIndex (Index);
+     GetRootDeviceType (RootDevStr, BOOT_DEV_NAME_SIZE_MAX);
+     if (!AsciiStrCmp ("Unknown", RootDevStr)) {
+       DEBUG ((EFI_D_ERROR, "Unknown Root device type\n"));
+       goto ExitCmdLine;
+     }
+
+     CvmSysPath = AllocateZeroPool (sizeof (CHAR8) * MAX_PATH_SIZE);
+     if (!CvmSysPath) {
+        DEBUG ((EFI_D_ERROR, "vm-system failed to allocate memory\n"));
+        goto ExitCmdLine;
+     }
+
+     if (!AsciiStrCmp ("EMMC", RootDevStr)) {
+       DEBUG ((EFI_D_INFO, "vm-system partition index: %d\n", Index));
+       AsciiSPrint(CvmSysPath, MAX_PATH_SIZE, " vm_system=/dev/mmcblk0p%d",
+                                                                  Index);
+     } else if (!AsciiStrCmp ("NAND", RootDevStr)) {
+       DEBUG ((EFI_D_INFO, "vm-system partition index: %d\n", (Index - 1)));
+       AsciiSPrint(CvmSysPath, MAX_PATH_SIZE, " vm_system=/dec/mmcblk0p%d",
+                                                      Index-1);
+     } else if (!AsciiStrCmp ("UFS", RootDevStr)) {
+       DEBUG ((EFI_D_INFO, "vm-system partition index: %c%d\n",
+                 LunCharMapping[Lun],
+                 GetPartitionIdxInLun (PartitionName, Lun)));
+       AsciiSPrint(CvmSysPath, MAX_PATH_SIZE, " vm_system=/dev/sd%c%d",
+                          LunCharMapping[Lun],
+                          GetPartitionIdxInLun (PartitionName, Lun));
+     } else {
+       DEBUG ((EFI_D_ERROR, "Unknown Device type\n"));
+       goto ExitCmdLine;
+     }
+  }
+ExitCmdLine:
+ return CvmSysPath;
 }

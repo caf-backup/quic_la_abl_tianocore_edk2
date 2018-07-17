@@ -73,6 +73,7 @@ typedef struct UpdateCmdLineParamList {
   CHAR8 *AndroidSlotSuffix;
   CHAR8 *SkipRamFs;
   CHAR8 *MultiSlotCmdSuffix;
+  CHAR8 *CvmSystemPtnCmdLine;
 } UpdateCmdLineParamList;
 
 EFI_STATUS
