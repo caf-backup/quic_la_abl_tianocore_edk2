@@ -148,4 +148,5 @@ LoadAndValidateDtboImg (BootInfo *Info, VOID **DtboImgBuffer);
 VOID SetBootDevImage (VOID);
 VOID ResetBootDevImage (VOID);
 BOOLEAN IsBootDevImage (VOID);
+CHAR8 *CvmSystemPathCmdLine(VOID);
 #endif
