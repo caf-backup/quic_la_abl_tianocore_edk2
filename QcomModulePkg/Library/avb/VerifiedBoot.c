@@ -255,7 +255,8 @@ LoadImageNoAuthWrapper (BootInfo *Info)
   GUARD (LoadImageNoAuth (Info));
 
   if (!IsRootCmdLineUpdated (Info)) {
-    SystemPathLen = GetSystemPath (&SystemPath, Info);
+    SystemPathLen = GetSystemPath (&SystemPath, Info->MultiSlotBoot,
+                                   L"system", "root");
     if (SystemPathLen == 0 || SystemPath == NULL) {
       DEBUG ((EFI_D_ERROR, "GetSystemPath failed!\n"));
       return EFI_LOAD_ERROR;
@@ -318,7 +319,8 @@ LoadImageAndAuthVB1 (BootInfo *Info)
   }
 
   if (!IsRootCmdLineUpdated (Info)) {
-    SystemPathLen = GetSystemPath (&SystemPath, Info);
+    SystemPathLen = GetSystemPath (&SystemPath, Info->MultiSlotBoot,
+                                   L"system", "root");
     if (SystemPathLen == 0 || SystemPath == NULL) {
       DEBUG ((EFI_D_ERROR, "GetSystemPath failed!\n"));
       return EFI_LOAD_ERROR;
