@@ -277,7 +277,8 @@ STATIC VOID GetDisplayCmdline (VOID)
  * Returns length = 0 when there is failure.
  */
 UINT32
-GetSystemPath (CHAR8 **SysPath, BootInfo *Info)
+GetSystemPath (CHAR8 **SysPath, BOOLEAN MultiSlotBoot,
+               CHAR16 *ReqPartition, CHAR8 *Key)
 {
   INT32 Index;
   UINT32 Lun;
@@ -286,30 +287,29 @@ GetSystemPath (CHAR8 **SysPath, BootInfo *Info)
   CHAR8 LunCharMapping[] = {'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'};
   CHAR8 RootDevStr[BOOT_DEV_NAME_SIZE_MAX];
 
+  if (ReqPartition == NULL || Key == NULL) {
+    DEBUG ((EFI_D_ERROR, "Invalid parameters: NULL\n"));
+    return 0;
+  }
+
   *SysPath = AllocateZeroPool (sizeof (CHAR8) * MAX_PATH_SIZE);
   if (!*SysPath) {
     DEBUG ((EFI_D_ERROR, "Failed to allocated memory for System path query\n"));
     return 0;
   }
 
-  if (IsLEVariant () &&
-      Info->BootIntoRecovery) {
-    StrnCpyS (PartitionName, MAX_GPT_NAME_SIZE, (CONST CHAR16 *)L"recoveryfs",
-            StrLen ((CONST CHAR16 *)L"recoveryfs"));
-  } else {
-    StrnCpyS (PartitionName, MAX_GPT_NAME_SIZE, (CONST CHAR16 *)L"system",
-            StrLen ((CONST CHAR16 *)L"system"));
-  }
+  StrnCpyS (PartitionName, MAX_GPT_NAME_SIZE, ReqPartition,
+            StrLen (ReqPartition));
 
   /* Append slot info for A/B Variant */
-  if (Info->MultiSlotBoot) {
+  if (MultiSlotBoot) {
      StrnCatS (PartitionName, MAX_GPT_NAME_SIZE, CurSlot.Suffix,
             StrLen (CurSlot.Suffix));
   }
 
   Index = GetPartitionIndex (PartitionName);
   if (Index == INVALID_PTN || Index >= MAX_NUM_PARTITIONS) {
-    DEBUG ((EFI_D_ERROR, "System partition does not exit\n"));
+    DEBUG ((EFI_D_ERROR, "%s partition does not exit\n", PartitionName));
     FreePool (*SysPath);
     *SysPath = NULL;
     return 0;
@@ -324,7 +324,7 @@ GetSystemPath (CHAR8 **SysPath, BootInfo *Info)
   }
 
   if (!AsciiStrCmp ("EMMC", RootDevStr)) {
-    AsciiSPrint (*SysPath, MAX_PATH_SIZE, " root=/dev/mmcblk0p%d", Index);
+    AsciiSPrint (*SysPath, MAX_PATH_SIZE," %a=/dev/mmcblk0p%d", Key, Index);
   } else if (!AsciiStrCmp ("NAND", RootDevStr)) {
     /* NAND is being treated as GPT partition, hence reduce the index by 1 as
      * PartitionIndex (0) should be ignored for correct mapping of partition.
@@ -334,7 +334,9 @@ GetSystemPath (CHAR8 **SysPath, BootInfo *Info)
           " rootfstype=ubifs rootflags=bulk_read root=ubi0:rootfs ubi.mtd=%d",
           (Index - 1));
   } else if (!AsciiStrCmp ("UFS", RootDevStr)) {
-    AsciiSPrint (*SysPath, MAX_PATH_SIZE, " root=/dev/sd%c%d",
+    AsciiSPrint (*SysPath, MAX_PATH_SIZE,
+                 " %a=/dev/sd%c%d",
+                 Key,
                  LunCharMapping[Lun],
                  GetPartitionIdxInLun (PartitionName, Lun));
   } else {
