@@ -89,6 +89,7 @@ BOOLEAN
 TargetBatterySocOk (UINT32 *BatteryVoltage);
 
 UINT32
-GetSystemPath (CHAR8 **SysPath, BootInfo *Info);
+GetSystemPath (CHAR8 **SysPath, BOOLEAN MultiSlotBoot,
+               CHAR16 *PartitionName, CHAR8 *Key);
 
 #endif
