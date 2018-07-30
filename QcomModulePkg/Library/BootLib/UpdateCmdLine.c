@@ -463,6 +463,13 @@ UpdateCmdLineParams (UpdateCmdLineParamList *Param,
      --Dst;
      STR_COPY (Dst, Src);
    }
+
+  /* Update commandline for VM System partition */
+  if (Param->CvmSystemPtnCmdLine) {
+    Src = Param->CvmSystemPtnCmdLine;
+    --Dst;
+    STR_COPY(Dst, Src);
+  }
   return EFI_SUCCESS;
 }
 
@@ -487,6 +494,7 @@ UpdateCmdLine (CONST CHAR8 *CmdLine,
   BOOLEAN BatteryStatus;
   CHAR8 StrSerialNum[SERIAL_NUM_SIZE];
   BOOLEAN MdtpActive = FALSE;
+  CHAR8 *CvmSystemPtnCmdLine = NULL;
   UpdateCmdLineParamList Param = {0};
 
   Status = BoardSerialNum (StrSerialNum, sizeof (StrSerialNum));
@@ -579,6 +587,11 @@ UpdateCmdLine (CONST CHAR8 *CmdLine,
   GetDisplayCmdline ();
   CmdLineLen += AsciiStrLen (DisplayCmdLine);
 
+  CvmSystemPtnCmdLine = CvmSystemPathCmdLine ();
+  if (CvmSystemPtnCmdLine) {
+    CmdLineLen += AsciiStrLen (CvmSystemPtnCmdLine);
+  }
+
   Param.Recovery = Recovery;
   Param.MultiSlotBoot = MultiSlotBoot;
   Param.AlarmBoot = AlarmBoot;
@@ -604,6 +617,7 @@ UpdateCmdLine (CONST CHAR8 *CmdLine,
   Param.AndroidSlotSuffix = AndroidSlotSuffix;
   Param.SkipRamFs = SkipRamFs;
   Param.MultiSlotCmdSuffix = MultiSlotCmdSuffix;
+  Param.CvmSystemPtnCmdLine = CvmSystemPtnCmdLine;
 
   Status = UpdateCmdLineParams (&Param, FinalCmdLine);
   if (Status != EFI_SUCCESS) {
