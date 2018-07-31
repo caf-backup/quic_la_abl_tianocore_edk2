@@ -22,7 +22,7 @@
  * SOFTWARE.
  */
 
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017 - 2018, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -242,6 +242,8 @@ static AvbSlotVerifyResult load_and_verify_hash_partition(
                NULL);
     ret = AVB_SLOT_VERIFY_RESULT_ERROR_VERIFICATION;
     goto out;
+  } else {
+    avb_debugv (part_name, ": success: Image verification completed\n", NULL);
   }
 
   ret = AVB_SLOT_VERIFY_RESULT_OK;
