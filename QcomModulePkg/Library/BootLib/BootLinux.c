@@ -492,6 +492,46 @@ LoadAddrAndDTUpdate (BootParamlist *BootParamlistPtr)
 }
 
 STATIC
+VOID *GetMlvmAppendedDtb (BootParamlist *CvmBootParamList,
+                          UINT32 DtbOffset) {
+  UINTN KernelEnd = (UINTN)(CvmBootParamList->ImageBuffer +
+                                     CvmBootParamList->PageSize) +
+                                     CvmBootParamList->KernelSize;
+  VOID *Dtb = CvmBootParamList->ImageBuffer +
+                 CvmBootParamList->PageSize +
+                 DtbOffset;
+  INT32 RootOffset;
+  INT32 Len;
+  CONST VOID *Prop;
+
+  /* Pick the DTB if the value of "compatible" property in node "/"
+     is "linux,dummy-virt"
+   */
+  while (((UINTN)Dtb + sizeof (struct fdt_header)) <
+         (UINTN)KernelEnd) {
+    if (fdt_check_header (Dtb) != 0 ||
+        fdt_check_header_ext (Dtb) != 0 ||
+        ((UINTN)Dtb + (UINTN)fdt_totalsize (Dtb) < (UINTN)Dtb) ||
+        ((UINTN)Dtb + (UINTN)fdt_totalsize (Dtb) > (UINTN)KernelEnd)) {
+      DEBUG ((EFI_D_VERBOSE, "MLVM DT Sanity check failed\n"));
+      return NULL;
+    }
+    RootOffset = fdt_path_offset (Dtb, "/");
+    if (RootOffset < 0) {
+      DEBUG ((EFI_D_VERBOSE, "Root Node is not found\n"));
+      return NULL;
+    }
+    Prop = fdt_getprop (Dtb, RootOffset, "compatible", &Len);
+    if (Prop && (Len > 0)) {
+      if (!AsciiStrnCmp (Prop, "linux,dummy-virt", Len))
+        return Dtb;
+    }
+    Dtb += fdt_totalsize (Dtb);
+  }
+  return NULL;
+}
+
+STATIC
 EFI_STATUS
 UpdateMemRegions (BootParamlist *BootParamlistPtr,
                   BootParamlist *CvmBootParamList,
@@ -626,9 +666,8 @@ CheckAndLoadComputeVM (BootInfo *Info,
     return EFI_BAD_BUFFER_SIZE;
   }
 
-  SingleDtHdr = (CvmBootParamList->ImageBuffer +
-                 CvmBootParamList->PageSize +
-                 DtbOffset);
+  SingleDtHdr = GetMlvmAppendedDtb (CvmBootParamList, DtbOffset);
+
   if (!fdt_check_header (SingleDtHdr)) {
     DEBUG ((EFI_D_VERBOSE, "Dtb header found.\n"));
 
