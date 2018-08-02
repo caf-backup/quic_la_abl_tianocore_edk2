@@ -40,6 +40,7 @@
 #include <Protocol/EFIChipInfoTypes.h>
 #include <Protocol/EFIPmicPon.h>
 #include <Protocol/Print2.h>
+#include <Library/HypervisorMvCalls.h>
 
 #include "AutoGen.h"
 #include <DeviceInfo.h>
@@ -599,9 +600,9 @@ UpdateCmdLine (CONST CHAR8 *CmdLine,
   GetDisplayCmdline ();
   CmdLineLen += AsciiStrLen (DisplayCmdLine);
 
-  CvmSystemPtnCmdLine = CvmSystemPathCmdLine ();
-  if (CvmSystemPtnCmdLine) {
-    CmdLineLen += AsciiStrLen (CvmSystemPtnCmdLine);
+  if (IsVmEnabled()) {
+    CmdLineLen += GetSystemPath (&CvmSystemPtnCmdLine, MultiSlotBoot,
+                                 L"vm-system", "vm_system");
   }
 
   Param.Recovery = Recovery;
