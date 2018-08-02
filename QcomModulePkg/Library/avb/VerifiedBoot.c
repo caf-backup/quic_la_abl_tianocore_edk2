@@ -1036,7 +1036,8 @@ STATIC EFI_STATUS LoadImageAndAuthForLE (BootInfo *Info)
     DEBUG ((EFI_D_INFO, "VB: LoadImageAndAuthForLE complete!\n"));
 
     if (!IsRootCmdLineUpdated (Info)) {
-        SystemPathLen = GetSystemPath (&SystemPath, Info);
+        SystemPathLen = GetSystemPath (&SystemPath, Info->MultiSlotBoot,
+                                   L"system", "root");
         if (SystemPathLen == 0 ||
             SystemPath == NULL) {
             return EFI_LOAD_ERROR;
