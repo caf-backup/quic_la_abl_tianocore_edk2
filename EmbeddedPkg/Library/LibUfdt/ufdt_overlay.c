@@ -673,3 +673,85 @@ fail:
   dto_free(out_fdt_header);
   return NULL;
 }
+
+struct fdt_header *ufdt_apply_multi_overlay(struct fdt_header *main_fdt_header,
+                                    size_t main_fdt_size,
+                                    struct fdt_reserve_entry overlay_dt_list[],
+                                    size_t num_dts) {
+  size_t out_fdt_size = 0;
+  struct ufdt *main_tree, *overlay_tree;
+  struct fdt_header *out_fdt_header;
+  int err, i;
+
+  if (num_dts < 1) {
+    dto_error("Atleast 1 fdt is required to apply overlay!\n");
+    return NULL;
+  }
+
+  if (main_fdt_header == NULL ||
+      main_fdt_size < 8 ||
+      main_fdt_size != fdt_totalsize(main_fdt_header)) {
+    dto_error("Bad main fdt!\n");
+    return NULL;
+  }
+
+  out_fdt_size = main_fdt_size;
+  for (i=0; i < num_dts; i++) {
+    if ((void *)overlay_dt_list[i].address == NULL ||
+        overlay_dt_list[i].size < 8 ||
+        overlay_dt_list[i].size != fdt_totalsize(
+                                       (void *)overlay_dt_list[i].address)) {
+      dto_error("Bad overlay fdt! index: %d\n", i);
+      return NULL;
+    }
+    out_fdt_size += overlay_dt_list[i].size;
+  }
+
+  out_fdt_header = dto_malloc(out_fdt_size);
+  if (out_fdt_header == NULL) {
+    dto_error("failed to allocate memory for DTB blob with overlays\n");
+    return NULL;
+  }
+
+  main_tree = fdt_to_ufdt((void *)main_fdt_header, main_fdt_size);
+
+  /* Apply overlay with first dts from the array, and iterate the loop from
+     index 1 to avoid unnecessary rebuilding of phandle table
+   */
+  overlay_tree = fdt_to_ufdt((void *)overlay_dt_list[0].address,
+                             overlay_dt_list[0].size);
+  err = ufdt_overlay_apply(main_tree, overlay_tree, overlay_dt_list[0].size);
+  ufdt_destruct(overlay_tree);
+  if (err < 0) {
+    dto_error("Failed to apply devie tree\n");
+    goto fail;
+  }
+
+  for (i=1; i < num_dts; i++) {
+    overlay_tree = fdt_to_ufdt((void *)overlay_dt_list[i].address,
+                               overlay_dt_list[i].size);
+    /* Rebuild the phandle_table for the combined tree.*/
+    main_tree->phandle_table = build_phandle_table(main_tree);
+
+    err = ufdt_overlay_apply(main_tree, overlay_tree, overlay_dt_list[i].size);
+    ufdt_destruct(overlay_tree);
+    if (err < 0) {
+      dto_error("Failed to apply devie tree, index: %d\n", i);
+      goto fail;
+    }
+  }
+
+  err = ufdt_to_fdt(main_tree, out_fdt_header, out_fdt_size);
+  if (err < 0) {
+    dto_error("Failed to dump the device tree to out_fdt_header\n");
+    goto fail;
+  }
+
+  ufdt_destruct(main_tree);
+  return out_fdt_header;
+
+fail:
+  ufdt_destruct(main_tree);
+  dto_free(out_fdt_header);
+  return NULL;
+}

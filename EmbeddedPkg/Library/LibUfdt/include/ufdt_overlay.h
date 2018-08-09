@@ -23,4 +23,8 @@ struct fdt_header *ufdt_apply_overlay(struct fdt_header *main_fdt_header,
                                       void *overlay_fdtp,
                                       size_t overlay_size);
 
+struct fdt_header *ufdt_apply_multi_overlay(struct fdt_header *main_fdt_header,
+                                    size_t main_fdt_size,
+                                    struct fdt_reserve_entry overlay_dt_list[],
+                                    size_t num_dts);
 #endif /* UFDT_OVERLAY_H */
