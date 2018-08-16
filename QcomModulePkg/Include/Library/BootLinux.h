@@ -137,6 +137,7 @@ typedef struct BootLinuxParamlist {
   UINT64 ImageSize;
   VOID *DtboImgBuffer;
   UINT64 HypDtboAddr;
+  UINT64 MemorySize;
 } BootParamlist;
 
 EFI_STATUS

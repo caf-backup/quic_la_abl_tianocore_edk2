@@ -572,6 +572,8 @@ UpdateMemRegions (BootParamlist *BootParamlistPtr,
          HypInfo->vm[HypInfo->hlos_vm].ddr_region[KERNEL_ADDR_IDX].base;
   DEBUG ((EFI_D_INFO, "Memory Base Address: 0x%x\n",
                        BootParamlistPtr->BaseMemory));
+  BootParamlistPtr->MemorySize =
+         HypInfo->vm[HypInfo->hlos_vm].ddr_region[KERNEL_ADDR_IDX].size;
   BootParamlistPtr->KernelLoadAddr =
         (EFI_PHYSICAL_ADDRESS)
         (BootParamlistPtr->BaseMemory | PcdGet32 (KernelLoadAddress));
@@ -604,6 +606,8 @@ UpdateMemRegions (BootParamlist *BootParamlistPtr,
     if (HypInfo->vm[i].vm_type == HYP_VM_TYPE_LINUX_AARCH64) {
       CvmBootParamList->BaseMemory =
             HypInfo->vm[i].ddr_region[KERNEL_ADDR_IDX].base;
+      CvmBootParamList->MemorySize =
+            HypInfo->vm[i].ddr_region[KERNEL_ADDR_IDX].size;
       CvmBootParamList->KernelLoadAddr =
            (EFI_PHYSICAL_ADDRESS)
            (CvmBootParamList->BaseMemory | PcdGet32 (KernelLoadAddress));
@@ -910,6 +914,16 @@ BootLinux (BootInfo *Info)
     Status = CheckAndLoadComputeVM (Info, &CvmBootParamList);
     if (EFI_ERROR (Status)) {
       DEBUG ((EFI_D_ERROR, "Compute VM Not Loaded - %r\n", Status));
+    }
+
+    /* Un-map MLVM memory from HLOS S2 */
+    if (IsVmComputed) {
+      Status = HypUnmapMemory (CvmBootParamList.BaseMemory,
+                               CvmBootParamList.MemorySize);
+      if (EFI_ERROR (Status)) {
+        DEBUG ((EFI_D_ERROR, "Error: ML-VM unmap falied: %r\n", Status));
+        return Status;
+      }
     }
   }
 
