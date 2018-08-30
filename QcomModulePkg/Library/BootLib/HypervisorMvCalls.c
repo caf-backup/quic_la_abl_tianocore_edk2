@@ -66,8 +66,8 @@ HypBootInfo *GetVmData ()
       HYP_INFO_GET_HYP_DTB_ADDRESS_ID_PARAM_ID, Parameters, Results);
 
   if (EFI_ERROR (Status)) {
-    DEBUG ((EFI_D_ERROR, "GetVmData: ScmSipSysCall failed to get hypervisor "
-                         "info, Status = (0x%x)\n", Status));
+    DEBUG ((EFI_D_ERROR, "GetVmData: No Vm data present! "
+                         "Status = (0x%x)\n", Status));
     return NULL;
   }
 
