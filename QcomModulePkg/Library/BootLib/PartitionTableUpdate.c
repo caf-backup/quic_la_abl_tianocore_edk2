@@ -727,6 +727,8 @@ STATIC UINT32 PatchGpt (
 {
 	UINT8 *PrimaryGptHeader;
 	UINT8 *SecondaryGptHeader;
+	//define as 64 bit unsigned int
+	UINT64 *LastPartitionEntry;
 	UINT64 NumSectors;
 	UINT32 Offset;
 	UINT32 TotalPart = 0;
@@ -751,10 +753,16 @@ STATIC UINT32 PatchGpt (
 	PUT_LONG_LONG(SecondaryGptHeader + PARTITION_ENTRIES_OFFSET, (UINT64) (NumSectors - 33));
 
 	/* Patch the last partition */
+	LastPartitionEntry = (UINT64 *)
+		(PrimaryGptHeader + BlkSz + TotalPart * PARTITION_ENTRY_SIZE);
+
+	//need check 128 bit for GUID
 	while ((TotalPart < GptHeader->MaxPtCnt) &&
-		(*(PrimaryGptHeader + BlkSz + TotalPart * PARTITION_ENTRY_SIZE)
-		!= 0)) {
+		((*LastPartitionEntry != 0) ||
+		(*(LastPartitionEntry + 1) != 0))) {
 		TotalPart++;
+		LastPartitionEntry = (UINT64 *)
+			(PrimaryGptHeader + BlkSz + TotalPart * PARTITION_ENTRY_SIZE);
 	}
 
 	LastPartOffset = (TotalPart - 1) * PARTITION_ENTRY_SIZE + PARTITION_ENTRY_LAST_LBA;
