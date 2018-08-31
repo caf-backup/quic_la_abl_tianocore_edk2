@@ -542,7 +542,9 @@ UpdateCmdLine (CONST CHAR8 *CmdLine,
     CmdLineLen += AsciiStrLen (FfbmStr);
     /* reduce kernel console messages to speed-up boot */
     CmdLineLen += AsciiStrLen (LogLevel);
-  } else if (BatteryStatus && IsChargingScreenEnable ()) {
+  } else if (BatteryStatus &&
+             IsChargingScreenEnable () &&
+             !Recovery) {
     DEBUG ((EFI_D_INFO, "Device will boot into off mode charging mode\n"));
     PauseAtBootUp = 1;
     CmdLineLen += AsciiStrLen (BatteryChgPause);
@@ -564,10 +566,16 @@ UpdateCmdLine (CONST CHAR8 *CmdLine,
     CmdLineLen += AsciiStrLen (MdtpActiveFlag);
 
   MultiSlotBoot = PartitionHasMultiSlot ((CONST CHAR16 *)L"boot");
-  if (MultiSlotBoot) {
+  if (MultiSlotBoot &&
+     !IsBootDevImage ()) {
     /* Add additional length for slot suffix */
     CmdLineLen += AsciiStrLen (AndroidSlotSuffix) + MAX_SLOT_SUFFIX_SZ;
+  }
 
+  if ((IsBuildAsSystemRootImage () &&
+      !MultiSlotBoot) ||
+      (MultiSlotBoot &&
+      !IsBootDevImage ())) {
     CmdLineLen += AsciiStrLen (RootCmdLine);
     CmdLineLen += AsciiStrLen (InitCmdline);
 
