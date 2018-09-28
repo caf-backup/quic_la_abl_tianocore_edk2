@@ -227,14 +227,15 @@ LinuxLoaderEntry (IN EFI_HANDLE ImageHandle, IN EFI_SYSTEM_TABLE *SystemTable)
     return Status;
   }
 
+  if (!GetVmData ()) {
+    DEBUG ((EFI_D_ERROR, "VM Hyp calls not present\n"));
+  }
+
   if (!BootIntoFastboot) {
     BootInfo Info = {0};
     Info.MultiSlotBoot = MultiSlotBoot;
     Info.BootIntoRecovery = BootIntoRecovery;
     Info.BootReasonAlarm = BootReasonAlarm;
-    if (!GetVmData ()) {
-      DEBUG ((EFI_D_ERROR, "VM Hyp calls not present\n"));
-    }
     Status = LoadImageAndAuth (&Info);
     if (Status != EFI_SUCCESS) {
       DEBUG ((EFI_D_ERROR, "LoadImageAndAuth failed: %r\n", Status));
