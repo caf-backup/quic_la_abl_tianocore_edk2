@@ -927,8 +927,14 @@ BootLinux (BootInfo *Info)
       DEBUG ((EFI_D_ERROR, "Compute VM Not Loaded - %r\n", Status));
     }
 
-    /* Un-map MLVM memory from HLOS S2 */
     if (IsVmComputed) {
+      Status = UpdateMLVMDeviceTree ((VOID *)CvmBootParamList.DeviceTreeLoadAddr);
+      if (EFI_ERROR (Status)) {
+        DEBUG ((EFI_D_ERROR, "Error: ML-VM falied to update DT: %r\n", Status));
+        return Status;
+      }
+
+      /* Un-map MLVM memory from HLOS S2 */
       Status = HypUnmapMemory (CvmBootParamList.BaseMemory,
                                CvmBootParamList.MemorySize);
       if (EFI_ERROR (Status)) {
