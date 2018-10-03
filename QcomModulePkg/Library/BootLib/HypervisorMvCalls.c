@@ -66,8 +66,8 @@ HypBootInfo *GetVmData ()
       HYP_INFO_GET_HYP_DTB_ADDRESS_ID_PARAM_ID, Parameters, Results);
 
   if (EFI_ERROR (Status)) {
-    DEBUG ((EFI_D_ERROR, "GetVmData: ScmSipSysCall failed to get hypervisor "
-                         "info, Status = (0x%x)\n", Status));
+    DEBUG ((EFI_D_ERROR, "GetVmData: No Vm data present! "
+                         "Status = (0x%x)\n", Status));
     return NULL;
   }
 
@@ -92,7 +92,7 @@ HypUnmapMemory (UINT64 RegionAddr,
     hyp_memprot_assign_t *HypSyscall = (hyp_memprot_assign_t*)Parameters;
     hyp_memprot_ipa_info_t Ipa = {RegionAddr, RegionSize};
     UINT32 SrcVM = AC_VM_HLOS;
-    hyp_memprot_dstVM_perm_info_t DstVM = {AC_VM_HLOS_UNMAPPED,
+    hyp_memprot_dstVM_perm_info_t DstVM = {AC_VM_GUEST_OS_MLVM,
                                            (VM_PERM_R|VM_PERM_W),
                                            (UINT64)NULL, 0};
     VOID * AssignBufferPtr = NULL;
