@@ -59,11 +59,19 @@
 #include "avb_util.h"
 #include "avb_vbmeta_image.h"
 #include "avb_version.h"
+#include "avb_hashtree_descriptor.h"
+#include "BootLinux.h"
 
 /* Maximum allow length (in bytes) of a partition name, including
  * ab_suffix.
  */
 #define PART_NAME_MAX_SIZE 32
+
+/* Maximum length of VM-SYSTEM commandline */
+#define MAX_MLVM_CMDLINE_LEN 512
+
+/* Number of nibbles per byte */
+#define NIBBLES_PER_BYTE  2
 
 /* Maximum number of partitions that can be loaded with avb_slot_verify(). */
 #define MAX_NUMBER_OF_LOADED_PARTITIONS 32
@@ -73,6 +81,20 @@
 
 /* Maximum size of a vbmeta image - 64 KiB. */
 #define VBMETA_MAX_SIZE (64 * 1024)
+
+/* Data block and Hash block size */
+#define BLOCK_SIZE 4096
+
+/* Sector size */
+#define SECTOR_SIZE 512
+
+/* VM-SYSTEM image commandline arguments */
+const char *DmVerityCmd = "root=/dev/dm-0 dm=\"virtualblock none ro,0";
+const char *CmdLineArgs = "/dev/vblock0 /dev/vblock0 4096 4096";
+const char *CmdLineEnd = "1 device_wait\"";
+
+AvbHashtreeDescriptor hashtree_desc_vmsys;
+const uint8_t* desc_part_name = NULL;
 
 /* Helper function to see if we should continue with verification in
  * allow_verification_error=true mode if something goes wrong. See the
@@ -272,6 +294,45 @@ fail:
     avb_free(image_buf);
   }
   return ret;
+}
+
+EFI_STATUS GetMLVMVbCmdline(CHAR8 *VBCmdLine, UINT32 *Flags)
+{
+    const uint8_t* desc_salt, * desc_digest;
+    uint32_t salt_len = hashtree_desc_vmsys.salt_len;
+    uint32_t root_digest_len = hashtree_desc_vmsys.root_digest_len;
+    uint64_t size = hashtree_desc_vmsys.image_size;
+    char salt[salt_len*NIBBLES_PER_BYTE];
+    char digest[root_digest_len*NIBBLES_PER_BYTE];
+    uint32_t verity = hashtree_desc_vmsys.dm_verity_version;
+    uint64_t num_of_sectors = size/SECTOR_SIZE;
+    uint64_t num_data_blocks = size/BLOCK_SIZE;
+    uint64_t hash_start_block = size/BLOCK_SIZE;
+
+    if (VBCmdLine == NULL || Flags == NULL)
+    {
+      avb_error("Invalid arguments.\n");
+      return EFI_INVALID_PARAMETER;
+    }
+    if (desc_part_name == NULL)
+    {
+      avb_error("Descriptor not initialized.\n");
+      *Flags &= ~BIT(0);
+      return EFI_SUCCESS;
+    }
+
+    desc_salt = desc_part_name + hashtree_desc_vmsys.partition_name_len;
+    desc_digest = desc_salt + hashtree_desc_vmsys.salt_len;
+
+    for (uint32_t i = 0; i < salt_len; i++)
+        AsciiSPrint(salt + i * NIBBLES_PER_BYTE , PART_NAME_MAX_SIZE, "%02x", desc_salt[i]);
+    for (uint32_t i=0; i < root_digest_len; i++)
+        AsciiSPrint(digest + i * NIBBLES_PER_BYTE , PART_NAME_MAX_SIZE, "%02x", desc_digest[i]);
+
+    AsciiSPrint (VBCmdLine, MAX_MLVM_CMDLINE_LEN,"%a %d verity %d %a %d %d sha1 %a %a %a", DmVerityCmd, num_of_sectors, verity, CmdLineArgs,
+                 num_data_blocks, hash_start_block, digest, salt, CmdLineEnd);
+    *Flags |= BIT(0);
+    return EFI_SUCCESS;
 }
 
 static AvbSlotVerifyResult load_and_verify_vbmeta(
@@ -783,8 +844,29 @@ static AvbSlotVerifyResult load_and_verify_vbmeta(
       /* Explicit fall-through */
       case AVB_DESCRIPTOR_TAG_PROPERTY:
       case AVB_DESCRIPTOR_TAG_HASHTREE:
-        /* Do nothing. */
-        break;
+      {
+          AvbHashtreeDescriptor hashtree_desc;
+
+          if (!avb_hashtree_descriptor_validate_and_byteswap(
+                 (AvbHashtreeDescriptor*)descriptors[n], &hashtree_desc)) {
+                 avb_errorv(
+                    full_partition_name, ": Hashtree descriptor is invalid.\n", NULL);
+                 ret = AVB_SLOT_VERIFY_RESULT_ERROR_INVALID_METADATA;
+                 goto out;
+          }
+         const uint8_t* desc_partition_name =
+            ((const uint8_t*)descriptors[n]) + sizeof(AvbHashtreeDescriptor);
+         if (strncmp((const char *)desc_partition_name,"vm-system",hashtree_desc.partition_name_len) == 0)
+         {
+             desc_part_name = ((const uint8_t*)descriptors[n]) + sizeof(AvbHashtreeDescriptor);
+             hashtree_desc_vmsys.dm_verity_version = hashtree_desc.dm_verity_version;
+             hashtree_desc_vmsys.image_size = hashtree_desc.image_size;
+             hashtree_desc_vmsys.partition_name_len = hashtree_desc.partition_name_len;
+             hashtree_desc_vmsys.salt_len = hashtree_desc.salt_len;
+             hashtree_desc_vmsys.root_digest_len = hashtree_desc.root_digest_len;
+         }
+       }
+       break;
     }
   }
 
