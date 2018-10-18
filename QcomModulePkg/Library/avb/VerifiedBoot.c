@@ -33,6 +33,7 @@
 #include <Library/MenuKeysDetection.h>
 #include <Library/VerifiedBootMenu.h>
 #include <Library/LEOEMCertificate.h>
+#include <LinuxLoaderLib.h>
 
 STATIC CONST CHAR8 *VerityMode = " androidboot.veritymode=";
 STATIC CONST CHAR8 *VerifiedState = " androidboot.verifiedbootstate=";
@@ -1022,6 +1023,9 @@ STATIC EFI_STATUS LoadImageAndAuthForLE (BootInfo *Info)
             return EFI_LOAD_ERROR;
         }
         GUARD (AppendVBCmdLine (Info, SystemPath));
+    }
+    if(IsSecureBootEnabled ()){
+        GUARD (AppendVBCmdLine (Info, KeymasterLoadState));
     }
     return Status;
 }
