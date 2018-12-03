@@ -20,8 +20,10 @@ ANDROID_PRODUCT_OUT := $(BOOTLOADER_OUT)/Build
 
 ifeq ($(TARGET_ARCHITECTURE),arm)
 export ARCHITECTURE := ARM
+export CLANG35_ARM_PREFIX := $(CLANG_PREFIX)
 else
 export ARCHITECTURE := AARCH64
+export CLANG35_AARCH64_PREFIX := $(CLANG_PREFIX)
 endif
 
 WORKSPACE=$(BUILDDIR)
@@ -46,7 +48,7 @@ cleanall:
 
 EDK_TOOLS_BIN:
 	@. ./edksetup.sh BaseTools && \
-	$(MAKE) -C $(EDK_TOOLS) -j1
+	$(MAKEPATH)make -C $(EDK_TOOLS) $(PREBUILT_HOST_TOOLS) -j1
 
 ABL_FV_IMG: EDK_TOOLS_BIN
 	@. ./edksetup.sh BaseTools && \
