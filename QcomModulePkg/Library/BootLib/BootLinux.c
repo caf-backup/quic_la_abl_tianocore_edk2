@@ -690,6 +690,10 @@ CheckAndLoadComputeVM (BootInfo *Info,
   }
 
   SingleDtHdr = GetMlvmAppendedDtb (CvmBootParamList, DtbOffset);
+  if(SingleDtHdr == NULL) {
+    DEBUG ((EFI_D_ERROR, "Compute DT is not appended/found\n"));
+    return EFI_NOT_FOUND;
+  }
 
   if (!fdt_check_header (SingleDtHdr)) {
     DEBUG ((EFI_D_VERBOSE, "Dtb header found.\n"));
@@ -733,8 +737,8 @@ CheckAndLoadComputeVM (BootInfo *Info,
     }
     DEBUG ((EFI_D_VERBOSE, "Loading Compute VM DT- Complete\n"));
   } else {
-    DEBUG ((EFI_D_ERROR, "Compute DT is not appended/found\n"));
-    return EFI_NOT_FOUND;
+    DEBUG ((EFI_D_ERROR, "Invalid Compute VM DT header\n"));
+    return EFI_UNSUPPORTED;
   }
   IsVmComputed = TRUE;
   return Status;
