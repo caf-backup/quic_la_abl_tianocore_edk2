@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -242,13 +242,12 @@ VOID UpdatePartitionAttributes (VOID)
     MaxGptPartEntrySzBytes = (GPT_HDR_BLOCKS + PartEntriesblocks) * BlkSz;
     CardSizeSec = (DeviceDensity) / BlkSz;
     Offset = PRIMARY_HDR_LBA;
-    GptHdr = AllocatePool (MaxGptPartEntrySzBytes);
+    GptHdr = AllocateZeroPool (MaxGptPartEntrySzBytes);
     if (!GptHdr) {
       DEBUG ((EFI_D_ERROR, "Unable to Allocate Memory for GptHdr \n"));
       return;
     }
 
-    gBS->SetMem ((VOID *)GptHdr, MaxGptPartEntrySzBytes, 0);
     GptHdrPtr = GptHdr;
 
     /* This loop iterates twice to update both primary and backup Gpt*/
@@ -429,7 +428,7 @@ STATIC EFI_STATUS GetMultiSlotPartsList (VOID)
           SearchString, Len - 1) &&
           (StrStr (SearchString, (CONST CHAR16 *)L"_a") ||
           StrStr (SearchString, (CONST CHAR16 *)L"_b"))) {
-        TempNode = AllocatePool (sizeof (struct BootPartsLinkedList));
+        TempNode = AllocateZeroPool (sizeof (struct BootPartsLinkedList));
         if (TempNode) {
           /*Skip _a/_b from partition name*/
           StrnCpyS (TempNode->PartName, sizeof (TempNode->PartName),
@@ -1521,7 +1520,8 @@ FindBootableSlot (Slot *BootableSlot)
     DEBUG (
         (EFI_D_VERBOSE, "Active Slot %s is bootable\n", BootableSlot->Suffix));
   } else if (Unbootable == 0 && BootSuccess == 0 && RetryCount > 0) {
-    if (!IsBootDevImage ()) {
+    if (!IsABRetryCountDisabled () &&
+        !IsBootDevImage ()) {
       RetryCount--;
       BootEntry->PartEntry.Attributes &= ~PART_ATT_MAX_RETRY_COUNT_VAL;
       BootEntry->PartEntry.Attributes |= RetryCount
@@ -1529,6 +1529,8 @@ FindBootableSlot (Slot *BootableSlot)
       UpdatePartitionAttributes ();
       DEBUG ((EFI_D_INFO, "Active Slot %s is bootable, retry count %ld\n",
               BootableSlot->Suffix, RetryCount));
+    } else {
+      DEBUG ((EFI_D_INFO, "A/B retry count NOT decremented\n"));
     }
   } else {
     DEBUG ((EFI_D_INFO, "Slot %s is unbootable, trying alternate slot\n",

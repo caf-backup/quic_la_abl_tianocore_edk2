@@ -1,5 +1,5 @@
 #/*
-# * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+# * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
 # *
 # * Redistribution and use in source and binary forms, with or without
 # * modification, are permitted provided that the following conditions are
@@ -106,6 +106,9 @@
   !if $(VERIFIED_BOOT_LE)
       GCC:*_*_*_CC_FLAGS = -DVERIFIED_BOOT_LE
   !endif
+  !if $(AB_RETRYCOUNT_DISABLE)
+      GCC:*_*_*_CC_FLAGS = -DAB_RETRYCOUNT_DISABLE
+  !endif
   !if $(VERITY_LE)
       GCC:*_*_*_CC_FLAGS = -DVERITY_LE
   !endif
@@ -125,6 +128,9 @@
   !endif
   !ifdef $(INIT_BIN)
       GCC:*_*_*_CC_FLAGS = -DINIT_BIN='$(INIT_BIN)'
+  !endif
+  !if $(TARGET_ARCH_ARM64)
+      GCC:*_*_*_CC_FLAGS = -DTARGET_ARCH_ARM64
   !endif
 
 [PcdsFixedAtBuild.common]

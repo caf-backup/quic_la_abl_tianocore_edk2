@@ -18,7 +18,7 @@ found at
  * Copyright (c) 2009, Google Inc.
  * All rights reserved.
  *
- * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015 - 2019, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -71,6 +71,7 @@ found at
 #include <Protocol/EFIUbiFlasher.h>
 #include <Protocol/SimpleTextIn.h>
 #include <Protocol/SimpleTextOut.h>
+#include <Protocol/EFIDisplayUtils.h>
 
 #include "AutoGen.h"
 #include "BootImage.h"
@@ -109,6 +110,7 @@ STATIC CHAR8 OffModeCharge[MAX_RSP_SIZE];
 STATIC CHAR8 StrSocVersion[MAX_RSP_SIZE];
 STATIC CHAR8 LogicalBlkSizeStr[MAX_RSP_SIZE];
 STATIC CHAR8 EraseBlkSizeStr[MAX_RSP_SIZE];
+STATIC CHAR8 MaxDownloadSizeStr[MAX_RSP_SIZE];
 
 struct GetVarSlotInfo {
   CHAR8 SlotSuffix[MAX_SLOT_SUFFIX_SZ];
@@ -162,6 +164,8 @@ STATIC EFI_STATUS FlashResult = EFI_SUCCESS;
 STATIC EFI_EVENT UsbTimerEvent;
 #endif
 
+STATIC UINT64 MaxDownLoadSize = 0;
+
 STATIC INT32 Lun = NO_LUN;
 STATIC BOOLEAN LunSet;
 
@@ -169,7 +173,7 @@ STATIC FASTBOOT_CMD *cmdlist;
 STATIC UINT32 IsAllowUnlock;
 
 STATIC EFI_STATUS
-FastbootCommandSetup (VOID *base, UINT32 size);
+FastbootCommandSetup (VOID *Base, UINT64 Size);
 STATIC VOID
 AcceptCmd (IN UINT64 Size, IN CHAR8 *Data);
 STATIC VOID
@@ -235,7 +239,7 @@ STATIC VOID
 FastbootPublishVar (IN CONST CHAR8 *Name, IN CONST CHAR8 *Value)
 {
   FASTBOOT_VAR *Var;
-  Var = AllocatePool (sizeof (*Var));
+  Var = AllocateZeroPool (sizeof (*Var));
   if (Var) {
     Var->next = Varlist;
     Varlist = Var;
@@ -481,13 +485,12 @@ STATIC VOID PopulateMultislotMetadata (VOID)
     FastbootPublishVar ("slot-count", SlotCountVar);
 
     /*Allocate memory for available number of slots*/
-    BootSlotInfo = AllocatePool (SlotCount * sizeof (struct GetVarSlotInfo));
+    BootSlotInfo = AllocateZeroPool (
+                         SlotCount * sizeof (struct GetVarSlotInfo));
     if (BootSlotInfo == NULL) {
       DEBUG ((EFI_D_ERROR, "Unable to allocate memory for BootSlotInfo\n"));
       return;
     }
-    gBS->SetMem ((VOID *)BootSlotInfo,
-                 SlotCount * sizeof (struct GetVarSlotInfo), 0);
     FastbootPublishSlotVars ();
     InitialPopulate = TRUE;
   } else {
@@ -635,7 +638,7 @@ HandleChunkTypeFill (sparse_header_t *sparse_header,
     return EFI_INVALID_PARAMETER;
   }
 
-  FillBuf = AllocatePool (sparse_header->blk_sz);
+  FillBuf = AllocateZeroPool (sparse_header->blk_sz);
   if (!FillBuf) {
     DEBUG ((EFI_D_ERROR, "Malloc failed for: CHUNK_TYPE_FILL\n"));
     return EFI_OUT_OF_RESOURCES;
@@ -1294,10 +1297,10 @@ CmdDownload (IN CONST CHAR8 *arg, IN VOID *data, IN UINT32 sz)
     return;
   }
 
-  if (mNumDataBytes > MAX_DOWNLOAD_SIZE) {
+  if (mNumDataBytes > MaxDownLoadSize) {
     DEBUG ((EFI_D_ERROR,
             "ERROR: Data size (%d) is more than max download size (%d)\n",
-            mNumDataBytes, MAX_DOWNLOAD_SIZE));
+            mNumDataBytes, MaxDownLoadSize));
     FastbootFail ("Requested download size is more than max allowed\n");
     return;
   }
@@ -1669,7 +1672,7 @@ CmdFlash (IN CONST CHAR8 *arg, IN VOID *data, IN UINT32 sz)
     PartitionSize = (BlockIo->Media->LastBlock + 1)
                         * (BlockIo->Media->BlockSize);
 
-    if ((PartitionSize > MAX_DOWNLOAD_SIZE) &&
+    if ((PartitionSize > MaxDownLoadSize) &&
          !IsDisableParallelDownloadFlash ()) {
       Status = HandleUsbEventsInTimer ();
       if (EFI_ERROR (Status)) {
@@ -1711,8 +1714,8 @@ CmdFlash (IN CONST CHAR8 *arg, IN VOID *data, IN UINT32 sz)
    * sparse images.
    */
   if ((sparse_header->magic != SPARSE_HEADER_MAGIC) ||
-        (PartitionSize < MAX_DOWNLOAD_SIZE) ||
-        ((PartitionSize > MAX_DOWNLOAD_SIZE) &&
+        (PartitionSize < MaxDownLoadSize) ||
+        ((PartitionSize > MaxDownLoadSize) &&
         (IsDisableParallelDownloadFlash () ||
         (Status != EFI_SUCCESS)))) {
     if (EFI_ERROR (FlashResult)) {
@@ -1994,7 +1997,7 @@ AcceptData (IN UINT64 Size, IN VOID *Data)
      */
     GetPageSize (&PageSize);
     RoundSize = ROUND_TO_PAGE (mNumDataBytes, PageSize - 1);
-    if (RoundSize < MAX_DOWNLOAD_SIZE) {
+    if (RoundSize < MaxDownLoadSize) {
       gBS->SetMem ((VOID *)(Data + mNumDataBytes), RoundSize - mNumDataBytes,
                    0);
     }
@@ -2060,6 +2063,87 @@ FastbootCmdsUnInit (VOID)
   return EFI_SUCCESS;
 }
 
+/* This function must be called to check maximum allocatable chunk for
+ * Fastboot Buffer.
+ */
+STATIC VOID
+GetMaxAllocatableMemory (
+  OUT UINT64 *FreeSize
+  )
+{
+  EFI_MEMORY_DESCRIPTOR       *MemMap;
+  EFI_MEMORY_DESCRIPTOR       *MemMapPtr;
+  UINTN                       MemMapSize;
+  UINTN                       MapKey, DescriptorSize;
+  UINTN                       Index;
+  UINTN                       MaxFree = 0;
+  UINT32                      DescriptorVersion;
+  EFI_STATUS                  Status;
+
+  MemMapSize = 0;
+  MemMap     = NULL;
+  *FreeSize = 0;
+
+  // Get size of current memory map.
+  Status = gBS->GetMemoryMap (&MemMapSize, MemMap, &MapKey,
+                              &DescriptorSize, &DescriptorVersion);
+  /*
+    If the MemoryMap buffer is too small, the EFI_BUFFER_TOO_SMALL error
+    code is returned and the MemoryMapSize value contains the size of
+    the buffer needed to contain the current memory map.
+    The actual size of the buffer allocated for the consequent call
+    to GetMemoryMap() should be bigger then the value returned in
+    MemMapSize, since allocation of the new buffer may
+    potentially increase memory map size.
+  */
+  if (Status != EFI_BUFFER_TOO_SMALL) {
+    DEBUG ((EFI_D_ERROR, "ERROR: Undefined response get memory map\n"));
+    return;
+  }
+
+  /*
+    Allocate some additional memory as returned by MemMapSize,
+    and query current memory map.
+  */
+  if (CHECK_ADD64 (MemMapSize, EFI_PAGE_SIZE)) {
+    DEBUG ((EFI_D_ERROR, "ERROR: integer Overflow while adding additional"
+                         "memory to MemMapSize"));
+    return;
+  }
+  MemMapSize = MemMapSize + EFI_PAGE_SIZE;
+  MemMap = AllocateZeroPool (MemMapSize);
+  if (!MemMap) {
+    DEBUG ((EFI_D_ERROR,
+                    "ERROR: Failed to allocate memory for memory map\n"));
+    return;
+  }
+
+  // Store pointer to be freed later.
+  MemMapPtr = MemMap;
+  // Get System MemoryMap
+  Status = gBS->GetMemoryMap (&MemMapSize, MemMap, &MapKey,
+                              &DescriptorSize, &DescriptorVersion);
+  if (EFI_ERROR (Status)) {
+    DEBUG ((EFI_D_ERROR, "ERROR: Failed to query memory map\n"));
+    FreePool (MemMapPtr);
+    return;
+  }
+
+  // Find largest free chunk of unallocated memory available.
+  for (Index = 0; Index < MemMapSize / DescriptorSize; Index ++) {
+    if (MemMap->Type == EfiConventionalMemory &&
+          MaxFree < MemMap->NumberOfPages) {
+          MaxFree = MemMap->NumberOfPages;
+    }
+    MemMap = (EFI_MEMORY_DESCRIPTOR *)((UINTN)MemMap + DescriptorSize);
+  }
+
+  *FreeSize = EFI_PAGES_TO_SIZE (MaxFree);
+  DEBUG ((EFI_D_VERBOSE, "Free Memory available: %ld\n", *FreeSize));
+  FreePool (MemMapPtr);
+  return;
+}
+
 EFI_STATUS
 FastbootCmdsInit (VOID)
 {
@@ -2090,11 +2174,33 @@ FastbootCmdsInit (VOID)
   }
 
   /* Allocate buffer used to store images passed by the download command */
-  Status =
+  GetMaxAllocatableMemory (&MaxDownLoadSize);
+  if (!MaxDownLoadSize) {
+    DEBUG ((EFI_D_ERROR, "Failed to get free memory for fastboot buffer\n"));
+    return EFI_OUT_OF_RESOURCES;
+  }
+
+  do {
+    // Try allocating 3/4th of free memory available.
+    MaxDownLoadSize = EFI_FREE_MEM_DIVISOR (MaxDownLoadSize);
+    MaxDownLoadSize = LOCAL_ROUND_TO_PAGE (MaxDownLoadSize, EFI_PAGE_SIZE);
+    if (MaxDownLoadSize < MIN_BUFFER_SIZE) {
+      DEBUG ((EFI_D_ERROR,
+        "ERROR: Allocation fail for minimim buffer for fastboot\n"));
+      return EFI_OUT_OF_RESOURCES;
+    }
+
+    /* If available buffer on target is more than max buffer size,
+       we limit this to max buffer buffer size we support */
+    if (MaxDownLoadSize > MAX_BUFFER_SIZE) {
+      MaxDownLoadSize = MAX_BUFFER_SIZE;
+    }
+
+    Status =
         GetFastbootDeviceData ().UsbDeviceProtocol->AllocateTransferBuffer (
-               (CheckRootDeviceType () == NAND) ?
-                      MAX_BUFFER_SIZE : (MAX_BUFFER_SIZE * 2),
-               (VOID **)&FastBootBuffer);
+                                      MaxDownLoadSize,
+                                      (VOID **)&FastBootBuffer);
+  }while (EFI_ERROR (Status));
 
   if (Status != EFI_SUCCESS) {
     DEBUG ((EFI_D_ERROR, "Not enough memory to Allocate Fastboot Buffer\n"));
@@ -2102,10 +2208,14 @@ FastbootCmdsInit (VOID)
   }
 
   /* Clear allocated buffer */
-  gBS->SetMem ((VOID *)FastBootBuffer, (CheckRootDeviceType () == NAND) ?
-                              MAX_BUFFER_SIZE : (MAX_BUFFER_SIZE * 2), 0x0);
+  gBS->SetMem ((VOID *)FastBootBuffer, MaxDownLoadSize , 0x0);
+  DEBUG ((EFI_D_VERBOSE,
+                  "Fastboot Buffer Size allocated: %ld\n", MaxDownLoadSize));
 
-  FastbootCommandSetup ((void *)FastBootBuffer, MAX_BUFFER_SIZE);
+  MaxDownLoadSize = (CheckRootDeviceType () == NAND) ?
+                              MaxDownLoadSize : MaxDownLoadSize / 2;
+
+  FastbootCommandSetup ((VOID *)FastBootBuffer, MaxDownLoadSize);
   return EFI_SUCCESS;
 }
 
@@ -2116,7 +2226,7 @@ FastbootRegister (IN CONST CHAR8 *prefix,
 {
   FASTBOOT_CMD *cmd;
 
-  cmd = AllocatePool (sizeof (*cmd));
+  cmd = AllocateZeroPool (sizeof (*cmd));
   if (cmd) {
     cmd->prefix = prefix;
     cmd->prefix_len = AsciiStrLen (prefix);
@@ -2274,7 +2384,7 @@ CmdBoot (CONST CHAR8 *Arg, VOID *Data, UINT32 Size)
   boot_img_hdr *hdr = Data;
   EFI_STATUS Status = EFI_SUCCESS;
   UINT32 ImageSizeActual = 0;
-  UINT32 ImageHdrSize = 0;
+  UINT32 ImageHdrSize = BOOT_IMG_MAX_PAGE_SIZE;
   UINT32 PageSize = 0;
   UINT32 SigActual = SIGACTUAL;
   CHAR8 Resp[MAX_RSP_SIZE];
@@ -2305,10 +2415,8 @@ CmdBoot (CONST CHAR8 *Arg, VOID *Data, UINT32 Size)
   hdr->cmdline[BOOT_ARGS_SIZE - 1] = '\0';
   SetBootDevImage ();
 
-  // Setup page size information for nv storage
-  GetPageSize (&ImageHdrSize);
-
-  Status = CheckImageHeader (Data, ImageHdrSize, &ImageSizeActual, &PageSize);
+  Status = CheckImageHeader (Data, ImageHdrSize, &ImageSizeActual,
+                             &PageSize, FALSE);
   if (Status != EFI_SUCCESS) {
     AsciiSPrint (Resp, sizeof (Resp), "Invalid Boot image Header: %r", Status);
     FastbootFail (Resp);
@@ -2319,7 +2427,7 @@ CmdBoot (CONST CHAR8 *Arg, VOID *Data, UINT32 Size)
     FastbootFail ("BootImage is Incomplete");
     goto out;
   }
-  if ((MAX_DOWNLOAD_SIZE - (ImageSizeActual - SigActual)) < PageSize) {
+  if ((MaxDownLoadSize - (ImageSizeActual - SigActual)) < PageSize) {
     FastbootFail ("BootImage: Size os greater than boot image buffer can hold");
     goto out;
   }
@@ -2372,6 +2480,32 @@ CmdRebootBootloader (CONST CHAR8 *arg, VOID *data, UINT32 sz)
 
 #if (defined(ENABLE_DEVICE_CRITICAL_LOCK_UNLOCK_CMDS) ||                       \
      defined(ENABLE_UPDATE_PARTITIONS_CMDS))
+STATIC UINT8
+is_display_supported ( VOID )
+{
+  EFI_STATUS Status = EFI_SUCCESS;
+  EfiQcomDisplayUtilsProtocol *pDisplayUtilProtocol;
+  EFI_GUID DisplayUtilGUID = EFI_DISPLAYUTILS_PROTOCOL_GUID;
+  EFI_DISPLAY_UTILS_PANEL_CONFIG_PARAMS PanelConfig;
+  UINT32 Index = 0;
+  UINT32 ParamSize = sizeof (PanelConfig);
+  PanelConfig.uPanelIndex = Index;
+
+  if (EFI_SUCCESS == (Status = gBS->LocateProtocol (&DisplayUtilGUID,
+                                    NULL,
+                                    (VOID **)&pDisplayUtilProtocol))) {
+     Status = pDisplayUtilProtocol->DisplayUtilsGetProperty (
+                                     EFI_DISPLAY_UTILS_PANEL_CONFIG,
+                                    (VOID*)&PanelConfig, &ParamSize);
+     if ( Status == EFI_NOT_FOUND ) {
+       DEBUG ((EFI_D_VERBOSE, "Display is not supported\n"));
+       return 0;
+     }
+   }
+   DEBUG ((EFI_D_VERBOSE, "Display is enabled\n"));
+   return 1;
+}
+
 STATIC VOID
 SetDeviceUnlock (UINT32 Type, BOOLEAN State)
 {
@@ -2397,7 +2531,8 @@ SetDeviceUnlock (UINT32 Type, BOOLEAN State)
   }
 
 
-  if (GetAVBVersion () != AVB_LE) {
+  if (GetAVBVersion () != AVB_LE &&
+      is_display_supported ()) {
     Status = DisplayUnlockMenu (Type, State);
     if (Status != EFI_SUCCESS) {
       FastbootFail ("Command not support: the display is not enabled");
@@ -2568,7 +2703,8 @@ CmdOemSelectDisplayPanel (CONST CHAR8 *arg, VOID *data, UINT32 sz)
   /* Update the environment variable with the selected panel */
   Status = gRT->SetVariable (
       (CHAR16 *)L"DisplayPanelOverride", &gQcomTokenSpaceGuid,
-      EFI_VARIABLE_RUNTIME_ACCESS | EFI_VARIABLE_BOOTSERVICE_ACCESS,
+      EFI_VARIABLE_RUNTIME_ACCESS | EFI_VARIABLE_BOOTSERVICE_ACCESS
+                                  | EFI_VARIABLE_NON_VOLATILE,
       AsciiStrLen (DisplayPanelStr), (VOID *)DisplayPanelStr);
   if (Status != EFI_SUCCESS) {
     DEBUG ((EFI_D_ERROR, "Failed to set panel name, %r\n", Status));
@@ -2769,7 +2905,7 @@ CheckPartitionFsSignature (IN CHAR16 *PartName,
   }
 
   BlkSz = BlockIo->Media->BlockSize;
-  FsSuperBlkBuffer = AllocatePool (BlkSz);
+  FsSuperBlkBuffer = AllocateZeroPool (BlkSz);
   if (!FsSuperBlkBuffer) {
     DEBUG ((EFI_D_ERROR, "Failed to allocate buffer for superblock %s\n",
                             PartName));
@@ -2973,7 +3109,7 @@ ReadAllowUnlockValue (UINT32 *IsAllowUnlock)
   if (!BlockIo)
     return EFI_NOT_FOUND;
 
-  Buffer = AllocatePool (BlockIo->Media->BlockSize);
+  Buffer = AllocateZeroPool (BlockIo->Media->BlockSize);
   if (!Buffer) {
     DEBUG ((EFI_D_ERROR, "Failed to allocate memory for unlock value \n"));
     return EFI_OUT_OF_RESOURCES;
@@ -2998,7 +3134,7 @@ Exit:
  * to the Fastboot Buffer used to store the downloaded image for flashing
  */
 STATIC EFI_STATUS
-FastbootCommandSetup (IN VOID *base, IN UINT32 size)
+FastbootCommandSetup (IN VOID *Base, IN UINT64 Size)
 {
   EFI_STATUS Status;
   CHAR8 HWPlatformBuf[MAX_RSP_SIZE] = "\0";
@@ -3009,13 +3145,13 @@ FastbootCommandSetup (IN VOID *base, IN UINT32 size)
   BOOLEAN MultiSlotBoot = PartitionHasMultiSlot ((CONST CHAR16 *)L"boot");
   MemCardType Type = UNKNOWN;
 
-  mDataBuffer = base;
-  mNumDataBytes = size;
-  mFlashNumDataBytes = size;
-  mUsbDataBuffer = base;
+  mDataBuffer = Base;
+  mNumDataBytes = Size;
+  mFlashNumDataBytes = Size;
+  mUsbDataBuffer = Base;
 
   mFlashDataBuffer = (CheckRootDeviceType () == NAND) ?
-                           base : (base + MAX_BUFFER_SIZE);
+                           Base : (Base + MaxDownLoadSize);
 
   /* Find all Software Partitions in the User Partition */
   UINT32 i;
@@ -3070,7 +3206,9 @@ FastbootCommandSetup (IN VOID *base, IN UINT32 size)
   }
   /* Publish getvar variables */
   FastbootPublishVar ("kernel", "uefi");
-  FastbootPublishVar ("max-download-size", MAX_DOWNLOAD_SIZE_STR);
+  AsciiSPrint (MaxDownloadSizeStr,
+                  sizeof (MaxDownloadSizeStr), "%ld", MaxDownLoadSize);
+  FastbootPublishVar ("max-download-size", MaxDownloadSizeStr);
   AsciiSPrint (FullProduct, sizeof (FullProduct), "%a", PRODUCT_NAME);
   FastbootPublishVar ("product", FullProduct);
   FastbootPublishVar ("serialno", StrSerialNum);
