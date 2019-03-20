@@ -198,48 +198,71 @@ IsRootCmdLineUpdated (BootInfo *Info)
   }
 }
 
+STATIC EFI_STATUS
+LoadImageWithInfo (BootInfo *Info, CHAR16 *Pname)
+{
+  EFI_STATUS Status = EFI_SUCCESS;
+  UINT32 ImageItem;
+
+  ImageItem = Info->NumLoadedImages;
+  Status = LoadImage (Pname, (VOID **)&(Info->Images[ImageItem].ImageBuffer),
+                      (UINT32 *)&(Info->Images[ImageItem].ImageSize));
+  if (Status != EFI_SUCCESS) {
+    DEBUG ((EFI_D_ERROR, "ERROR: Failed to load image from partition: %r\n",
+            Status));
+    return EFI_LOAD_ERROR;
+  }
+  Info->Images[ImageItem].Name = AllocatePool (StrLen (Pname) + 1);
+  UnicodeStrToAsciiStr (Pname, Info->Images[ImageItem].Name);
+  Info->NumLoadedImages ++;
+
+  return EFI_SUCCESS;
+}
 
 STATIC EFI_STATUS
 LoadImageNoAuth (BootInfo *Info)
 {
   EFI_STATUS Status = EFI_SUCCESS;
   CHAR16 Pname[MAX_GPT_NAME_SIZE];
+  UINT32 ImageItem;
 
+  Info-> NumLoadedImages = 0;
   if (Info->Images[0].ImageBuffer != NULL && Info->Images[0].ImageSize > 0) {
     /* fastboot boot option, boot image is already loaded, check for dtbo */
     goto load_dtbo;
   }
 
-  Status = LoadImage (Info->Pname, (VOID **)&(Info->Images[0].ImageBuffer),
-                      (UINT32 *)&(Info->Images[0].ImageSize));
+  Status = LoadImageWithInfo (Info, Info->Pname);
   if (Status != EFI_SUCCESS) {
-    DEBUG ((EFI_D_ERROR, "ERROR: Failed to load image from partition: %r\n",
-            Status));
     return EFI_LOAD_ERROR;
   }
-  Info->NumLoadedImages = 1;
-  Info->Images[0].Name = AllocatePool (StrLen (Info->Pname) + 1);
-  UnicodeStrToAsciiStr (Info->Pname, Info->Images[0].Name);
 
+  if (IsVmEnabled ()) {
+    Status = LoadImageWithInfo (Info, (CHAR16 *)L"vm-linux");
+    if (Status != EFI_SUCCESS) {
+      return EFI_LOAD_ERROR;
+    }
+  }
 
 load_dtbo:
   /*load dt overlay when avb is disabled*/
-  Status = NoAVBLoadDtboImage (Info, (VOID **)&(Info->Images[1].ImageBuffer),
-          (UINT32 *)&(Info->Images[1].ImageSize), Pname);
+  ImageItem = Info->NumLoadedImages;
+  Status = NoAVBLoadDtboImage (Info, (VOID **)&(Info->Images[ImageItem].ImageBuffer),
+          (UINT32 *)&(Info->Images[ImageItem].ImageSize), Pname);
   if (Status == EFI_NO_MEDIA) {
       DEBUG ((EFI_D_ERROR, "No dtbo partition is found, Skip dtbo\n"));
-      FreePool (Info->Images[1].ImageBuffer);
+      FreePool (Info->Images[ImageItem].ImageBuffer);
       return EFI_SUCCESS;
   }
   else if (Status != EFI_SUCCESS) {
       DEBUG ((EFI_D_ERROR,
                   "ERROR: Failed to load dtbo from partition: %r\n", Status));
-      FreePool (Info->Images[1].ImageBuffer);
+      FreePool (Info->Images[ImageItem].ImageBuffer);
       return EFI_LOAD_ERROR;
   }
-  Info-> NumLoadedImages = 2;
-  Info-> Images[1].Name = AllocatePool (StrLen (Pname) + 1);
-  UnicodeStrToAsciiStr (Pname, Info->Images[1].Name);
+  Info-> Images[ImageItem].Name = AllocatePool (StrLen (Pname) + 1);
+  UnicodeStrToAsciiStr (Pname, Info->Images[ImageItem].Name);
+  Info-> NumLoadedImages ++;
 
   return Status;
 }

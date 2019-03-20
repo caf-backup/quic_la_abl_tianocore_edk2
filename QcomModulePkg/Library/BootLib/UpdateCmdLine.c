@@ -674,7 +674,7 @@ UpdateCmdLine (CONST CHAR8 *CmdLine,
   }
 
   if (IsVmEnabled()) {
-    CmdLineLen += GetSystemPath (&CvmSystemPtnCmdLine, MultiSlotBoot,
+    CmdLineLen += GetSystemPath (&CvmSystemPtnCmdLine, FALSE,
                                  L"vm-system", "vm_system");
   }
 
