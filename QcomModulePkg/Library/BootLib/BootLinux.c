@@ -122,6 +122,12 @@ STATIC EFI_STATUS UpdateBootParams (BootParamlist *BootParamlistPtr, KernelMode
    switch (Mode) {
       case KERNEL_32BIT:
         BootParamlistPtr->KernelLoadAddr += KERNEL_32BIT_LOAD_OFFSET;
+        // Allocate kernel relocation buffer based on Ramdisk size and dt size
+        KernelImageSize = ((UINT32) (BootParamlistPtr->KernelSizeReserved) -
+                               (DT_SIZE_2MB +
+                                BootParamlistPtr->RamdiskSize +
+                                2 * BootParamlistPtr->PageSize +
+                                KERNEL_32BIT_LOAD_OFFSET));
         break;
       case KERNEL_64BIT:
         BootParamlistPtr->KernelLoadAddr += KERNEL_64BIT_LOAD_OFFSET;
@@ -1000,8 +1006,9 @@ BootLinux (BootInfo *Info)
   Status = GetImage (Info,
                      &BootParamlistPtr.ImageBuffer,
                      (UINTN *)&BootParamlistPtr.ImageSize,
-                     (!Info->MultiSlotBoot &&
-                      Recovery)? "recovery" : "boot");
+                     ((!Info->MultiSlotBoot ||
+                        IsDynamicPartitionSupport ()) &&
+                        Recovery)? "recovery" : "boot");
   if (Status != EFI_SUCCESS ||
       BootParamlistPtr.ImageBuffer == NULL ||
       BootParamlistPtr.ImageSize <= 0) {
@@ -1560,12 +1567,12 @@ BOOLEAN IsABRetryCountDisabled (VOID)
 #endif
 
 #if DYNAMIC_PARTITION_SUPPORT
-BOOLEAN IsDyanamicPartitionSupport (VOID)
+BOOLEAN IsDynamicPartitionSupport (VOID)
 {
   return TRUE;
 }
 #else
-BOOLEAN IsDyanamicPartitionSupport (VOID)
+BOOLEAN IsDynamicPartitionSupport (VOID)
 {
   return FALSE;
 }
