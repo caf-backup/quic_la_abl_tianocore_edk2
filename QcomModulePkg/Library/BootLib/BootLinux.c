@@ -312,15 +312,16 @@ DTBImgCheckAndAppendDT (BootInfo *Info,
       DEBUG ((EFI_D_ERROR, "Error: Dtb overlay failed\n"));
       return Status;
     }
-    if (IsVmEnabled ()) {
-      /* Apply Hyp Overlay */
-      Status = ApplyOverlay (BootParamlistPtr,
-                             (VOID *)BootParamlistPtr->DeviceTreeLoadAddr,
-                             (VOID *)BootParamlistPtr->HypDtboAddr);
-      if (Status != EFI_SUCCESS) {
-        DEBUG ((EFI_D_ERROR, "Error: Hyp Dtb overlay failed\n"));
-        return Status;
-      }
+  }
+
+  if (IsVmEnabled ()) {
+    /* Apply Hyp Overlay */
+    Status = ApplyOverlay (BootParamlistPtr,
+                           (VOID *)BootParamlistPtr->DeviceTreeLoadAddr,
+                           (VOID *)BootParamlistPtr->HypDtboAddr);
+    if (Status != EFI_SUCCESS) {
+      DEBUG ((EFI_D_ERROR, "Error: Hyp Dtb overlay failed\n"));
+      return Status;
     }
   }
   return EFI_SUCCESS;
