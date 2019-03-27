@@ -1,6 +1,6 @@
 /** @file
 
-  Copyright (c) 2013-2014, ARM Ltd. All rights reserved.<BR>
+  Copyright (c) 2013-2019, ARM Ltd. All rights reserved.<BR>
 
   This program and the accompanying materials
   are licensed and made available under the terms and conditions of the BSD License
@@ -16,7 +16,7 @@
  * Copyright (c) 2009, Google Inc.
  * All rights reserved.
  *
- * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -244,6 +244,11 @@ UINTN GetXfrSize(VOID)
 	return USB_BUFFER_SIZE;
 }
 
+STATIC BOOLEAN UsbTimerStarted;
+BOOLEAN IsUsbTimerStarted (VOID)
+{
+        return UsbTimerStarted;
+}
 /* Acknowlege to host, INFO, OKAY and FAILURE */
 STATIC VOID FastbootAck (
 	IN CONST CHAR8 *code,
@@ -1091,6 +1096,7 @@ STATIC VOID StopUsbTimer()
 		gBS->CloseEvent (UsbTimerEvent);
 		UsbTimerEvent = NULL;
 	}
+        UsbTimerStarted = FALSE;
 }
 #else
 STATIC VOID StopUsbTimer() {return;}
@@ -1374,6 +1380,7 @@ STATIC VOID CmdFlash(
             IsFlashComplete = TRUE;
             StopUsbTimer ();
         } else {
+            UsbTimerStarted = TRUE;
             FastbootOkay ("");
         }
 
