@@ -2,7 +2,7 @@
  * Copyright (c) 2009, Google Inc.
  * All rights reserved.
  *
- * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -44,6 +44,7 @@
 
 #define MAX_DOWNLOAD_SIZE       1024*1024*512
 #define MAX_DOWNLOAD_SIZE_STR   "536870912"
+#define MAX_WRITE_SIZE          (1024 * 1024)
 #define MAX_BUFFER_SIZE         MAX_DOWNLOAD_SIZE
 #define MAX_RSP_SIZE    64
 #define ERASE_BUFF_SIZE         256*1024
@@ -149,4 +150,5 @@ ANDROID_FASTBOOT_STATE FastbootCurrentState();
 
 EFI_STATUS UpdateDevInfo(CHAR16* Pname, CHAR8* ImgVersion);
 VOID GetDevInfo(DeviceInfo **DevinfoPtr);
+BOOLEAN IsUsbTimerStarted (VOID);
 #endif

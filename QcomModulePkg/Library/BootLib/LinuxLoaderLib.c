@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -28,6 +28,8 @@
 
 #include "LinuxLoaderLib.h"
 #include <Library/BootLinux.h>
+#include <FastbootLib/FastbootCmds.h>
+
 /* Volume Label size 11 chars, round off to 16 */
 #define VOLUME_LABEL_SIZE      16
 
@@ -519,35 +521,49 @@ WriteBlockToPartition (EFI_BLOCK_IO_PROTOCOL *BlockIo,
   EFI_STATUS Status = EFI_SUCCESS;
   CHAR8 *ImageBuffer = NULL;
   UINT32 DivMsgBufSize;
+  UINT32 WriteBlockSize;
+  UINT64 WriteUnitSize = MAX_WRITE_SIZE;
+  INT64 LeftSize = 0;
+  UINT32 WriteSize = 0;
 
   if ((BlockIo == NULL) ||
     (Image == NULL)) {
     DEBUG ((EFI_D_ERROR, "NUll BlockIo or Image\n"));
     return EFI_INVALID_PARAMETER;
   }
-
+  WriteBlockSize = BlockIo->Media->BlockSize;
   /* If the Size is not divisible by BlockSize.
     * Write the Image data to partition in twice.
     * First, write the divisible Image buffer size to partition
     * Second, malloc 1 BlockSize buffer for the rest Image data
     * and then write.
     */
-  DivMsgBufSize = (Size / BlockIo->Media->BlockSize) *
-                   BlockIo->Media->BlockSize;
+  DivMsgBufSize = (Size / WriteBlockSize) * WriteBlockSize;
+  WriteUnitSize = ROUND_TO_PAGE (WriteUnitSize, WriteBlockSize - 1);
   if (DivMsgBufSize) {
-    Status = BlockIo->WriteBlocks (BlockIo,
+
+    if (!IsUsbTimerStarted ()) {
+       WriteUnitSize = DivMsgBufSize;
+    }
+
+    LeftSize = DivMsgBufSize;
+    while (LeftSize > 0) {
+        WriteSize = LeftSize > WriteUnitSize? WriteUnitSize : LeftSize;
+        Status = BlockIo->WriteBlocks (BlockIo,
                                    BlockIo->Media->MediaId,
                                    Offset,
-                                   DivMsgBufSize,
-                                   Image);
+                                   WriteSize,
+                                   Image + DivMsgBufSize - LeftSize);
     if (Status != EFI_SUCCESS) {
-      DEBUG ((EFI_D_ERROR, "Write the divisible Image failed :%r\n", Status));
+      DEBUG((EFI_D_ERROR, "Write the divisible Image failed :%r\n", Status));
       return Status;
     }
+      Offset += WriteSize / BlockIo->Media->BlockSize;
+      LeftSize -= WriteSize;
+   }
   }
-
   if (Size - DivMsgBufSize > 0) {
-    ImageBuffer = AllocateZeroPool (BlockIo->Media->BlockSize);
+    ImageBuffer = AllocateZeroPool (WriteBlockSize);
     if (ImageBuffer == NULL) {
       DEBUG ((EFI_D_ERROR, "Failed to allocate zero pool for ImageBuffer\n"));
       return EFI_OUT_OF_RESOURCES;
@@ -558,8 +574,8 @@ WriteBlockToPartition (EFI_BLOCK_IO_PROTOCOL *BlockIo,
      */
     Status = BlockIo->ReadBlocks (BlockIo,
                                  BlockIo->Media->MediaId,
-                                 Offset + Size / BlockIo->Media->BlockSize,
-                                 BlockIo->Media->BlockSize,
+                                 Offset,
+                                 WriteBlockSize,
                                  ImageBuffer);
 
     if (Status != EFI_SUCCESS) {
@@ -572,8 +588,8 @@ WriteBlockToPartition (EFI_BLOCK_IO_PROTOCOL *BlockIo,
     gBS->CopyMem (ImageBuffer, Image + DivMsgBufSize, Size - DivMsgBufSize);
     Status = BlockIo->WriteBlocks (BlockIo,
                                  BlockIo->Media->MediaId,
-                                 Offset+ Size / BlockIo->Media->BlockSize,
-                                 BlockIo->Media->BlockSize,
+                                 Offset,
+                                 WriteBlockSize,
                                  ImageBuffer);
 
     FreePool (ImageBuffer);
