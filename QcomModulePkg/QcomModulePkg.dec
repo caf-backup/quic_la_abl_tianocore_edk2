@@ -142,7 +142,7 @@
 [PcdsFixedAtBuild.common]
   # LinuxLoaderCommon
   gQcomTokenSpaceGuid.KernelLoadAddress|0x00080000|UINT32|0x00015000
-  gQcomTokenSpaceGuid.TagsAddress|0x03200000|UINT32|0x00015001
+  gQcomTokenSpaceGuid.TagsAddress|0x032A5000|UINT32|0x00015001
   gQcomTokenSpaceGuid.RamdiskLoadAddress|0x03400000|UINT32|0x00015002
   gQcomTokenSpaceGuid.RamdiskEndAddress|0x05600000|UINT32|0x00015003
   gQcomTokenSpaceGuid.EnablePartialGoods|TRUE|BOOLEAN|0x00015004
