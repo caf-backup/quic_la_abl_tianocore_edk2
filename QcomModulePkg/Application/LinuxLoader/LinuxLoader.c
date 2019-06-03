@@ -2,7 +2,7 @@
  * Copyright (c) 2009, Google Inc.
  * All rights reserved.
  *
- * Copyright (c) 2009-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2021, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -49,6 +49,10 @@
 #define MAX_APP_STR_LEN 64
 #define MAX_NUM_FS 10
 #define DEFAULT_STACK_CHK_GUARD 0xc0c0c0c0
+
+#if HIBERNATION_SUPPORT
+void BootIntoHibernationImage(void);
+#endif
 
 STATIC BOOLEAN BootReasonAlarm = FALSE;
 STATIC BOOLEAN BootIntoFastboot = FALSE;
@@ -197,6 +201,11 @@ LinuxLoaderEntry (IN EFI_HANDLE ImageHandle, IN EFI_SYSTEM_TABLE *SystemTable)
     DEBUG ((EFI_D_ERROR, "Error reading key status: %r\n", Status));
     goto stack_guard_update_default;
   }
+
+  #if HIBERNATION_SUPPORT
+    if (!BootIntoFastboot)
+      BootIntoHibernationImage();
+  #endif
 
   // check for reboot mode
   Status = GetRebootReason (&BootReason);
