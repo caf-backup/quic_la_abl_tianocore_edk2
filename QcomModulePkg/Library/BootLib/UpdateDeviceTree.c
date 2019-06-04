@@ -33,12 +33,14 @@
 
 #include "UpdateDeviceTree.h"
 #include "AutoGen.h"
+#include "VerifiedBoot.h"
 #include <Library/UpdateDeviceTree.h>
 #include <Protocol/EFIChipInfoTypes.h>
 #include <Protocol/EFIRng.h>
 
 #define DTB_PAD_SIZE 2048
 #define NUM_SPLASHMEM_PROP_ELEM 4
+#define MAX_MLVM_CMDLINE_LEN 512
 
 STATIC struct FstabNode FstabTable = {"/firmware/android/fstab", "dev",
                                       "/soc/"};
@@ -341,6 +343,100 @@ dev_tree_add_mem_infoV64 (VOID *fdt, UINT32 offset, UINT64 addr, UINT64 size)
   }
 
   return ret;
+}
+
+EFI_STATUS
+UpdateMLVMDeviceTree (VOID *Fdt)
+{
+  EFI_STATUS Status;
+  INT32 Offset;
+  UINT32 PaddSize = 0;
+  UINT32 Flags = 0;
+  CONST VOID *Prop = NULL;
+  INT32 PropLen = 0;
+  CHAR8 *RootCmdLine = "root=/dev/vblock0 rootfstype=ext4 rootwait";
+  CHAR8 *VBCmdLine = NULL;
+
+  /* Check the device tree header */
+  Offset = fdt_check_header (Fdt) || fdt_check_header_ext (Fdt);
+  if (Offset) {
+    DEBUG ((EFI_D_ERROR, "ERROR: Invalid device tree header ...\n"));
+    return EFI_NOT_FOUND;
+  }
+
+  VBCmdLine = AllocateZeroPool (MAX_MLVM_CMDLINE_LEN);
+  if (!VBCmdLine) {
+    DEBUG ((EFI_D_ERROR, "Failed to allocate Buffer for MLVM Cmdline\n"));
+    return EFI_OUT_OF_RESOURCES;
+  }
+
+  /* Get VMCmdLine, use RootCmdLine if failed */
+  Status = GetMLVMVbCmdline (VBCmdLine, &Flags);
+  if (Status != EFI_SUCCESS ||
+      !(Flags & BIT(0)) ||
+      AsciiStrLen (VBCmdLine) == 0) {
+    AsciiStrnCpyS (VBCmdLine,
+                   MAX_MLVM_CMDLINE_LEN,
+                   RootCmdLine,
+                   AsciiStrLen (RootCmdLine));
+  }
+
+  /* Add padding to make space for new nodes and properties. */
+  PaddSize = ADD_OF (fdt_totalsize (Fdt),
+                    DTB_PAD_SIZE + AsciiStrLen (VBCmdLine));
+  if (!PaddSize) {
+    DEBUG ((EFI_D_ERROR, "ERROR: Integer Oveflow: fdt size = %u\n",
+            fdt_totalsize (Fdt)));
+    Status = EFI_BAD_BUFFER_SIZE;
+    goto out;
+  }
+  Status = fdt_open_into (Fdt, Fdt, PaddSize);
+  if (Status != EFI_SUCCESS) {
+    DEBUG ((EFI_D_ERROR, "ERROR: Failed to move/resize dtb buffer ...\n"));
+    goto out;
+  }
+
+  /* Get offset of the chosen node */
+  Offset = fdt_path_offset (Fdt, "/chosen");
+  if (Offset < 0) {
+    DEBUG ((EFI_D_ERROR, "ERROR: Could not find chosen node ...\n"));
+    Status = EFI_NOT_FOUND;
+    goto out;
+  }
+
+  /*
+   * To enable the dm-verity, we need to update the Cmdline in hyp to remove
+     "root=" which leads the inter-dependency b/w Hyp & ABL.
+
+   * To make the abl independent of Hyp:
+     a) Read the bootargs property to get the existing MLVM CmdLine
+     b) Search for the string "root="
+     c) If the string is found Exit, else update the bootargs with VBCmdLine
+   */
+  Prop = fdt_getprop (Fdt, Offset, "bootargs", &PropLen);
+  if (Prop && PropLen > 0) {
+    if (AsciiStrStr ((CONST CHAR8 *)Prop, "root=")) {
+      DEBUG ((EFI_D_INFO, "MLVM: root cmdline is already present\n"
+                          "MLVMCmdline: %a\n", Prop));
+      Status = EFI_SUCCESS;
+      goto out;
+    }
+  }
+  /* Adding the cmdline to the chosen node */
+  DEBUG ((EFI_D_INFO, "MLVMCmdline: %a\n", VBCmdLine));
+  Status = fdt_appendprop_string (Fdt, Offset, (CONST char *)"bootargs",
+                                  (CONST VOID *)VBCmdLine);
+  if (Status != EFI_SUCCESS) {
+    DEBUG ((EFI_D_ERROR,
+            "ERROR: Cannot update chosen node [bootargs] - %r\n", Status));
+    goto out;
+  }
+
+  fdt_pack (Fdt);
+
+out:
+  FreePool (VBCmdLine);
+  return Status;
 }
 
 /* Top level function that updates the device tree. */

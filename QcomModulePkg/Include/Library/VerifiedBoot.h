@@ -99,4 +99,15 @@ EFI_STATUS
 GetCertFingerPrint (UINT8 *FingerPrint,
                     UINTN FingerPrintLen,
                     UINTN *FingerPrintLenOut);
+
+/**
+ *
+ * Returns the VB cmdline for MLVM
+ *
+ * @return EFI_STATUS
+ */
+EFI_STATUS
+GetMLVMVbCmdline(CHAR8 *CmdLine,
+                 UINT32 *Flags);
+
 #endif /* __VERIFIEDBOOT_H__ */

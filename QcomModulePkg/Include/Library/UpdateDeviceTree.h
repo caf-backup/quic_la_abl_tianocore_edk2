@@ -82,6 +82,9 @@ UpdateDeviceTree (VOID *DeviceTreeLoadAddr,
                   BOOLEAN BootingWith32BitKernel);
 
 EFI_STATUS
+UpdateMLVMDeviceTree (VOID *Fdt);
+
+EFI_STATUS
 UpdateFstabNode (VOID *fdt);
 
 UINT32
