@@ -973,7 +973,7 @@ FastbootUpdateAttr (CONST CHAR16 *SlotSuffix)
   Ptn_Entries_Ptr->PartEntry.Attributes |=
       (PART_ATT_PRIORITY_VAL | PART_ATT_MAX_RETRY_COUNT_VAL);
 
-  UpdatePartitionAttributes ();
+  UpdatePartitionAttributes (PARTITION_ATTRIBUTES);
   for (j = 0; j < SlotCount; j++) {
     if (AsciiStrStr (SlotSuffixAscii, BootSlotInfo[j].SlotSuffix)) {
       AsciiStrnCpyS (BootSlotInfo[j].SlotSuccessfulVal,
@@ -1513,6 +1513,7 @@ ReenumeratePartTable (VOID)
     /*Check for multislot boot support*/
     MultiSlotBoot = PartitionHasMultiSlot (L"boot");
     if (MultiSlotBoot) {
+      UpdatePartitionAttributes (PARTITION_ALL);
       FindPtnActiveSlot ();
       PopulateMultislotMetadata ();
       DEBUG ((EFI_D_VERBOSE, "Multi Slot boot is supported\n"));
@@ -1625,6 +1626,9 @@ CmdFlash (IN CONST CHAR8 *arg, IN VOID *data, IN UINT32 sz)
         UfsBootLun = 0x1;
         UfsGetSetBootLun (&UfsBootLun, FALSE); /* False = Set */
       }
+    } else if (!AsciiStrnCmp (BootDeviceType, "EMMC", AsciiStrLen ("EMMC"))) {
+      Lun = NO_LUN;
+      LunSet = FALSE;
     }
     DEBUG ((EFI_D_INFO, "Attemping to update partition table\n"));
     DEBUG ((EFI_D_INFO, "*************** Current partition Table Dump Start "
@@ -1921,7 +1925,7 @@ CmdSetActive (CONST CHAR8 *Arg, VOID *Data, UINT32 Size)
     j++;
   } while (!SlotVarUpdateComplete);
 
-  UpdatePartitionAttributes ();
+  UpdatePartitionAttributes (PARTITION_ALL);
   FastbootOkay ("");
 }
 #endif
@@ -2446,7 +2450,11 @@ CmdBoot (CONST CHAR8 *Arg, VOID *Data, UINT32 Size)
       return;
     }
   }
-
+  if (!IsUnlocked ()) {
+    FastbootFail (
+          "Fastboot boot command is not available in locked device");
+      return;
+  }
   if (Size < sizeof (boot_img_hdr)) {
     FastbootFail ("Invalid Boot image Header");
     return;
