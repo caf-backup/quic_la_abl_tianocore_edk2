@@ -103,11 +103,7 @@ endif
 ifneq "$(INIT_BIN_LE)" ""
 	INIT_BIN := $(INIT_BIN_LE)
 else
-      ifeq ($(TARGET_SUPPORTS_EARLY_INIT),1)
-                INIT_BIN := \"/init_early\"
-      else
-                INIT_BIN := \"/init\"
-      endif
+	INIT_BIN := \"/init\"
 endif
 
 export SDLLVM_COMPILE_ANALYZE := $(SDLLVM_COMPILE_ANALYZE)
