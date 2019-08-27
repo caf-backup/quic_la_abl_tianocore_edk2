@@ -34,6 +34,7 @@
 #include <Library/ShutdownServices.h>
 #include <Library/StackCanary.h>
 #include "Hibernation.h"
+#include "BootStats.h"
 
 /* Reserved some free memory for UEFI use */
 #define RESERVE_FREE_SIZE	1024*1024*10
