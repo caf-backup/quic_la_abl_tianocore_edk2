@@ -48,6 +48,8 @@
 #include "libfdt.h"
 #include <ufdt_overlay.h>
 
+#define SZ_16M (1 << 24)
+
 STATIC QCOM_SCM_MODE_SWITCH_PROTOCOL *pQcomScmModeSwitchProtocol = NULL;
 STATIC BOOLEAN BootDevImage;
 STATIC BOOLEAN IsVmComputed = FALSE;
@@ -983,6 +985,60 @@ CheckAndLoadComputeVM (BootInfo *Info,
 }
 
 EFI_STATUS
+Carveout_UEFI(VOID *fdt)
+{
+  char *path = "/reserved-memory";
+  char * comp_val = "removed-dma-pool";
+  int parent_offset, node_offset;
+  int ret;
+  UINT64 start, size;
+
+  /*
+    Align the start address of Carveout_UEFI to 128KB.
+    Carveout 16MB from start.
+  */
+  start = (unsigned long long)(&Carveout_UEFI) & ~(0xDFFFF);
+  size = SZ_16M;
+  parent_offset = fdt_path_offset(fdt, path);
+  if(parent_offset < 0) {
+	DEBUG ((EFI_D_ERROR, "Parent offset not found\n"));
+	return -1;
+  }
+
+  ret = fdt_add_subnode(fdt, parent_offset, "uefi_mem");
+  if(ret < 0) {
+	DEBUG ((EFI_D_ERROR, "Error adding node\n"));
+        return -1;
+  }
+
+  node_offset = fdt_subnode_offset(fdt, parent_offset, "uefi_mem");
+  if(node_offset < 0) {
+	DEBUG ((EFI_D_ERROR, "Node offset not found\n"));
+        return -1;
+  }
+
+  ret = fdt_setprop(fdt, node_offset, "compatible", comp_val,
+		strlen(comp_val));
+  if(ret < 0) {
+        DEBUG ((EFI_D_ERROR, "Error adding property: compatible\n"));
+        return -1;
+  }
+
+  ret = fdt_setprop(fdt, node_offset, "no-map", NULL, 0);
+  if(ret < 0) {
+        DEBUG ((EFI_D_ERROR, "Error adding property: no-map\n"));
+        return -1;
+  }
+
+  ret = dev_tree_add_mem_infoV64(fdt, node_offset, start, size);
+  if(ret < 0) {
+        DEBUG ((EFI_D_ERROR, "Error adding property: reg\n"));
+        return -1;
+  }
+  return ret;
+}
+
+EFI_STATUS
 BootLinux (BootInfo *Info)
 {
 
@@ -1173,6 +1229,12 @@ skip_FfbmStr:
 		   &BootParamlistPtr.FinalCmdLine);
   if (EFI_ERROR (Status)) {
     DEBUG ((EFI_D_ERROR, "Error updating cmdline. Device Error %r\n", Status));
+    return Status;
+  }
+
+  Status = Carveout_UEFI ((VOID *)BootParamlistPtr.DeviceTreeLoadAddr);
+  if (EFI_ERROR (Status)) {
+    DEBUG ((EFI_D_ERROR, "Error carving out UEFI memory: %r\n", Status));
     return Status;
   }
 
