@@ -18,7 +18,7 @@ found at
  * Copyright (c) 2009, Google Inc.
  * All rights reserved.
  *
- * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015 - 2019, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -94,6 +94,9 @@ STATIC CONST CHAR16 *CriticalPartitions[] = {
     L"abl",  L"rpm",        L"tz",      L"sdi",       L"xbl",       L"hyp",
     L"pmic", L"bootloader", L"devinfo", L"partition", L"devcfg",    L"ddr",
     L"frp",  L"cdt",        L"cmnlib",  L"cmnlib64",  L"keymaster", L"mdtp"};
+
+STATIC BOOLEAN
+IsCriticalPartition (CHAR16 *PartitionName);
 #endif
 
 STATIC FASTBOOT_VAR *Varlist;
@@ -1193,6 +1196,13 @@ HandleMetaImgFlash (IN CHAR16 *PartitionName,
       return EFI_INVALID_PARAMETER;
     }
     AsciiStrToUnicodeStr (img_header_entry[i].ptn_name, PartitionNameFromMeta);
+
+    if (!IsUnlockCritical () &&
+        IsCriticalPartition (PartitionNameFromMeta)) {
+      FastbootFail ("Flashing is not allowed for Critical Partitions\n");
+      return EFI_INVALID_PARAMETER;
+    }
+
     Status = HandleRawImgFlash (
         PartitionNameFromMeta, sizeof (PartitionNameFromMeta),
         (void *)Image + img_header_entry[i].start_offset,
