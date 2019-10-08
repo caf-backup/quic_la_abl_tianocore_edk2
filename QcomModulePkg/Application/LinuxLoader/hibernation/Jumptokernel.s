@@ -26,7 +26,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#if HIBERNATION_SUPPORT
+//#if HIBERNATION_SUPPORT
 
 /*
  * size of single entry in table
@@ -93,4 +93,4 @@ copy_page:
 	sub     x8, x8, #16			// reduce copied bytes from size
 	cbnz    x8, 1b
 	ret
-#endif
+//#endif
