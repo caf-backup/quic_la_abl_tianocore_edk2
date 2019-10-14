@@ -150,6 +150,9 @@
   !if $(TARGET_ARCH_ARM64)
       GCC:*_*_*_CC_FLAGS = -DTARGET_ARCH_ARM64
   !endif
+  !if $(TARGET_SUPPORTS_EARLY_INIT)
+      GCC:*_*_*_CC_FLAGS = -DENABLE_EARLY_SERVICES
+  !endif
 
 [PcdsFixedAtBuild.common]
 

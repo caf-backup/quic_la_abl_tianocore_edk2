@@ -508,6 +508,11 @@ UpdateCmdLineParams (UpdateCmdLineParamList *Param,
     AsciiStrCatS (Dst, MaxCmdLineLen, Src);
   }
 
+  if (Param->EarlyServicesCmdLine) {
+    Src = Param->EarlyServicesCmdLine;
+    AsciiStrCatS (Dst, MaxCmdLineLen, Src);
+  }
+
   if (EarlyEthEnabled ()) {
     Src = Param->EarlyIPv4CmdLine;
     AsciiStrCatS (Dst, MaxCmdLineLen, Src);
@@ -547,6 +552,7 @@ UpdateCmdLine (CONST CHAR8 *CmdLine,
   INT32 DtboIdx = INVALID_PTN;
   CHAR8 *LEVerityCmdLine = NULL;
   UINT32 LEVerityCmdLineLen = 0;
+  CHAR8 *EarlyServicesStr = NULL;
 
   Status = BoardSerialNum (StrSerialNum, sizeof (StrSerialNum));
   if (Status != EFI_SUCCESS) {
@@ -663,7 +669,13 @@ UpdateCmdLine (CONST CHAR8 *CmdLine,
 
   GetDisplayCmdline ();
   CmdLineLen += AsciiStrLen (DisplayCmdLine);
-
+  if (EarlyServicesEnabled ()) {
+    CmdLineLen += GetSystemPath (&EarlyServicesStr,
+	                          MultiSlotBoot,
+                                  Recovery,
+                                  (CHAR16 *)L"early_services",
+                                  (CHAR8 *)"early_userspace");
+  }
   if (!IsLEVariant ()) {
     DtboIdx = GetDtboIdx ();
     if (DtboIdx != INVALID_PTN) {
@@ -721,6 +733,7 @@ UpdateCmdLine (CONST CHAR8 *CmdLine,
   Param.DtboIdxStr = DtboIdxStr;
   Param.LEVerityCmdLine = LEVerityCmdLine;
   Param.CvmSystemPtnCmdLine = CvmSystemPtnCmdLine;
+  Param.EarlyServicesCmdLine = EarlyServicesStr;
 
   if (EarlyEthEnabled ()) {
     Param.EarlyIPv4CmdLine = IPv4AddrBufCmdLine;
