@@ -288,25 +288,32 @@ STATIC VOID GetDisplayCmdline (VOID)
  * Returns length = 0 when there is failure.
  */
 UINT32
-GetSystemPath (CHAR8 **SysPath, BOOLEAN MultiSlotBoot,
+GetSystemPath (CHAR8 **SysPath, BOOLEAN MultiSlotBoot, BOOLEAN FlashlessBoot,
                BOOLEAN BootIntoRecovery, CHAR16 *ReqPartition, CHAR8 *Key)
 {
   INT32 Index;
   UINT32 Lun;
   CHAR16 PartitionName[MAX_GPT_NAME_SIZE];
-  Slot CurSlot = GetCurrentSlotSuffix ();
+  Slot CurSlot;
   CHAR8 LunCharMapping[] = {'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'};
   CHAR8 RootDevStr[BOOT_DEV_NAME_SIZE_MAX];
-
-  if (ReqPartition == NULL ||
-      Key == NULL) {
-    DEBUG ((EFI_D_ERROR, "Invalid parameters: NULL\n"));
-    return 0;
-  }
 
   *SysPath = AllocateZeroPool (sizeof (CHAR8) * MAX_PATH_SIZE);
   if (!*SysPath) {
     DEBUG ((EFI_D_ERROR, "Failed to allocated memory for System path query\n"));
+    return 0;
+  }
+
+  if (FlashlessBoot) {
+     AsciiSPrint (*SysPath, MAX_PATH_SIZE, " rootfstype=squashfs root=/dev/ram0");
+     return AsciiStrLen (*SysPath);
+  }
+
+  if (ReqPartition == NULL ||
+      Key == NULL) {
+    DEBUG ((EFI_D_ERROR, "Invalid parameters: NULL\n"));
+    FreePool(*SysPath);
+    *SysPath = NULL;
     return 0;
   }
 
@@ -321,6 +328,7 @@ GetSystemPath (CHAR8 **SysPath, BOOLEAN MultiSlotBoot,
 
   /* Append slot info for A/B Variant */
   if (MultiSlotBoot) {
+     CurSlot = GetCurrentSlotSuffix ();
      StrnCatS (PartitionName, MAX_GPT_NAME_SIZE, CurSlot.Suffix,
             StrLen (CurSlot.Suffix));
   }
@@ -355,6 +363,14 @@ GetSystemPath (CHAR8 **SysPath, BOOLEAN MultiSlotBoot,
       AsciiSPrint (*SysPath, MAX_PATH_SIZE,
                    " rootfstype=squashfs root=/dev/mtdblock%d ubi.mtd=%d",
                    (PartitionCount - 1), (Index - 1));
+    } else if (IsDefinedMTDUbiBebLimit ()) {
+      /* Attach MTD device (Index - 1) using default VID header offset and
+       * reserve MTD_UBI_BEB_LIMIT_PER1024*nand_size_in_blocks/1024 erase blocks
+       * for bad block handling.
+       */
+        AsciiSPrint (*SysPath, MAX_PATH_SIZE,
+            " rootfstype=ubifs rootflags=bulk_read root=ubi0:rootfs ubi.mtd=%d,0,%d",
+            (Index - 1), MTD_UBI_BEB_LIMIT_PER1024);
     } else {
       AsciiSPrint (*SysPath, MAX_PATH_SIZE,
           " rootfstype=ubifs rootflags=bulk_read root=ubi0:rootfs ubi.mtd=%d",
@@ -523,6 +539,15 @@ UpdateCmdLineParams (UpdateCmdLineParamList *Param,
     AsciiStrCatS (Dst, MaxCmdLineLen, Src);
   }
 
+  if (Param->EarlyServicesCmdLine) {
+    Src = Param->EarlyServicesCmdLine;
+    AsciiStrCatS (Dst, MaxCmdLineLen, Src);
+  }
+  if (Param->ModemPathCmdLine) {
+    Src = Param->ModemPathCmdLine;
+    AsciiStrCatS (Dst, MaxCmdLineLen, Src);
+  }
+
   if (EarlyEthEnabled ()) {
     Src = Param->EarlyIPv4CmdLine;
     AsciiStrCatS (Dst, MaxCmdLineLen, Src);
@@ -541,6 +566,7 @@ EFI_STATUS
 UpdateCmdLine (CONST CHAR8 *CmdLine,
                CHAR8 *FfbmStr,
                BOOLEAN Recovery,
+	       BOOLEAN FlashlessBoot,
                BOOLEAN AlarmBoot,
                CONST CHAR8 *VBCmdLine,
                CHAR8 **FinalCmdLine)
@@ -564,6 +590,10 @@ UpdateCmdLine (CONST CHAR8 *CmdLine,
   INT32 DtbIdx = INVALID_PTN;
   CHAR8 *LEVerityCmdLine = NULL;
   UINT32 LEVerityCmdLineLen = 0;
+  CHAR8 *EarlyServicesStr = NULL;
+  CHAR8 *ModemPathStr = NULL;
+  if (FlashlessBoot)
+    goto skip_BoardSerialNum;
 
   Status = BoardSerialNum (StrSerialNum, sizeof (StrSerialNum));
   if (Status != EFI_SUCCESS) {
@@ -571,6 +601,7 @@ UpdateCmdLine (CONST CHAR8 *CmdLine,
     return Status;
   }
 
+skip_BoardSerialNum:
   if (CmdLine && CmdLine[0]) {
     CmdLineLen = AsciiStrLen (CmdLine);
     HaveCmdLine = 1;
@@ -680,7 +711,20 @@ UpdateCmdLine (CONST CHAR8 *CmdLine,
 
   GetDisplayCmdline ();
   CmdLineLen += AsciiStrLen (DisplayCmdLine);
-
+  if (EarlyServicesEnabled ()) {
+    CmdLineLen += GetSystemPath (&EarlyServicesStr,
+	                          MultiSlotBoot,
+				  FlashlessBoot,
+                                  Recovery,
+                                  (CHAR16 *)L"early_services",
+                                  (CHAR8 *)"early_userspace");
+    CmdLineLen += GetSystemPath (&ModemPathStr,
+	                          MultiSlotBoot,
+							  FlashlessBoot,
+                                  Recovery,
+                                  (CHAR16 *)L"modem",
+                                  (CHAR8 *)"modem");
+  }
   if (!IsLEVariant ()) {
     DtboIdx = GetDtboIdx ();
     if (DtboIdx != INVALID_PTN) {
@@ -702,6 +746,7 @@ UpdateCmdLine (CONST CHAR8 *CmdLine,
   if (IsVmEnabled ()) {
     CmdLineLen += GetSystemPath (&CvmSystemPtnCmdLine,
                                  MultiSlotBoot,
+				 FlashlessBoot,
                                  Recovery,
                                  (CHAR16 *)L"vm-system",
                                  (CHAR8 *)"vm_system");
@@ -746,6 +791,8 @@ UpdateCmdLine (CONST CHAR8 *CmdLine,
   Param.DtbIdxStr = DtbIdxStr;
   Param.LEVerityCmdLine = LEVerityCmdLine;
   Param.CvmSystemPtnCmdLine = CvmSystemPtnCmdLine;
+  Param.EarlyServicesCmdLine = EarlyServicesStr;
+  Param.ModemPathCmdLine = ModemPathStr;
 
   if (EarlyEthEnabled ()) {
     Param.EarlyIPv4CmdLine = IPv4AddrBufCmdLine;

@@ -100,7 +100,7 @@ QueryBootParams (UINT64 *KernelLoadAddr, UINT64 *KernelSizeReserved)
 }
 
 STATIC EFI_STATUS
-UpdateBootParams (BootParamlist *BootParamlistPtr)
+UpdateBootParams (BootParamlist *BootParamlistPtr, BOOLEAN FlashlessBoot)
 {
   UINT64 KernelSizeReserved;
   UINT64 KernelLoadAddr;
@@ -152,13 +152,22 @@ UpdateBootParams (BootParamlist *BootParamlistPtr)
      and DT maximum supported size. This allows best possible utilization
      of buffer for kernel relocation and take care of dynamic change in size
      of ramdisk. Add pagesize as a buffer space */
-  BootParamlistPtr->RamdiskLoadAddr = (BootParamlistPtr->KernelEndAddr -
+
+  if (FlashlessBoot) {
+    BootParamlistPtr->RamdiskLoadAddr = (UINT64)(BootParamlistPtr->ImageBuffer +
+                                        BootParamlistPtr->RamdiskOffset);
+    BootParamlistPtr->DeviceTreeLoadAddr = (BootParamlistPtr->KernelEndAddr -
+					    (DT_SIZE_2MB +
+					    BootParamlistPtr->PageSize));
+  } else {
+    BootParamlistPtr->RamdiskLoadAddr = (BootParamlistPtr->KernelEndAddr -
                             (LOCAL_ROUND_TO_PAGE (BootParamlistPtr->RamdiskSize,
                              BootParamlistPtr->PageSize) +
                              BootParamlistPtr->PageSize));
-  BootParamlistPtr->DeviceTreeLoadAddr = (BootParamlistPtr->RamdiskLoadAddr -
+    BootParamlistPtr->DeviceTreeLoadAddr = (BootParamlistPtr->RamdiskLoadAddr -
                                           (DT_SIZE_2MB +
                                           BootParamlistPtr->PageSize));
+  }
 
   if (BootParamlistPtr->DeviceTreeLoadAddr <=
                       BootParamlistPtr->KernelLoadAddr) {
@@ -654,7 +663,7 @@ GZipPkgCheck (BootParamlist *BootParamlistPtr)
 }
 
 STATIC EFI_STATUS
-LoadAddrAndDTUpdate (BootParamlist *BootParamlistPtr)
+LoadAddrAndDTUpdate (BootParamlist *BootParamlistPtr, BOOLEAN FlashlessBoot)
 {
   EFI_STATUS Status;
   UINT64 RamdiskEndAddr = 0;
@@ -663,6 +672,8 @@ LoadAddrAndDTUpdate (BootParamlist *BootParamlistPtr)
     DEBUG ((EFI_D_ERROR, "Invalid input parameters\n"));
     return EFI_INVALID_PARAMETER;
   }
+  if (FlashlessBoot)
+  goto skip_ramdisk_copy;
 
   RamdiskEndAddr = BootParamlistPtr->KernelEndAddr;
   if (RamdiskEndAddr - BootParamlistPtr->RamdiskLoadAddr <
@@ -680,6 +691,12 @@ LoadAddrAndDTUpdate (BootParamlist *BootParamlistPtr)
     return EFI_BAD_BUFFER_SIZE;
   }
 
+  gBS->CopyMem ((CHAR8 *)BootParamlistPtr->RamdiskLoadAddr,
+                BootParamlistPtr->ImageBuffer +
+                BootParamlistPtr->RamdiskOffset,
+                BootParamlistPtr->RamdiskSize);
+
+skip_ramdisk_copy:
   Status = UpdateDeviceTree ((VOID *)BootParamlistPtr->DeviceTreeLoadAddr,
                              BootParamlistPtr->FinalCmdLine,
                              (VOID *)BootParamlistPtr->RamdiskLoadAddr,
@@ -689,11 +706,6 @@ LoadAddrAndDTUpdate (BootParamlist *BootParamlistPtr)
     DEBUG ((EFI_D_ERROR, "Device Tree update failed Status:%r\n", Status));
     return Status;
   }
-
-  gBS->CopyMem ((CHAR8 *)BootParamlistPtr->RamdiskLoadAddr,
-                BootParamlistPtr->ImageBuffer +
-                BootParamlistPtr->RamdiskOffset,
-                BootParamlistPtr->RamdiskSize);
 
   if (BootParamlistPtr->BootingWith32BitKernel) {
     if (CHECK_ADD64 (BootParamlistPtr->KernelLoadAddr,
@@ -978,6 +990,7 @@ BootLinux (BootInfo *Info)
   CHAR16 *PartitionName = NULL;
   BOOLEAN Recovery = FALSE;
   BOOLEAN AlarmBoot = FALSE;
+  BOOLEAN FlashlessBoot = Info->FlashlessBoot;
 
   LINUX_KERNEL LinuxKernel;
   LINUX_KERNEL32 LinuxKernel32;
@@ -1009,8 +1022,12 @@ BootLinux (BootInfo *Info)
   Recovery = Info->BootIntoRecovery;
   AlarmBoot = Info->BootReasonAlarm;
 
-  if (!StrnCmp (PartitionName, (CONST CHAR16 *)L"boot",
-                StrLen ((CONST CHAR16 *)L"boot"))) {
+  FfbmStr[0] = '\0';
+  if (FlashlessBoot)
+    goto skip_FfbmStr;
+
+  if(!StrnCmp (PartitionName, (CONST CHAR16 *)L"boot",
+          StrLen ((CONST CHAR16 *)L"boot"))) {
     Status = GetFfbmCommand (FfbmStr, FFBM_MODE_BUF_SIZE);
     if (Status != EFI_SUCCESS) {
       DEBUG ((EFI_D_INFO, "No Ffbm cookie found, ignore: %r\n", Status));
@@ -1018,6 +1035,7 @@ BootLinux (BootInfo *Info)
     }
   }
 
+skip_FfbmStr:
   Status = GetImage (Info,
                      &BootParamlistPtr.ImageBuffer,
                      (UINTN *)&BootParamlistPtr.ImageSize,
@@ -1049,6 +1067,8 @@ BootLinux (BootInfo *Info)
                ((boot_img_hdr *)(BootParamlistPtr.ImageBuffer))->page_size;
   BootParamlistPtr.CmdLine = (CHAR8 *)&(((boot_img_hdr *)
                              (BootParamlistPtr.ImageBuffer))->cmdline[0]);
+  BootParamlistPtr.ExtraCmdLine = (CHAR8 *)&(((boot_img_hdr *)
+                            (BootParamlistPtr.ImageBuffer))->extra_cmdline[0]);
 
   if (IsVmEnabled ()) {
     Status = UpdateMemRegions (&BootParamlistPtr,
@@ -1069,16 +1089,6 @@ BootLinux (BootInfo *Info)
   }
 
   Status = UpdateKernelModeAndPkg (&BootParamlistPtr);
-  if (Status != EFI_SUCCESS) {
-    return Status;
-  }
-
-  Status = UpdateBootParams (&BootParamlistPtr);
-  if (Status != EFI_SUCCESS) {
-    return Status;
-  }
-  SetandGetLoadAddr (&BootParamlistPtr, LOAD_ADDR_NONE);
-  Status = GZipPkgCheck (&BootParamlistPtr);
   if (Status != EFI_SUCCESS) {
     return Status;
   }
@@ -1106,6 +1116,16 @@ BootLinux (BootInfo *Info)
     return EFI_BAD_BUFFER_SIZE;
   }
 
+  Status = UpdateBootParams (&BootParamlistPtr, FlashlessBoot);
+  if (Status != EFI_SUCCESS) {
+    return Status;
+  }
+  SetandGetLoadAddr (&BootParamlistPtr, LOAD_ADDR_NONE);
+  Status = GZipPkgCheck (&BootParamlistPtr);
+  if (Status != EFI_SUCCESS) {
+    return Status;
+  }
+
   DEBUG ((EFI_D_VERBOSE, "Kernel Load Address: 0x%x\n",
                                         BootParamlistPtr.KernelLoadAddr));
   DEBUG ((EFI_D_VERBOSE, "Kernel Size Actual: 0x%x\n",
@@ -1124,7 +1144,18 @@ BootLinux (BootInfo *Info)
    *baseband information, etc
    *Called before ShutdownUefiBootServices as it uses some boot service
    *functions*/
-  BootParamlistPtr.CmdLine[BOOT_ARGS_SIZE - 1] = '\0';
+  if (BootParamlistPtr.ExtraCmdLine[0]) {
+    UINT32 FullCmdLen = BOOT_ARGS_SIZE + BOOT_EXTRA_ARGS_SIZE;
+    CHAR8* FullCmdLine = AllocateZeroPool (FullCmdLen);
+
+    AsciiStrCpyS (FullCmdLine, FullCmdLen, BootParamlistPtr.CmdLine);
+    AsciiStrCatS (FullCmdLine, FullCmdLen, BootParamlistPtr.ExtraCmdLine);
+    BootParamlistPtr.CmdLine = FullCmdLine;
+    BootParamlistPtr.CmdLine[FullCmdLen - 1] = '\0';
+  }
+  else {
+    BootParamlistPtr.CmdLine[BOOT_ARGS_SIZE - 1] = '\0';
+  }
 
   if (AsciiStrStr (BootParamlistPtr.CmdLine, "root=")) {
     BootDevImage = TRUE;
@@ -1138,13 +1169,14 @@ BootLinux (BootInfo *Info)
   }
 
   Status = UpdateCmdLine (BootParamlistPtr.CmdLine, FfbmStr, Recovery,
-                   AlarmBoot, Info->VBCmdLine, &BootParamlistPtr.FinalCmdLine);
+                   FlashlessBoot, AlarmBoot, Info->VBCmdLine,
+		   &BootParamlistPtr.FinalCmdLine);
   if (EFI_ERROR (Status)) {
     DEBUG ((EFI_D_ERROR, "Error updating cmdline. Device Error %r\n", Status));
     return Status;
   }
 
-  Status = LoadAddrAndDTUpdate (&BootParamlistPtr);
+  Status = LoadAddrAndDTUpdate (&BootParamlistPtr, FlashlessBoot);
   if (Status != EFI_SUCCESS) {
        return Status;
   }
@@ -1573,6 +1605,18 @@ BOOLEAN IsLEVariant (VOID)
 }
 #endif
 
+#ifdef ENABLE_EARLY_SERVICES
+BOOLEAN EarlyServicesEnabled (VOID)
+{
+  return TRUE;
+}
+#else
+BOOLEAN EarlyServicesEnabled (VOID)
+{
+  return FALSE;
+}
+#endif
+
 #ifdef BUILD_SYSTEM_ROOT_IMAGE
 BOOLEAN IsBuildAsSystemRootImage (VOID)
 {
@@ -1633,6 +1677,18 @@ BOOLEAN IsNANDSquashFsSupport (VOID)
 }
 #else
 BOOLEAN IsNANDSquashFsSupport (VOID)
+{
+  return FALSE;
+}
+#endif
+
+#if MTD_UBI_BEB_LIMIT_PER1024
+BOOLEAN IsDefinedMTDUbiBebLimit (VOID)
+{
+  return TRUE;
+}
+#else
+BOOLEAN IsDefinedMTDUbiBebLimit (VOID)
 {
   return FALSE;
 }
