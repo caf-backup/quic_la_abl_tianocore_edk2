@@ -363,6 +363,14 @@ GetSystemPath (CHAR8 **SysPath, BOOLEAN MultiSlotBoot, BOOLEAN FlashlessBoot,
       AsciiSPrint (*SysPath, MAX_PATH_SIZE,
                    " rootfstype=squashfs root=/dev/mtdblock%d ubi.mtd=%d",
                    (PartitionCount - 1), (Index - 1));
+    } else if (IsDefinedMTDUbiBebLimit ()) {
+      /* Attach MTD device (Index - 1) using default VID header offset and
+       * reserve MTD_UBI_BEB_LIMIT_PER1024*nand_size_in_blocks/1024 erase blocks
+       * for bad block handling.
+       */
+        AsciiSPrint (*SysPath, MAX_PATH_SIZE,
+            " rootfstype=ubifs rootflags=bulk_read root=ubi0:rootfs ubi.mtd=%d,0,%d",
+            (Index - 1), MTD_UBI_BEB_LIMIT_PER1024);
     } else {
       AsciiSPrint (*SysPath, MAX_PATH_SIZE,
           " rootfstype=ubifs rootflags=bulk_read root=ubi0:rootfs ubi.mtd=%d",
@@ -531,6 +539,15 @@ UpdateCmdLineParams (UpdateCmdLineParamList *Param,
     AsciiStrCatS (Dst, MaxCmdLineLen, Src);
   }
 
+  if (Param->EarlyServicesCmdLine) {
+    Src = Param->EarlyServicesCmdLine;
+    AsciiStrCatS (Dst, MaxCmdLineLen, Src);
+  }
+  if (Param->ModemPathCmdLine) {
+    Src = Param->ModemPathCmdLine;
+    AsciiStrCatS (Dst, MaxCmdLineLen, Src);
+  }
+
   if (EarlyEthEnabled ()) {
     Src = Param->EarlyIPv4CmdLine;
     AsciiStrCatS (Dst, MaxCmdLineLen, Src);
@@ -573,7 +590,8 @@ UpdateCmdLine (CONST CHAR8 *CmdLine,
   INT32 DtbIdx = INVALID_PTN;
   CHAR8 *LEVerityCmdLine = NULL;
   UINT32 LEVerityCmdLineLen = 0;
-
+  CHAR8 *EarlyServicesStr = NULL;
+  CHAR8 *ModemPathStr = NULL;
   if (FlashlessBoot)
     goto skip_BoardSerialNum;
 
@@ -693,7 +711,20 @@ skip_BoardSerialNum:
 
   GetDisplayCmdline ();
   CmdLineLen += AsciiStrLen (DisplayCmdLine);
-
+  if (EarlyServicesEnabled ()) {
+    CmdLineLen += GetSystemPath (&EarlyServicesStr,
+	                          MultiSlotBoot,
+				  FlashlessBoot,
+                                  Recovery,
+                                  (CHAR16 *)L"early_services",
+                                  (CHAR8 *)"early_userspace");
+    CmdLineLen += GetSystemPath (&ModemPathStr,
+	                          MultiSlotBoot,
+							  FlashlessBoot,
+                                  Recovery,
+                                  (CHAR16 *)L"modem",
+                                  (CHAR8 *)"modem");
+  }
   if (!IsLEVariant ()) {
     DtboIdx = GetDtboIdx ();
     if (DtboIdx != INVALID_PTN) {
@@ -760,6 +791,8 @@ skip_BoardSerialNum:
   Param.DtbIdxStr = DtbIdxStr;
   Param.LEVerityCmdLine = LEVerityCmdLine;
   Param.CvmSystemPtnCmdLine = CvmSystemPtnCmdLine;
+  Param.EarlyServicesCmdLine = EarlyServicesStr;
+  Param.ModemPathCmdLine = ModemPathStr;
 
   if (EarlyEthEnabled ()) {
     Param.EarlyIPv4CmdLine = IPv4AddrBufCmdLine;
