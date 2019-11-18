@@ -122,6 +122,9 @@
   !if $(HIBERNATION_SUPPORT)
       GCC:*_*_*_CC_FLAGS = -DHIBERNATION_SUPPORT
   !endif
+  !if $(HIBERNATION_SUPPORT)
+      GCC:*_*_*_PP_FLAGS = -DHIBERNATION_SUPPORT
+  !endif
   !if $(AB_RETRYCOUNT_DISABLE)
       GCC:*_*_*_CC_FLAGS = -DAB_RETRYCOUNT_DISABLE
   !endif
@@ -156,6 +159,12 @@
   !endif
   !if $(NAND_SQUASHFS_SUPPORT)
       GCC:*_*_*_CC_FLAGS = -DNAND_SQUASHFS_SUPPORT
+  !endif
+  !ifdef $(MTD_UBI_BEB_LIMIT_PER1024)
+      GCC:*_*_*_CC_FLAGS = -DMTD_UBI_BEB_LIMIT_PER1024=$(MTD_UBI_BEB_LIMIT_PER1024)
+  !endif
+  !if $(TARGET_SUPPORTS_EARLY_INIT)
+      GCC:*_*_*_CC_FLAGS = -DENABLE_EARLY_SERVICES
   !endif
 
 [PcdsFixedAtBuild.common]
