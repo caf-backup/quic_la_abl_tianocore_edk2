@@ -512,10 +512,6 @@ UpdateCmdLineParams (UpdateCmdLineParamList *Param,
     Src = Param->EarlyServicesCmdLine;
     AsciiStrCatS (Dst, MaxCmdLineLen, Src);
   }
-  if (Param->ModemPathCmdLine) {
-    Src = Param->ModemPathCmdLine;
-    AsciiStrCatS (Dst, MaxCmdLineLen, Src);
-  }
 
   if (EarlyEthEnabled ()) {
     Src = Param->EarlyIPv4CmdLine;
@@ -557,7 +553,6 @@ UpdateCmdLine (CONST CHAR8 *CmdLine,
   CHAR8 *LEVerityCmdLine = NULL;
   UINT32 LEVerityCmdLineLen = 0;
   CHAR8 *EarlyServicesStr = NULL;
-  CHAR8 *ModemPathStr = NULL;
 
   Status = BoardSerialNum (StrSerialNum, sizeof (StrSerialNum));
   if (Status != EFI_SUCCESS) {
@@ -680,11 +675,6 @@ UpdateCmdLine (CONST CHAR8 *CmdLine,
                                   Recovery,
                                   (CHAR16 *)L"early_services",
                                   (CHAR8 *)"early_userspace");
-    CmdLineLen += GetSystemPath (&ModemPathStr,
-	                          MultiSlotBoot,
-                                  Recovery,
-                                  (CHAR16 *)L"modem",
-                                  (CHAR8 *)"modem");
   }
   if (!IsLEVariant ()) {
     DtboIdx = GetDtboIdx ();
@@ -744,7 +734,6 @@ UpdateCmdLine (CONST CHAR8 *CmdLine,
   Param.LEVerityCmdLine = LEVerityCmdLine;
   Param.CvmSystemPtnCmdLine = CvmSystemPtnCmdLine;
   Param.EarlyServicesCmdLine = EarlyServicesStr;
-  Param.ModemPathCmdLine = ModemPathStr;
 
   if (EarlyEthEnabled ()) {
     Param.EarlyIPv4CmdLine = IPv4AddrBufCmdLine;
