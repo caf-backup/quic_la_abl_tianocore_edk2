@@ -380,7 +380,7 @@ out:
 }
 
 /* We only support a limited amount of strings in avb_strdupv(). */
-#define AVB_STRDUPV_MAX_NUM_STRINGS 32
+#define AVB_STRDUPV_MAX_NUM_STRINGS 64
 
 char* avb_strdupv(const char* str, ...) {
   va_list ap;
