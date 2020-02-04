@@ -250,7 +250,7 @@ VBAllocateCmdLine (BootInfo *Info)
   EFI_STATUS Status = EFI_SUCCESS;
 
   /* allocate VB command line*/
-  Info->VBCmdLine = AllocateZeroPool (DTB_PAD_SIZE);
+  Info->VBCmdLine = AllocateZeroPool (DTB_PAD_SIZE+512);
   if (Info->VBCmdLine == NULL) {
     DEBUG ((EFI_D_ERROR, "VB CmdLine allocation failed!\n"));
     Status = EFI_OUT_OF_RESOURCES;

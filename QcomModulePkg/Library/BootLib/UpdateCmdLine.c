@@ -742,12 +742,6 @@ skip_BoardSerialNum:
   GetDisplayCmdline ();
   CmdLineLen += AsciiStrLen (DisplayCmdLine);
   if (EarlyServicesEnabled ()) {
-    CmdLineLen += GetSystemPath (&EarlyServicesStr,
-	                          MultiSlotBoot,
-				  FlashlessBoot,
-                                  Recovery,
-                                  (CHAR16 *)L"early_services",
-                                  (CHAR8 *)"early_userspace");
     CmdLineLen += GetSystemPath (&ModemPathStr,
 	                          MultiSlotBoot,
 							  FlashlessBoot,
