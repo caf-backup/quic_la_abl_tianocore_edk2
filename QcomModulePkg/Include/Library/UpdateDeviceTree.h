@@ -82,6 +82,11 @@ UpdateDeviceTree (VOID *DeviceTreeLoadAddr,
                   BOOLEAN BootingWith32BitKernel);
 
 EFI_STATUS
+UpdateVbmetaNode (VOID *fdt,
+                  CHAR8 *OldProperty,
+                  CHAR8 *NewProperty);
+
+EFI_STATUS
 UpdateFstabNode (VOID *fdt);
 
 UINT32
