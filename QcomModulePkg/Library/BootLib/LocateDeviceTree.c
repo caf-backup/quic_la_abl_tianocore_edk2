@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -742,15 +742,23 @@ STATIC EFI_STATUS GetBoardMatchDtb (DtInfo *CurDtbInfo,
 
     DEBUG ((EFI_D_VERBOSE, "BoardSubtype = %x, DtSubType = %x\n",
             BoardPlatformSubType (), CurDtbInfo->DtPlatformSubtype));
-    if (CurDtbInfo->DtPlatformSubtype == BoardPlatformSubType ()) {
+    if ((CurDtbInfo->DtPlatformSubtype & PLATFORM_SUBTYPE_MASK) ==
+        BoardPlatformSubType ()) {
       CurDtbInfo->DtMatchVal |= BIT (SUBTYPE_EXACT_MATCH);
-    } else if (CurDtbInfo->DtPlatformSubtype == 0) {
+    } else if ((CurDtbInfo->DtPlatformSubtype & PLATFORM_SUBTYPE_MASK) == 0) {
       CurDtbInfo->DtMatchVal |= BIT (SUBTYPE_DEFAULT_MATCH);
     } else {
       DEBUG ((EFI_D_VERBOSE, "subtype-id doesnot match\n"));
       /* If it's neither exact nor default match don't select dtb */
       CurDtbInfo->DtMatchVal = BIT (NONE_MATCH);
       return EFI_NOT_FOUND;
+    }
+
+    if ((CurDtbInfo->DtPlatformSubtype & DDR_MASK) ==
+        (BoardPlatformHlosSubType() & DDR_MASK)) {
+      CurDtbInfo->DtMatchVal |= BIT (DDR_MATCH);
+    } else {
+      DEBUG ((EFI_D_VERBOSE, "ddr size does not match\n"));
     }
   } else {
     DEBUG ((EFI_D_VERBOSE, "qcom,board-id does not exist (or) (%d) "
@@ -1285,6 +1293,10 @@ platform_dt_absolute_compat_match (struct dt_entry_node *dt_list,
       current_info = ((dt_node_tmp1->dt_entry_m->platform_id) & 0x00ff0000);
       board_info = BoardPlatformFoundryId () << 16;
       break;
+    case DTB_DDR:
+      current_info = ((dt_node_tmp1->dt_entry_m->board_hw_subtype) & 0x700);
+      board_info = (BoardPlatformHlosSubType () & 0x700);
+      break;
     case DTB_PMIC_MODEL:
       for (i = 0; i < 4; i++) {
         current_pmic_model[i] = (dt_node_tmp1->dt_entry_m->pmic_rev[i] & 0xff);
@@ -1325,6 +1337,9 @@ platform_dt_absolute_compat_match (struct dt_entry_node *dt_list,
     switch (dtb_info) {
     case DTB_FOUNDRY:
       current_info = ((dt_node_tmp1->dt_entry_m->platform_id) & 0x00ff0000);
+      break;
+    case DTB_DDR:
+      current_info = ((dt_node_tmp1->dt_entry_m->board_hw_subtype) & 0x700);
       break;
     case DTB_PMIC_MODEL:
       for (i = 0; i < 4; i++) {
@@ -1512,6 +1527,12 @@ platform_dt_match_best (struct dt_entry_node *dt_list)
   * check, if couldn't find the exact match from DTB, will exact match 0x0.
   */
   platform_dt_absolute_compat_match (dt_list, DTB_FOUNDRY);
+
+  /* check DDR type
+  * the DDR type must exact match board DDR tpe, this is compatibility
+  * check, if couldn't find the exact match from DTB, will exact match 0x0.
+  */
+  platform_dt_absolute_compat_match (dt_list, DTB_DDR);
 
   /* check PMIC model
   * the PMIC model must exact match board PMIC model, this is compatibility
