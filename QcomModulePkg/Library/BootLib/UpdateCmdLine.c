@@ -669,13 +669,6 @@ UpdateCmdLine (CONST CHAR8 *CmdLine,
 
   GetDisplayCmdline ();
   CmdLineLen += AsciiStrLen (DisplayCmdLine);
-  if (EarlyServicesEnabled ()) {
-    CmdLineLen += GetSystemPath (&EarlyServicesStr,
-	                          MultiSlotBoot,
-                                  Recovery,
-                                  (CHAR16 *)L"early_services",
-                                  (CHAR8 *)"early_userspace");
-  }
   if (!IsLEVariant ()) {
     DtboIdx = GetDtboIdx ();
     if (DtboIdx != INVALID_PTN) {
