@@ -1087,13 +1087,13 @@ read_image_error:
 
 static void erase_swap_signature(void)
 {
-	int status;
+	EFI_STATUS Status;
 	EFI_BLOCK_IO_PROTOCOL *BlockIo = swap_details.BlockIo;
 
 	swsusp_header->sig[0] = ' ';
-	status = BlockIo->WriteBlocks (BlockIo, BlockIo->Media->MediaId, 0,
-			BlockIo->Media->BlockSize, (VOID*)swsusp_header);
-	if (status != EFI_SUCCESS)
+	Status = BlockIo->WriteBlocks (BlockIo, BlockIo->Media->MediaId, 0,
+			EFI_PAGE_SIZE, (VOID*)swsusp_header);
+	if (Status != EFI_SUCCESS)
 		printf("Failed to erase swap signature\n");
 }
 
@@ -1106,27 +1106,35 @@ void BootIntoHibernationImage(BootInfo *Info)
 	printf("Entrying Hibernation restore\n");
 
 	if (check_for_valid_header() < 0)
-		return;
+		goto err;
 
 	Status = LoadImageAndAuth (Info, TRUE);
 	if (Status != EFI_SUCCESS) {
 		DEBUG ((EFI_D_ERROR, "Failed to set ROT and Bootstate : %r\n", Status));
-		return;
+		goto err;
 	}
 
 	ret = restore_snapshot_image();
 	if (ret) {
 		printf("Failed restore_snapshot_image \n");
-		return;
+		goto err;
 	}
 
 	relocateAddress = get_unused_pfn() << PAGE_SHIFT;
 
 	/* Reset swap signature now */
-	erase_swap_signature();
+	if (!IsSnapshotGolden())
+		erase_swap_signature();
+
 	copy_bounce_and_boot_kernel();
 	/* Control should not reach here */
 
+err:	/*
+	 * Erase swap signature to avoid kernel restoring the
+	 * hibernation image
+	 */
+	if (!IsSnapshotGolden())
+		erase_swap_signature();
 	return;
 }
 #endif
