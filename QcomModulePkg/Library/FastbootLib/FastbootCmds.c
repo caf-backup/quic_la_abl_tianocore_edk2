@@ -1318,16 +1318,6 @@ FastbootErasePartition (IN CHAR16 *PartitionName)
   return Status;
 }
 
-//Shoud block command until flash finished
-VOID WaitForFlashFinished (VOID)
-{
-  if (!IsFlashComplete &&
-    IsUseMThreadParallel ()) {
-    KernIntf->Lock->AcquireLock (LockFlash);
-    KernIntf->Lock->ReleaseLock (LockFlash);
-  }
-}
-
 INT32 __attribute__ ( (no_sanitize ("safe-stack")))
 SparseImgFlashThread (VOID* Arg)
 {
@@ -1900,7 +1890,8 @@ CmdFlash (IN CONST CHAR8 *arg, IN VOID *data, IN UINT32 sz)
     }
 
     if (EFI_ERROR (Status) ||
-      !IsUseMThreadParallel ()) {
+      !IsUseMThreadParallel () ||
+      (PartitionSize <= MaxDownLoadSize)) {
       FlashResult = HandleSparseImgFlash (PartitionName,
                                         ARRAY_SIZE (PartitionName),
                                         mFlashDataBuffer, mFlashNumDataBytes);
@@ -2404,22 +2395,29 @@ GetMaxAllocatableMemory (
   return;
 }
 
+//Shoud block command until flash finished
+VOID WaitForFlashFinished (VOID)
+{
+  if (!IsFlashComplete &&
+    IsUseMThreadParallel ()) {
+    KernIntf->Lock->AcquireLock (LockFlash);
+    KernIntf->Lock->ReleaseLock (LockFlash);
+  }
+}
+
 VOID ThreadSleep (TimeDuration Delay)
 {
   KernIntf->Thread->ThreadSleep (Delay);
 }
 
-#ifdef DISABLE_MULTITHREAD_DOWNLOAD_FLASH
 BOOLEAN IsUseMThreadParallel (VOID)
 {
+  if (FixedPcdGetBool (EnableMultiThreadFlash)) {
+    return IsMultiThreadSupported;
+  }
+
   return FALSE;
 }
-#else
-BOOLEAN IsUseMThreadParallel (VOID)
-{
-  return IsMultiThreadSupported;
-}
-#endif
 
 VOID InitMultiThreadEnv ()
 {
