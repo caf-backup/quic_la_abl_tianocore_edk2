@@ -97,6 +97,9 @@ STATIC CONST CHAR16 *CriticalPartitions[] = {
     L"abl",  L"rpm",        L"tz",      L"sdi",       L"xbl",       L"hyp",
     L"pmic", L"bootloader", L"devinfo", L"partition", L"devcfg",    L"ddr",
     L"frp",  L"cdt",        L"cmnlib",  L"cmnlib64",  L"keymaster", L"mdtp"};
+
+STATIC BOOLEAN
+IsCriticalPartition (CHAR16 *PartitionName);
 #endif
 
 STATIC FASTBOOT_VAR *Varlist;
@@ -1224,6 +1227,13 @@ HandleMetaImgFlash (IN CHAR16 *PartitionName,
       return EFI_INVALID_PARAMETER;
     }
     AsciiStrToUnicodeStr (img_header_entry[i].ptn_name, PartitionNameFromMeta);
+
+    if (!IsUnlockCritical () &&
+        IsCriticalPartition (PartitionNameFromMeta)) {
+      FastbootFail ("Flashing is not allowed for Critical Partitions\n");
+      return EFI_INVALID_PARAMETER;
+    }
+
     Status = HandleRawImgFlash (
         PartitionNameFromMeta, ARRAY_SIZE (PartitionNameFromMeta),
         (void *)Image + img_header_entry[i].start_offset,
@@ -3407,6 +3417,12 @@ FastbootCommandSetup (IN VOID *Base, IN UINT64 Size)
   AsciiSPrint (StrSocVersion, sizeof (StrSocVersion), "%x",
                 BoardPlatformChipVersion ());
   FastbootPublishVar ("hw-revision", StrSocVersion);
+
+  if (IsDisableParallelDownloadFlash()) {
+    FastbootPublishVar ("parallel-download-flash", "no");
+  } else {
+    FastbootPublishVar ("parallel-download-flash", "yes");
+  }
 
   /* Register handlers for the supported commands*/
   UINT32 FastbootCmdCnt = sizeof (cmd_list) / sizeof (cmd_list[0]);
