@@ -71,6 +71,24 @@ PrintSplashMemInfo (CONST CHAR8 *data, INT32 datalen)
 }
 
 STATIC EFI_STATUS
+ValidateDdrRankChannel (struct ddr_details_entry_info *DdrInfo)
+{
+  if (DdrInfo->num_channels > MAX_CHANNELS) {
+    DEBUG ((EFI_D_ERROR, "ERROR: Number of channels is over the limit\n"));
+    return EFI_INVALID_PARAMETER;
+  }
+
+  for (UINT8 Chan = 0; Chan < DdrInfo->num_channels; Chan++) {
+    if (DdrInfo->num_ranks[Chan] > MAX_RANKS) {
+      DEBUG ((EFI_D_ERROR, "ERROR: Number of ranks is over the limit\n"));
+      return EFI_INVALID_PARAMETER;
+    }
+  }
+
+  return EFI_SUCCESS;
+}
+
+STATIC EFI_STATUS
 GetDDRInfo (struct ddr_details_entry_info *DdrInfo,
             UINT64 *Revision)
 {
@@ -91,6 +109,7 @@ GetDDRInfo (struct ddr_details_entry_info *DdrInfo,
     DEBUG ((EFI_D_ERROR, "INFO: GetDDR details failed\n"));
     return Status;
   }
+
   *Revision = DdrInfoIf->Revision;
   DEBUG ((EFI_D_VERBOSE, "DDR Header Revision =0x%x\n", *Revision));
   return Status;
@@ -347,14 +366,10 @@ AddMemMap (VOID *Fdt, UINT32 MemNodeOffset, BOOLEAN BootWith32Bit)
     return Status;
   }
 
-  Status = GetRamPartitions (&RamPartitions, &NumPartitions);
+  Status = ReadRamPartitions (&RamPartitions, &NumPartitions);
   if (EFI_ERROR (Status)) {
-    DEBUG ((EFI_D_ERROR, "Error returned from GetRamPartitions %r\n", Status));
+    DEBUG ((EFI_D_ERROR, "Error returned from ReadRamPartitions %r\n", Status));
     return Status;
-  }
-  if (!RamPartitions) {
-    DEBUG ((EFI_D_ERROR, "RamPartitions is NULL\n"));
-    return EFI_NOT_FOUND;
   }
 
   DEBUG ((EFI_D_INFO, "RAM Partitions\r\n"));
@@ -379,6 +394,7 @@ AddMemMap (VOID *Fdt, UINT32 MemNodeOffset, BOOLEAN BootWith32Bit)
 
   FreePool (RamPartitions);
   RamPartitions = NULL;
+  RamPartitionEntries = NULL;
 
   return EFI_SUCCESS;
 }
@@ -550,6 +566,11 @@ UpdateDeviceTree (VOID *fdt,
               "ddr_device_rank, HBB not supported in Revision=0x%x\n",
               Revision));
     } else {
+      Status = ValidateDdrRankChannel (DdrInfo);
+      if (Status != EFI_SUCCESS) {
+        goto OutofUpdateRankChannel;
+      }
+
       DEBUG ((EFI_D_VERBOSE, "DdrInfo->num_channels:%d\n",
               DdrInfo->num_channels));
       for (UINT8 Chan = 0; Chan < DdrInfo->num_channels; Chan++) {
@@ -589,6 +610,8 @@ UpdateDeviceTree (VOID *fdt,
       }
     }
   }
+
+OutofUpdateRankChannel:
 
   UpdateSplashMemInfo (fdt);
 
