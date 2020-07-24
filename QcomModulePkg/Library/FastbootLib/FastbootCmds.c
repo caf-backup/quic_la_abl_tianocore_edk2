@@ -2989,7 +2989,7 @@ CmdSetUsbCompositionMacId (CONST CHAR8 *Arg, VOID *Data, UINT32 Size)
 }
 #endif
 
-#if HIBERNATION_SUPPORT
+#if HIBERNATION_SUPPORT_INSECURE
 STATIC VOID
 CmdGoldenSnapshot (CONST CHAR8 *Arg, VOID *Data, UINT32 Size)
 {
@@ -3515,7 +3515,7 @@ FastbootCommandSetup (IN VOID *Base, IN UINT64 Size)
       {"oem usb-pid", CmdSetUsbCompositionPid},
       {"oem usb-mac-id", CmdSetUsbCompositionMacId},
 #endif
-#if HIBERNATION_SUPPORT
+#if HIBERNATION_SUPPORT_INSECURE
       {"oem golden-snapshot", CmdGoldenSnapshot},
 #endif
       {"continue", CmdContinue},
