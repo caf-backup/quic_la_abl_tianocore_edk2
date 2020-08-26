@@ -1,4 +1,4 @@
-/* Copyright (c) 2021, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -993,6 +993,15 @@ static void copy_bounce_and_boot_kernel()
 	struct bounce_table_iterator *bti = &table_iterator;
 	unsigned long cpu_resume = (unsigned long )resume_hdr->phys_reenter_kernel;
 	unsigned long ttbr0;
+	unsigned long stackPointer;
+
+	/*
+	 * After copying the bounce pages, there is a chance of corrupting old stack
+	 * which might be kernel memory.
+	 * To avoid kernel memory corruption, Use a free page for the stack.
+	 */
+	stackPointer = get_unused_pfn() << PAGE_SHIFT;
+	stackPointer = stackPointer + PAGE_SIZE - 16;
 
 	/*
 	 * The restore routine "JumpToKernel" copies the bounced pages after iterating
@@ -1038,12 +1047,14 @@ static void copy_bounce_and_boot_kernel()
 		"mov x18, %[table_base]\n"
 		"mov x19, %[count]\n"
 		"mov x21, %[resume]\n"
+		"mov sp, %[sp]\n"
 		"mov x22, %[relocate_code]\n"
 		"br x22"
 		:
 		:[table_base] "r" (bti->first_table),
 		[count] "r" (bounced_pages),
 		[resume] "r" (cpu_resume),
+		[sp] "r" (stackPointer),
 		[relocate_code] "r" (relocateAddress)
 		:"x18", "x19", "x21", "x22", "memory");
 }
