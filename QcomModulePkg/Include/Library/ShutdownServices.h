@@ -12,7 +12,7 @@
 *  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
 *  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 *
-* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+* Copyright (c) 2017-2018,2020 - 2021, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -84,6 +84,10 @@ typedef enum {
   DM_VERITY_LOGGING = 0x4,
   DM_VERITY_ENFORCING = 0x5,
   DM_VERITY_KEYSCLEAR = 0x6,
+  SILENT_MODE = 0xA,
+  NON_SILENT_MODE = 0xB,
+  FORCED_SILENT = 0xC,
+  FORCED_NON_SILENT = 0xD,
   OEM_RESET_MIN = 0x20,
   OEM_RESET_MAX = 0x3f,
   EMERGENCY_DLOAD = 0xFF,
