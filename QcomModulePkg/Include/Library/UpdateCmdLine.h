@@ -83,6 +83,7 @@ typedef struct UpdateCmdLineParamList {
   CHAR8 *FstabSuffix;
   UINT32 HeaderVersion;
   CONST CHAR8 *SystemdSlotEnv;
+  CHAR8 *SilentBootModeCmdLine;
 } UpdateCmdLineParamList;
 
 EFI_STATUS
@@ -92,7 +93,8 @@ UpdateCmdLine (CONST CHAR8 *CmdLine,
                BOOLEAN AlarmBoot,
                CONST CHAR8 *VBCmdLine,
                CHAR8 **FinalCmdLine,
-               UINT32 HeaderVersion);
+               UINT32 HeaderVersion,
+               CHAR8 SilentMode);
 BOOLEAN
 TargetBatterySocOk (UINT32 *BatteryVoltage);
 

@@ -34,6 +34,7 @@
 #include <Library/BootLinux.h>
 #include <Library/PartitionTableUpdate.h>
 #include <Library/PrintLib.h>
+#include <Library/ShutdownServices.h>
 #include <LinuxLoaderLib.h>
 #include <Protocol/EFICardInfo.h>
 #include <Protocol/EFIChargerEx.h>
@@ -58,6 +59,17 @@ STATIC CONST CHAR8 *BatteryChgPause = " androidboot.mode=charger";
 STATIC CONST CHAR8 *MdtpActiveFlag = " mdtp";
 STATIC CONST CHAR8 *AlarmBootCmdLine = " androidboot.alarmboot=true";
 STATIC CHAR8 SystemdSlotEnv[] = " systemd.setenv=\"SLOT_SUFFIX=_a\"";
+/*Silent Boot Mode */
+STATIC CHAR8 *SilentBootEnbCmdLine =
+                           " androidboot.silent_boot_mode=silent";
+STATIC CHAR8 *SilentBootDisCmdLine =
+                           " androidboot.silent_boot_mode=nonsilent";
+STATIC CHAR8 *SilentBootForCmdLine =
+                           " androidboot.silent_boot_mode=forcedsilent";
+STATIC CHAR8 *SilentBootNForCmdLine =
+                           " androidboot.silent_boot_mode=forcednonsilent";
+
+
 
 /*Send slot suffix in cmdline with which we have booted*/
 STATIC CHAR8 *AndroidSlotSuffix = " androidboot.slot_suffix=";
@@ -541,6 +553,11 @@ UpdateCmdLineParams (UpdateCmdLineParamList *Param,
     Param->LEVerityCmdLine = NULL;
   }
 
+  if (Param->SilentBootModeCmdLine !=NULL) {
+    Src = Param->SilentBootModeCmdLine;
+    AsciiStrCatS (Dst, MaxCmdLineLen, Src);
+  }
+
   return EFI_SUCCESS;
 }
 
@@ -553,7 +570,8 @@ UpdateCmdLine (CONST CHAR8 *CmdLine,
                BOOLEAN AlarmBoot,
                CONST CHAR8 *VBCmdLine,
                CHAR8 **FinalCmdLine,
-               UINT32 HeaderVersion)
+               UINT32 HeaderVersion,
+               CHAR8 SilentMode)
 {
   EFI_STATUS Status;
   UINT32 CmdLineLen = 0;
@@ -729,6 +747,20 @@ UpdateCmdLine (CONST CHAR8 *CmdLine,
   }
   CmdLineLen += AsciiStrLen (Param.FstabSuffix);
   Param.AndroidBootFstabSuffix = AndroidBootFstabSuffix;
+
+  if (SilentMode == SILENT_MODE) {
+    CmdLineLen += AsciiStrLen (SilentBootEnbCmdLine);
+    Param.SilentBootModeCmdLine = SilentBootEnbCmdLine;
+  } else if (SilentMode == NON_SILENT_MODE) {
+    CmdLineLen += AsciiStrLen (SilentBootDisCmdLine);
+    Param.SilentBootModeCmdLine = SilentBootDisCmdLine;
+  } else if (SilentMode == FORCED_SILENT) {
+    CmdLineLen += AsciiStrLen (SilentBootForCmdLine);
+    Param.SilentBootModeCmdLine = SilentBootForCmdLine;
+  } else if (SilentMode == FORCED_NON_SILENT) {
+    CmdLineLen += AsciiStrLen (SilentBootNForCmdLine);
+    Param.SilentBootModeCmdLine = SilentBootNForCmdLine;
+  }
 
   /* 1 extra byte for NULL */
   CmdLineLen += 1;

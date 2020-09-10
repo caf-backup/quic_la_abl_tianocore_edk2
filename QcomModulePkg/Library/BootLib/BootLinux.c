@@ -850,6 +850,7 @@ BootLinux (BootInfo *Info)
   CHAR16 *PartitionName = NULL;
   BOOLEAN Recovery = FALSE;
   BOOLEAN AlarmBoot = FALSE;
+  CHAR8 SilentBootMode;
 
   LINUX_KERNEL LinuxKernel;
   LINUX_KERNEL32 LinuxKernel32;
@@ -878,6 +879,11 @@ BootLinux (BootInfo *Info)
   PartitionName = Info->Pname;
   Recovery = Info->BootIntoRecovery;
   AlarmBoot = Info->BootReasonAlarm;
+  SilentBootMode = Info->SilentBootMode;
+
+  if (SilentBootMode) {
+   DEBUG ((EFI_D_INFO, "Silent Mode value: %d\n", SilentBootMode));
+  }
 
   if (!StrnCmp (PartitionName, (CONST CHAR16 *)L"boot",
                 StrLen ((CONST CHAR16 *)L"boot"))) {
@@ -995,7 +1001,7 @@ BootLinux (BootInfo *Info)
    */
   Status = UpdateCmdLine (BootParamlistPtr.CmdLine, FfbmStr, Recovery,
                    AlarmBoot, Info->VBCmdLine, &BootParamlistPtr.FinalCmdLine,
-                   Info->HeaderVersion);
+                   Info->HeaderVersion, SilentBootMode);
   if (EFI_ERROR (Status)) {
     DEBUG ((EFI_D_ERROR, "Error updating cmdline. Device Error %r\n", Status));
     return Status;
