@@ -237,6 +237,9 @@ VOID UpdatePartitionAttributes (UINT32 UpdateType)
       Status = GetStorageHandle (NO_LUN, BlockIoHandle, &MaxHandles);
     } else if (!AsciiStrnCmp (BootDeviceType, "UFS", AsciiStrLen ("UFS"))) {
       Status = GetStorageHandle (Lun, BlockIoHandle, &MaxHandles);
+    } else if (IsNandABAttrSupport ()) {
+      DEBUG ((EFI_D_VERBOSE, "UpdatePartitionAtrinbutes: Skip for NAND\n"));
+      return;
     } else {
       DEBUG ((EFI_D_ERROR, "Unsupported  boot device type\n"));
       return;
