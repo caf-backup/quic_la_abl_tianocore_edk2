@@ -1655,7 +1655,8 @@ FindBootableSlot (Slot *BootableSlot)
   }
 
   /* Validate slot suffix and partition guids */
-  if (Status == EFI_SUCCESS) {
+  if (Status == EFI_SUCCESS &&
+      !IsNandABAttrSupport ()) {
     GUARD_OUT (ValidateSlotGuids (BootableSlot));
   }
   MarkPtnActive (BootableSlot->Suffix);
