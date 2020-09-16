@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -34,6 +34,7 @@
 #include <Library/VerifiedBootMenu.h>
 #include <Library/LEOEMCertificate.h>
 #include <Library/HypervisorMvCalls.h>
+#include <Library/NandMultiSlotBoot.h>
 
 STATIC CONST CHAR8 *VerityMode = " androidboot.veritymode=";
 STATIC CONST CHAR8 *VerifiedState = " androidboot.verifiedbootstate=";
@@ -1501,6 +1502,13 @@ LoadImageAndAuth (BootInfo *Info, BOOLEAN HibernationResume)
   }
 
   if (IsUnlocked () && Status != EFI_SUCCESS) {
+    if (IsNandABAttrSupport ()) {
+       Status = HandleActiveSlotUnbootable ();
+       if (Status != EFI_SUCCESS) {
+         DEBUG ((EFI_D_ERROR, "HandleActiveSlotUnbootable failed %r\n",
+                       Status));
+       }
+    }
     DEBUG ((EFI_D_ERROR, "LoadImageAndAuth failed %r\n", Status));
     return Status;
   }
