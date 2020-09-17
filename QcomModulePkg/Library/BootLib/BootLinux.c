@@ -1734,7 +1734,7 @@ BOOLEAN IsDefinedMTDUbiBebLimit (VOID)
 }
 #endif
 
-#if HIBERNATION_SUPPORT_INSECURE
+#if HIBERNATION_SUPPORT
 BOOLEAN IsHibernationEnabled (VOID)
 {
   return TRUE;
