@@ -210,4 +210,5 @@ SetActiveSlot (Slot *NewSlot);
 BOOLEAN IsCurrentSlotBootable (VOID);
 EFI_STATUS HandleActiveSlotUnbootable (VOID);
 EFI_STATUS ClearUnbootable (VOID);
+UINT64 GetPartitionSize (EFI_BLOCK_IO_PROTOCOL *BlockIo);
 #endif
