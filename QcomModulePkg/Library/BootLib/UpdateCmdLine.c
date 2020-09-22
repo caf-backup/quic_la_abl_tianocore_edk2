@@ -508,9 +508,12 @@ UpdateCmdLineParams (UpdateCmdLineParamList *Param,
     AsciiStrCatS (Dst, MaxCmdLineLen, Src);
   }
 
-  if (IsBuildUseRecoveryAsBoot () &&
+  if ((IsBuildUseRecoveryAsBoot () &&
       IsDynamicPartitionSupport () &&
-      !Param->Recovery) {
+      !Param->Recovery) ||
+      (!Param->MultiSlotBoot &&
+       !IsBuildUseRecoveryAsBoot ()&&
+       (Param->HeaderVersion >= BOOT_HEADER_VERSION_THREE))) {
     Src = AndroidBootForceNormalBoot;
     AsciiStrCatS (Dst, MaxCmdLineLen, Src);
   }
@@ -533,7 +536,8 @@ UpdateCmdLine (CONST CHAR8 *CmdLine,
                BOOLEAN Recovery,
                BOOLEAN AlarmBoot,
                CONST CHAR8 *VBCmdLine,
-               CHAR8 **FinalCmdLine)
+               CHAR8 **FinalCmdLine,
+               UINT32 HeaderVersion)
 {
   EFI_STATUS Status;
   UINT32 CmdLineLen = 0;
@@ -687,9 +691,12 @@ UpdateCmdLine (CONST CHAR8 *CmdLine,
     }
   }
 
-  if (IsBuildUseRecoveryAsBoot () &&
+  if ((IsBuildUseRecoveryAsBoot () &&
       IsDynamicPartitionSupport () &&
-      !Recovery) {
+      !Recovery) ||
+      (!MultiSlotBoot &&
+       !IsBuildUseRecoveryAsBoot () &&
+       (HeaderVersion >= BOOT_HEADER_VERSION_THREE))) {
     CmdLineLen += AsciiStrLen (AndroidBootForceNormalBoot);
   }
 
@@ -735,6 +742,7 @@ UpdateCmdLine (CONST CHAR8 *CmdLine,
   Param.DtboIdxStr = DtboIdxStr;
   Param.DtbIdxStr = DtbIdxStr;
   Param.LEVerityCmdLine = LEVerityCmdLine;
+  Param.HeaderVersion = HeaderVersion;
 
   Status = UpdateCmdLineParams (&Param, FinalCmdLine);
   if (Status != EFI_SUCCESS) {
