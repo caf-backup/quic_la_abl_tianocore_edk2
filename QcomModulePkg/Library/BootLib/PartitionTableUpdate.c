@@ -1603,13 +1603,21 @@ FindBootableSlot (Slot *BootableSlot)
     return EFI_NOT_FOUND;
   }
 
-  Unbootable = (BootEntry->PartEntry.Attributes & PART_ATT_UNBOOTABLE_VAL) >>
-               PART_ATT_UNBOOTABLE_BIT;
-  BootSuccess = (BootEntry->PartEntry.Attributes & PART_ATT_SUCCESSFUL_VAL) >>
+  if (IsNandABAttrSupport ()) {
+    BootSuccess = GetNandBootSuccess ();
+    RetryCount = GetNandRetryCount ();
+
+    /* Unbootable attribute is not used for NAND multislot boot. Set it to 0. */
+    Unbootable = 0;
+  } else {
+    Unbootable = (BootEntry->PartEntry.Attributes & PART_ATT_UNBOOTABLE_VAL) >>
+                PART_ATT_UNBOOTABLE_BIT;
+    BootSuccess = (BootEntry->PartEntry.Attributes & PART_ATT_SUCCESSFUL_VAL) >>
                 PART_ATT_SUCCESS_BIT;
-  RetryCount =
-      (BootEntry->PartEntry.Attributes & PART_ATT_MAX_RETRY_COUNT_VAL) >>
-      PART_ATT_MAX_RETRY_CNT_BIT;
+    RetryCount =
+        (BootEntry->PartEntry.Attributes & PART_ATT_MAX_RETRY_COUNT_VAL) >>
+        PART_ATT_MAX_RETRY_CNT_BIT;
+  }
 
   if (Unbootable == 0 && BootSuccess == 1) {
     DEBUG (
@@ -1617,13 +1625,26 @@ FindBootableSlot (Slot *BootableSlot)
   } else if (Unbootable == 0 && BootSuccess == 0 && RetryCount > 0) {
     if (!IsABRetryCountDisabled () &&
         !IsBootDevImage ()) {
-      RetryCount--;
-      BootEntry->PartEntry.Attributes &= ~PART_ATT_MAX_RETRY_COUNT_VAL;
-      BootEntry->PartEntry.Attributes |= RetryCount
+
+      /*For NAND multislot boot, allow retry count update only in case of OTA. */
+      if (IsNandABAttrSupport () &&
+               IsNandBootAfterOTA ()) {
+        DEBUG ((EFI_D_INFO, "Slot %s is bootable, retry count %ld\n",
+                       BootableSlot->Suffix, RetryCount));
+        Status = NandUpdateRetryCount ();
+        if (Status != EFI_SUCCESS) {
+          DEBUG ((EFI_D_INFO, "NandUpdateRetryCount Failed\n"));
+        }
+      } else {
+        RetryCount--;
+        BootEntry->PartEntry.Attributes &= ~PART_ATT_MAX_RETRY_COUNT_VAL;
+        BootEntry->PartEntry.Attributes |= RetryCount
                                          << PART_ATT_MAX_RETRY_CNT_BIT;
-      UpdatePartitionAttributes (PARTITION_ATTRIBUTES);
-      DEBUG ((EFI_D_INFO, "Active Slot %s is bootable, retry count %ld\n",
+
+        UpdatePartitionAttributes (PARTITION_ATTRIBUTES);
+        DEBUG ((EFI_D_INFO, "Active Slot %s is bootable, retry count %ld\n",
               BootableSlot->Suffix, RetryCount));
+      }
     } else {
       DEBUG ((EFI_D_INFO, "A/B retry count NOT decremented\n"));
     }
