@@ -1423,6 +1423,18 @@ EFI_STATUS HandleActiveSlotUnbootable (VOID)
   UINT64 Unbootable = 0;
   UINT64 BootSuccess = 0;
 
+  if (IsNandABAttrSupport ()) {
+    Status = NandSwitchSlot ();
+    if (Status == EFI_SUCCESS) {
+       gRT->ResetSystem (EfiResetCold, EFI_SUCCESS, 0, NULL);
+       //Should'nt get here
+       DEBUG ((EFI_D_ERROR, "ResetSystem Failed!\n"));
+    }
+
+    DEBUG ((EFI_D_ERROR, "NandSwitchSlot Failed!\n"));
+    return EFI_NOT_FOUND;
+  }
+
   /* Mark current Slot as unbootable */
   GUARD (GetActiveSlot (&ActiveSlot));
   BootEntry = GetBootPartitionEntry (&ActiveSlot);
