@@ -1330,6 +1330,14 @@ SetActiveSlot (Slot *NewSlot, BOOLEAN ResetSuccessBit)
     return EFI_INVALID_PARAMETER;
   }
 
+  if (IsNandABAttrSupport ()) {
+    Status = NandSetActiveSlot (NewSlot);
+    if (Status != EFI_SUCCESS) {
+       DEBUG ((EFI_D_ERROR, "NandSetActiveSlot: Failed\n"));
+    }
+    return Status;
+  }
+
   GUARD (GetActiveSlot (&CurrentSlot));
 
   if (StrnCmp (NewSlot->Suffix, Slots[0].Suffix, StrLen (Slots[0].Suffix)) ==
