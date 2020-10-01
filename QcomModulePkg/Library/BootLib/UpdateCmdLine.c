@@ -511,9 +511,13 @@ UpdateCmdLineParams (UpdateCmdLineParamList *Param,
   if (Param->MultiSlotBoot &&
      !IsBootDevImage ()) {
      /* Slot suffix */
-    Src = Param->AndroidSlotSuffix;
-    AsciiStrCatS (Dst, MaxCmdLineLen, Src);
-
+    if (IsLEVariant ()) {
+      CONST CHAR8 * SlotSuffix = " SLOT_SUFFIX=";
+      AsciiStrCatS (Dst, MaxCmdLineLen, SlotSuffix);
+    } else {
+      Src = Param->AndroidSlotSuffix;
+      AsciiStrCatS (Dst, MaxCmdLineLen, Src);
+    }
     UnicodeStrToAsciiStr (GetCurrentSlotSuffix ().Suffix,
                           Param->SlotSuffixAscii);
     Src = Param->SlotSuffixAscii;
