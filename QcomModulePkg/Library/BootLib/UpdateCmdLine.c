@@ -3,7 +3,7 @@
  * Copyright (c) 2009, Google Inc.
  * All rights reserved.
  *
- * Copyright (c) 2009-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2020, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -42,6 +42,7 @@
 #include <Protocol/Print2.h>
 #include <Library/HypervisorMvCalls.h>
 #include <Library/EarlyUsbInit.h>
+#include <Library/NandMultiSlotBoot.h>
 
 #include "AutoGen.h"
 #include <DeviceInfo.h>
@@ -330,7 +331,8 @@ GetSystemPath (CHAR8 **SysPath, BOOLEAN MultiSlotBoot, BOOLEAN FlashlessBoot,
   }
 
   /* Append slot info for A/B Variant */
-  if (MultiSlotBoot) {
+  if (MultiSlotBoot &&
+      !IsNandABAttrSupport ()) {
      CurSlot = GetCurrentSlotSuffix ();
      StrnCatS (PartitionName, MAX_GPT_NAME_SIZE, CurSlot.Suffix,
             StrLen (CurSlot.Suffix));
@@ -362,10 +364,18 @@ GetSystemPath (CHAR8 **SysPath, BOOLEAN MultiSlotBoot, BOOLEAN FlashlessBoot,
       // The gluebi device that is to be passed to "root=" will be the first one
       // after all "regular" mtd devices have been populated.
       UINT32 PartitionCount = 0;
+      UINT32 MtdBlkIndex = 0;
       GetPartitionCount (&PartitionCount);
+      if (MultiSlotBoot &&
+         (StrnCmp ((CONST CHAR16 *)L"_b", CurSlot.Suffix,
+          StrLen (CurSlot.Suffix)) == 0))
+         MtdBlkIndex = PartitionCount;
+      else
+         MtdBlkIndex = PartitionCount - 1;
+
       AsciiSPrint (*SysPath, MAX_PATH_SIZE,
                    " rootfstype=squashfs root=/dev/mtdblock%d ubi.mtd=%d",
-                   (PartitionCount - 1), (Index - 1));
+                   MtdBlkIndex, (Index - 1));
     } else if (IsDefinedMTDUbiBebLimit ()) {
       /* Attach MTD device (Index - 1) using default VID header offset and
        * reserve MTD_UBI_BEB_LIMIT_PER1024*nand_size_in_blocks/1024 erase blocks
