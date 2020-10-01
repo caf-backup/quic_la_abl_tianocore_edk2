@@ -180,6 +180,9 @@
       GCC:*_*_*_PP_FLAGS = -DLINUX_BOOT_CPU_SELECTION_ENABLED
       GCC:*_*_*_PP_FLAGS = -DLINUX_BOOT_CPU_ID=$(TARGET_LINUX_BOOT_CPU_ID)
   !endif
+  !if $(NAND_AB_ATTR_SUPPORT)
+      GCC:*_*_*_CC_FLAGS = -DNAND_AB_ATTR_SUPPORT
+  !endif
 
 [PcdsFixedAtBuild.common]
 
