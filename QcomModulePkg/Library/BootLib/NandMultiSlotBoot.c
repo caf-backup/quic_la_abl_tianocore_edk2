@@ -37,6 +37,7 @@
 #if NAND_AB_ATTR_SUPPORT
 
 STATIC struct NandABAttr *NandAttr;
+STATIC UINT32 NandAttrPageOffset;
 
 STATIC EFI_STATUS
 GetNandABAttrPartiGuid (EFI_GUID *Ptype)
@@ -64,12 +65,12 @@ GetNandABAttrPartiGuid (EFI_GUID *Ptype)
   return Status;
 }
 
-STATIC BOOLEAN NandSlotAttrValid (VOID)
+STATIC BOOLEAN NandSlotAttrValid (struct NandABAttr *Attr)
 {
-  if ((NandAttr->Cookie == NAND_COOKIE_UPDATER_MAGIC ||
-       NandAttr->Cookie == NAND_COOKIE_BL_MAGIC ) &&
-       (NandAttr->SlotName == NAND_SLOT_A_MAGIC ||
-       NandAttr->SlotName == NAND_SLOT_B_MAGIC)) {
+  if ((Attr->Cookie == NAND_COOKIE_UPDATER_MAGIC ||
+       Attr->Cookie == NAND_COOKIE_BL_MAGIC ) &&
+       (Attr->SlotName == NAND_SLOT_A_MAGIC ||
+       Attr->SlotName == NAND_SLOT_B_MAGIC)) {
     return TRUE;
   }
   return FALSE;
@@ -268,6 +269,52 @@ WriteToNandPartition (EFI_GUID *Ptype, VOID *Msg, UINT32 MsgSize, UINT32 PageOff
   return Status;
 }
 
+STATIC EFI_STATUS NandGetLatestAttr (VOID)
+{
+  EFI_GUID Ptype;
+  EFI_STATUS Status;
+  UINT32 PageSize;
+  UINT8 PageIndex;
+  struct NandABAttr *Attr;
+
+  GetPageSize (&PageSize);
+  Status = GetNandABAttrPartiGuid (&Ptype);
+  if (Status != EFI_SUCCESS) {
+    return Status;
+  }
+
+  Attr = AllocateZeroPool (PageSize);
+  if (!Attr) {
+    DEBUG ((EFI_D_ERROR, "Error allocation attribute struct.\n"));
+    return EFI_OUT_OF_RESOURCES;
+  }
+
+  for (PageIndex=0; PageIndex < MAX_NAND_ATTR_PAGES; PageIndex++) {
+    Status = ReadFromNandPartition (&Ptype, (VOID *)Attr, PageSize, PageIndex);
+    if (Status != EFI_SUCCESS) {
+      DEBUG ((EFI_D_ERROR, "Error Reading attributes from nand_ab_attr "
+                       "partition: %r\n", Status));
+      return Status;
+    }
+
+    if (NandSlotAttrValid (Attr) || (!NandSlotAttrValid (Attr) && PageIndex == 0)) {
+      NandAttrPageOffset = PageIndex;
+      gBS->CopyMem (NandAttr, Attr, sizeof (struct NandABAttr));
+    } else {
+      break;
+    }
+  }
+
+  if (PageIndex == MAX_NAND_ATTR_PAGES) {
+    return EFI_NOT_FOUND;
+  }
+
+  FreePool (Attr);
+  Attr = NULL;
+
+  return EFI_SUCCESS;
+}
+
 BOOLEAN IsNandABAttrSupport (VOID)
 {
   INT32 Index = INVALID_PTN;
@@ -285,16 +332,9 @@ BOOLEAN IsNandABAttrSupport (VOID)
 
 EFI_STATUS NandGetActiveSlot (Slot *ActiveSlot)
 {
-  EFI_GUID Ptype;
   EFI_STATUS Status;
   UINT32 PageSize;
   Slot Slots[] = {{L"_a"}, {L"_b"}};
-
-  GetPageSize (&PageSize);
-  Status = GetNandABAttrPartiGuid (&Ptype);
-  if (Status != EFI_SUCCESS) {
-    return Status;
-  }
 
   if (!NandAttr) {
     GetPageSize (&PageSize);
@@ -304,7 +344,7 @@ EFI_STATUS NandGetActiveSlot (Slot *ActiveSlot)
       return EFI_OUT_OF_RESOURCES;
     }
 
-    Status = ReadFromNandPartition (&Ptype, (VOID *)NandAttr, PageSize, 0);
+    Status = NandGetLatestAttr ();
     if (Status != EFI_SUCCESS) {
       DEBUG ((EFI_D_ERROR, "Error Reading attributes from nand_ab_attr "
                        "partition: %r\n", Status));
@@ -315,7 +355,7 @@ EFI_STATUS NandGetActiveSlot (Slot *ActiveSlot)
   DEBUG ((EFI_D_INFO, "NAND cookie 0x%llx, slot 0x%llx\n",
                NandAttr->Cookie, NandAttr->SlotName));
 
-  if (!NandSlotAttrValid ()) {
+  if (!NandSlotAttrValid (NandAttr)) {
     NandInitSlot (ActiveSlot, Slots[0].Suffix);
     return Status;
   }
@@ -442,7 +482,7 @@ EFI_STATUS NandUpdateRetryCount (VOID)
   NandAttr->BootSuccess = 1;
 
   Status = WriteToNandPartition (&Ptype, (VOID *)NandAttr,
-                               sizeof (struct NandABAttr), 0);
+                          sizeof (struct NandABAttr), NandAttrPageOffset + 1);
   if (Status != EFI_SUCCESS) {
     DEBUG ((EFI_D_ERROR, "Error Writing nand_ab_attr partition: %r\n", Status));
     return Status;
