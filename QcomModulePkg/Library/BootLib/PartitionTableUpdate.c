@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -26,7 +26,7 @@
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
-#include "PartitionTableUpdate.h"
+#include "NandMultiSlotBoot.h"
 #include "AutoGen.h"
 #include <Library/Board.h>
 #include <Library/BootLinux.h>
@@ -1219,6 +1219,14 @@ GetActiveSlot (Slot *ActiveSlot)
   if (ActiveSlot == NULL) {
     DEBUG ((EFI_D_ERROR, "GetActiveSlot: bad parameter\n"));
     return EFI_INVALID_PARAMETER;
+  }
+
+  if (IsNandABAttrSupport ()) {
+    Status = NandGetActiveSlot (ActiveSlot);
+    if (Status != EFI_SUCCESS) {
+       DEBUG ((EFI_D_ERROR, "NandGetActiveSlot: Failed\n"));
+    }
+    return Status;
   }
 
   for (UINTN SlotIndex = 0; SlotIndex < ARRAY_SIZE (Slots); SlotIndex++) {
