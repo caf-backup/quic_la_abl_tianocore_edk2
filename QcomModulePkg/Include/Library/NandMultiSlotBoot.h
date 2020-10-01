@@ -38,6 +38,7 @@
 #define NAND_COOKIE_UPDATER_MAGIC 0xDABC
 #define NAND_SLOT_A_MAGIC 0x5F61
 #define NAND_SLOT_B_MAGIC 0x5F62
+#define MAX_NAND_ATTR_PAGES 64
 
 /*
  * Attributes used for NAND partitions
