@@ -69,6 +69,7 @@
 	HypervisorMvCalls.c
 	EarlyEthernet.c
 	EarlyUsbInit.c
+	NandMultiSlotBoot.c
 
 [Packages]
 	ArmPkg/ArmPkg.dec
