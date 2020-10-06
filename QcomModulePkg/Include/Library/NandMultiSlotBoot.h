@@ -64,17 +64,14 @@ typedef struct NandABAttr {
   UINT8 BootSuccess;
 } NandABAttr;
 
-EFI_STATUS GetNandABAttrPartiGuid (EFI_GUID *Ptype);
 BOOLEAN IsNandABAttrSupport (VOID);
 EFI_STATUS NandGetActiveSlot (Slot *ActiveSlot);
 EFI_STATUS NandSetActiveSlot (Slot *NewSlot);
-BOOLEAN IsAlternateSlotUnbootable (VOID);
 EFI_STATUS NandSwitchSlot (VOID);
 UINT64 GetNandBootSuccess (VOID);
 UINT64 GetNandRetryCount (VOID);
-BOOLEAN IsNandDefaultSlotA (VOID);
 EFI_STATUS NandUpdateRetryCount (VOID);
-BOOLEAN IsNandBootAfterOTA (VOID)
+BOOLEAN IsNandBootAfterOTA (VOID);
 
 #else
 

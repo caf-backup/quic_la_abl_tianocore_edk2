@@ -95,14 +95,6 @@ STATIC BOOLEAN IsAlternateSlotUnbootable (VOID)
   return FALSE;
 }
 
-STATIC BOOLEAN IsNandDefaultSlotA (VOID)
-{
-  if (!NandSlotAttrValid (NandAttr)) {
-    return TRUE;
-  }
-  return FALSE;
-}
-
 STATIC EFI_STATUS
 ReadFromNandPartition (EFI_GUID *Ptype, VOID *Msg, UINT32 Size, UINT32 PageOffset)
 {
@@ -305,6 +297,7 @@ EFI_STATUS NandGetActiveSlot (Slot *ActiveSlot)
   }
 
   if (!NandAttr) {
+    GetPageSize (&PageSize);
     NandAttr = AllocateZeroPool (PageSize);
     if (!NandAttr) {
       DEBUG ((EFI_D_ERROR, "Error allocation attribute struct.\n"));
