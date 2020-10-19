@@ -514,7 +514,7 @@ UpdateCmdLineParams (UpdateCmdLineParamList *Param,
   if (Param->MultiSlotBoot &&
      !IsBootDevImage ()) {
      /* Slot suffix */
-    if (IsLEVariant ()) {
+    if (IsNandABAttrSupport ()) {
       CONST CHAR8 * SlotSuffix = " SLOT_SUFFIX=";
       AsciiStrCatS (Dst, MaxCmdLineLen, SlotSuffix);
     } else {
