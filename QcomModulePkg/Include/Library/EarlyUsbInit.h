@@ -32,13 +32,14 @@
 #define USB_COMPOSITION_PARTITION_NAME	L"usb_qti"
 
 #define USB_PID_SZ		5
+#define USB_MAC_ID_SZ		18
 #define BOARD_PRODUCT_ID_SZ	32
 
 #define USB_COMP_MAGIC		"USB_COMP!"
 #define USB_COMP_MAGIC_SIZE	10
 
 /* Maximum USB Composition command line parameter length */
-#define COMPOSITION_CMDLINE_LEN 96
+#define COMPOSITION_CMDLINE_LEN 128
 
 /* Maximum USB Composition partition Info */
 #define USB_COMPOSITION_INFO_MAX 128
@@ -47,6 +48,7 @@ struct usb_composition {
 	CHAR8 magic[USB_COMP_MAGIC_SIZE];
 	CHAR8 pid[USB_PID_SZ];
 	CHAR8 product_id[BOARD_PRODUCT_ID_SZ];
+	CHAR8 UsbMacId[USB_MAC_ID_SZ];
 };
 
 BOOLEAN EarlyUsbInitEnabled (VOID);
