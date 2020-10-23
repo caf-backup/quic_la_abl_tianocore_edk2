@@ -57,6 +57,23 @@ EFI_STATUS PartitionGetInfo (IN CHAR16 *PartitionName,
 				OUT EFI_BLOCK_IO_PROTOCOL **BlockIo,
 				OUT EFI_HANDLE **Handle);
 
+/* Parse USB MAC ID information for usb composition partition */
+STATIC
+VOID
+GetUsbQtiPartMacId(CHAR8 *UsbString, CHAR8 *UsbMacIdStr)
+{
+  CHAR8 *UsbMacIdToken;
+  CHAR8 *ParseStr = "gsi_host_addr=";
+
+  UsbMacIdToken = AsciiStrStr (UsbString, ParseStr);
+  if(!UsbMacIdToken)
+    return;
+
+  AsciiStrnCpyS(UsbMacIdStr, USB_MAC_ID_SZ,
+		  UsbMacIdToken + AsciiStrLen(ParseStr),
+		  USB_MAC_ID_SZ-1);
+}
+
 /* Parse USB Product ID information for usb composition partition */
 STATIC
 VOID
@@ -64,6 +81,7 @@ GetUsbQtiPartProdId(CHAR8 *UsbString, CHAR8 *UsbProdStr)
 {
   CHAR8 *UsbProdToken;
   CHAR8 *ParseStr = "product_string=";
+  CHAR8 Delimiter = ',';
 
   UsbProdToken = AsciiStrStr (UsbString, ParseStr);
   if(!UsbProdToken)
@@ -72,6 +90,15 @@ GetUsbQtiPartProdId(CHAR8 *UsbString, CHAR8 *UsbProdStr)
   AsciiStrnCpyS(UsbProdStr, BOARD_PRODUCT_ID_SZ,
 		  UsbProdToken + AsciiStrLen(ParseStr),
 		  BOARD_PRODUCT_ID_SZ-1);
+
+  while(*UsbProdStr) {
+    if (*UsbProdStr == Delimiter) {
+		*UsbProdStr = '\0';
+		break;
+	}
+	UsbProdStr++;
+  }
+
 }
 
 /* Parse USB PID information for usb composition partition */
@@ -202,16 +229,20 @@ VOID GetUsbQtiUsbCompInfo(CHAR8 *CmdLinePtr)
 {
   CHAR8 *UsbPidHdrStr = " g_qti_gadget.usb_pid=";
   CHAR8 *UsbPrdHdrStr = " g_qti_gadget.product=";
+  CHAR8 *UsbMacIdStr = " usb_f_gsi.gsi_host_addr=";
   CHAR8 *UsbCompString= (CHAR8 *)UsbQtiPartInfoPtr->data;
 
   CHAR8 UsbPid [USB_PID_SZ] = {'\0'};
   CHAR8 UsbProdId[BOARD_PRODUCT_ID_SZ] = {'\0'};
+  CHAR8 UsbMacId[USB_MAC_ID_SZ] = {'\0'};
 
   GetUsbQtiPartPid(UsbCompString, UsbPid);
   GetUsbQtiPartProdId(UsbCompString, UsbProdId);
+  GetUsbQtiPartMacId(UsbCompString, UsbMacId);
 
-  UsbPid [USB_PID_SZ-1] = '\0';
+  UsbPid[USB_PID_SZ-1] = '\0';
   UsbProdId[BOARD_PRODUCT_ID_SZ-1] = '\0';
+  UsbMacId[USB_MAC_ID_SZ-1] = '\0';
 
   AsciiStrnCpyS (CmdLinePtr, COMPOSITION_CMDLINE_LEN,
 					UsbPidHdrStr,
@@ -226,6 +257,13 @@ VOID GetUsbQtiUsbCompInfo(CHAR8 *CmdLinePtr)
   AsciiStrnCatS (CmdLinePtr, COMPOSITION_CMDLINE_LEN,
 						UsbProdId,
 						AsciiStrLen(UsbProdId));
+
+  AsciiStrnCatS (CmdLinePtr, COMPOSITION_CMDLINE_LEN,
+					UsbMacIdStr,
+					AsciiStrLen(UsbMacIdStr));
+  AsciiStrnCatS (CmdLinePtr, COMPOSITION_CMDLINE_LEN,
+						UsbMacId,
+						AsciiStrLen(UsbMacId));
 }
 
 /* Verify the MAGIC field for USB composition in devinfo partition*/
