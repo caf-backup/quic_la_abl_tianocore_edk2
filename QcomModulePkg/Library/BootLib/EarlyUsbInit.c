@@ -290,6 +290,16 @@ CHAR8 *GetDevInfoUsbPid(VOID)
   return DevInfoUsbCompPtr->pid;
 }
 
+/* Get USB MAC Id information saved in devinfo partition */
+CHAR8 *GetDevInfoUsbMacId(VOID)
+{
+  struct usb_composition *DevInfoUsbCompPtr = GetDevInfoUsbComp();
+  if (!DevInfoUsbCompPtr)
+	  return NULL;
+
+  return DevInfoUsbCompPtr->UsbMacId;
+}
+
 /*
  *  Create USB PID command line parameter string from devinfo partition
  */
@@ -297,6 +307,8 @@ VOID GetDevInfoUsbCompInfo(CHAR8 *CmdLinePtr)
 {
   CHAR8 *UsbPidHdrStr = " g_qti_gadget.usb_pid=";
   CHAR8 *UsbPid = GetDevInfoUsbPid();
+  CHAR8 *UsbMacIdStr = " usb_f_gsi.gsi_host_addr=";
+  CHAR8 *UsbMacId = GetDevInfoUsbMacId();
 
   AsciiStrnCpyS (CmdLinePtr, COMPOSITION_CMDLINE_LEN,
 					UsbPidHdrStr,
@@ -304,6 +316,13 @@ VOID GetDevInfoUsbCompInfo(CHAR8 *CmdLinePtr)
   AsciiStrnCatS (CmdLinePtr, COMPOSITION_CMDLINE_LEN,
 						UsbPid,
 						AsciiStrLen(UsbPid));
+  AsciiStrnCatS (CmdLinePtr, COMPOSITION_CMDLINE_LEN,
+					UsbMacIdStr,
+					AsciiStrLen(UsbMacIdStr));
+  AsciiStrnCatS (CmdLinePtr, COMPOSITION_CMDLINE_LEN,
+						UsbMacId,
+						AsciiStrLen(UsbMacId));
+
 }
 
 VOID GetEarlyUsbCmdlineParam(CHAR8 *UsbCompositionCmdlinePtr)
