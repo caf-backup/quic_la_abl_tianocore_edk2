@@ -2906,7 +2906,7 @@ CmdSetUsbCompositionPid (CONST CHAR8 *Arg, VOID *Data, UINT32 Size)
    }
    return;
  } else if ((PidStrLen != (USB_PID_SZ - 1))) {
-    Status = SetDevInfoUsbComposition(Ptr, PidStrLen);
+    Status = SetDevInfoUsbCompositionPid(Ptr, PidStrLen);
     if (Status != EFI_SUCCESS) {
 	    FastbootFail ("Failed to set USB Composition PID");
     } else {
@@ -2918,6 +2918,42 @@ CmdSetUsbCompositionPid (CONST CHAR8 *Arg, VOID *Data, UINT32 Size)
     FastbootFail ("Invalid input entered");
     return;
  }
+}
+
+/* Handle USB MAC ID*/
+STATIC VOID
+CmdSetUsbCompositionMacId (CONST CHAR8 *Arg, VOID *Data, UINT32 Size)
+{
+  EFI_STATUS Status;
+  CHAR8 *Ptr = NULL;
+  CONST CHAR8 *Delim = " ";
+  UINTN UsbMacIdStrLen = 0;
+
+  if(IsUsbQtiPartitionPresent()) {
+    FastbootFail ("Feature not supported for the target!");
+    return;
+  }
+
+  if (Arg) {
+    UsbMacIdStrLen = AsciiStrLen (Arg);
+    if ((UsbMacIdStrLen != USB_MAC_ID_SZ)) {
+      FastbootFail ("Invalid input entered");
+      return;
+    }
+    Ptr = AsciiStrStr (Arg, Delim);
+    Ptr++;
+  } else {
+    FastbootFail ("Invalid input entered");
+    return;
+  }
+
+  Status = SetDevInfoUsbCompositionMacId(Ptr, UsbMacIdStrLen);
+  if (Status != EFI_SUCCESS) {
+          FastbootFail ("Failed to set USB MAC ID");
+  } else {
+          FastbootOkay ("USB MAC ID is set");
+  }
+  return;
 }
 #endif
 
@@ -2988,6 +3024,10 @@ CmdOemDevinfo (CONST CHAR8 *arg, VOID *data, UINT32 sz)
   if(EarlyUsbInitEnabled() && !IsUsbQtiPartitionPresent()) {
     AsciiSPrint (DeviceInfo, sizeof (DeviceInfo), "USB Composition PID: %a",
 		  GetDevInfoUsbPid());
+    FastbootInfo (DeviceInfo);
+    WaitForTransferComplete ();
+    AsciiSPrint (DeviceInfo, sizeof (DeviceInfo), "USB Composition MAC ID: %a",
+		  GetDevInfoUsbMacId());
     FastbootInfo (DeviceInfo);
     WaitForTransferComplete ();
   }
@@ -3441,6 +3481,7 @@ FastbootCommandSetup (IN VOID *Base, IN UINT64 Size)
       {"oem device-info", CmdOemDevinfo},
 #ifdef TARGET_SUPPORTS_EARLY_USB_INIT
       {"oem usb-pid", CmdSetUsbCompositionPid},
+      {"oem usb-mac-id", CmdSetUsbCompositionMacId},
 #endif
 #if HIBERNATION_SUPPORT
       {"oem golden-snapshot", CmdGoldenSnapshot},

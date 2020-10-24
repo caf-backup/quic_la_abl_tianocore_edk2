@@ -412,7 +412,7 @@ ClearDevInfoUsbCompositionPid (VOID)
 }
 
 EFI_STATUS
-SetDevInfoUsbComposition (CHAR8 *Pid, UINTN PidSize)
+SetDevInfoUsbCompositionPid (CHAR8 *Pid, UINTN PidSize)
 {
   EFI_STATUS Status = EFI_SUCCESS;
 
@@ -429,6 +429,30 @@ SetDevInfoUsbComposition (CHAR8 *Pid, UINTN PidSize)
 
   gBS->CopyMem (DevInfo.usb_comp.magic, USB_COMP_MAGIC, USB_COMP_MAGIC_SIZE);
   gBS->CopyMem (DevInfo.usb_comp.pid, Pid, PidSize);
+  Status = ReadWriteDeviceInfo (WRITE_CONFIG, (VOID *)&DevInfo, sizeof (DevInfo));
+  if (Status != EFI_SUCCESS) {
+    DEBUG ((EFI_D_ERROR, "Unable to Write Device Info: %r\n", Status));
+  }
+  return Status;
+}
+
+EFI_STATUS
+SetDevInfoUsbCompositionMacId (CHAR8 *UsbMacId, UINTN MacIdSize)
+{
+  EFI_STATUS Status = EFI_SUCCESS;
+
+  if (FirstReadDevInfo) {
+    Status = EFI_NOT_STARTED;
+    DEBUG ((EFI_D_ERROR, "USB Composition DeviceInfo not initalized \n"));
+    return Status;
+  }
+
+  if (MacIdSize > ARRAY_SIZE (DevInfo.usb_comp.UsbMacId)) {
+    DEBUG ((EFI_D_ERROR, "Pid size:%d too large!\n", MacIdSize));
+    return EFI_OUT_OF_RESOURCES;
+  }
+
+  gBS->CopyMem (DevInfo.usb_comp.UsbMacId, UsbMacId, MacIdSize);
   Status = ReadWriteDeviceInfo (WRITE_CONFIG, (VOID *)&DevInfo, sizeof (DevInfo));
   if (Status != EFI_SUCCESS) {
     DEBUG ((EFI_D_ERROR, "Unable to Write Device Info: %r\n", Status));
