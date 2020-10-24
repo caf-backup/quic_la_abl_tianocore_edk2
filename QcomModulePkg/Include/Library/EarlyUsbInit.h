@@ -54,8 +54,10 @@ struct usb_composition {
 BOOLEAN EarlyUsbInitEnabled (VOID);
 BOOLEAN IsUsbQtiPartitionPresent(VOID);
 EFI_STATUS ClearDevInfoUsbCompositionPid (VOID);
-EFI_STATUS SetDevInfoUsbComposition(CHAR8 *Pid, UINTN PidSize);
+EFI_STATUS SetDevInfoUsbCompositionPid(CHAR8 *Pid, UINTN PidSize);
+EFI_STATUS SetDevInfoUsbCompositionMacId (CHAR8 *UsbMacId, UINTN MacIdSize);
 CHAR8 *GetDevInfoUsbPid (VOID);
+CHAR8 *GetDevInfoUsbMacId (VOID);
 struct usb_composition *GetDevInfoUsbComp(VOID);
 VOID GetEarlyUsbCmdlineParam(CHAR8 *UsbCompositionCmdlinePtr);
 #endif
