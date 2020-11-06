@@ -741,13 +741,13 @@ STATIC EFI_STATUS LEVerifyHashWithSignature (
                     QcomAsn1x509Protocol *pEfiQcomASN1X509Protocol,
                     UINT8 *ImgHash, VB_HASH HashAlgorithm,
                     CERTIFICATE *Certificate,
-                    CONST UINT8 *SignaturePtr,
-                    UINT32 SignatureLen)
+                    CONST UINT8 *SignaturePtr)
 {
     EFI_STATUS Status = EFI_FAILURE;
     secasn1_data_type Modulus = {NULL};
     secasn1_data_type PublicExp = {NULL};
     UINT32 PaddingType = 0;
+    UINT32 SignatureLen = 0;
 
     if (pEfiQcomASN1X509Protocol == NULL ||
         ImgHash == NULL ||
@@ -769,6 +769,8 @@ STATIC EFI_STATUS LEVerifyHashWithSignature (
                       "unsuccessful! Status: %r\n", Status));
         goto exit;
     }
+
+    SignatureLen = Modulus.Len - 1;
 
     Status = LEVerifyHashWithRSASignature (ImgHash, HashAlgorithm,
                 &Modulus, &PublicExp, PaddingType,
@@ -1291,7 +1293,6 @@ STATIC EFI_STATUS LoadImageAndAuthForLE (BootInfo *Info)
     UINTN ImgSize;
     VB_HASH HashAlgorithm;
     UINT8 *SigAddr = NULL;
-    UINT32 SigSize = 0;
     CHAR8 *SystemPath = NULL;
     UINT32 SystemPathLen = 0;
     BOOLEAN SecureDevice = FALSE;
@@ -1333,7 +1334,6 @@ STATIC EFI_STATUS LoadImageAndAuthForLE (BootInfo *Info)
         DEBUG ((EFI_D_ERROR, "VB: Error during VBDeviceInit: %r\n", Status));
         return Status;
     }
-
     /* Locate QcomAsn1x509Protocol*/
     Status = gBS->LocateProtocol (&gEfiQcomASN1X509ProtocolGuid, NULL,
                                  (VOID **)&QcomAsn1X509Protocal);
@@ -1342,7 +1342,6 @@ STATIC EFI_STATUS LoadImageAndAuthForLE (BootInfo *Info)
                       "gEfiQcomASN1X509ProtocolGuid: %r\n", Status));
         return Status;
     }
-
     /* Read OEM certificate from the embedded header file */
     Status = QcomAsn1X509Protocal->ASN1X509VerifyOEMCertificate
                 (QcomAsn1X509Protocal, OemCertFile, OemCertFileLen, &OemCert);
@@ -1371,9 +1370,11 @@ STATIC EFI_STATUS LoadImageAndAuthForLE (BootInfo *Info)
     }
 
     SigAddr = (UINT8 *)Info->Images[0].ImageBuffer + ImgSize;
-    SigSize = LE_BOOTIMG_SIG_SIZE;
+
+    /*Signature size  will be determined post processing the Certificate */
+
     Status = LEVerifyHashWithSignature (QcomAsn1X509Protocal, ImgHash,
-    HashAlgorithm, &OemCert, SigAddr, SigSize);
+    HashAlgorithm, &OemCert, SigAddr);
 
     if (Status != EFI_SUCCESS) {
         DEBUG ((EFI_D_ERROR, "VB: Error during "

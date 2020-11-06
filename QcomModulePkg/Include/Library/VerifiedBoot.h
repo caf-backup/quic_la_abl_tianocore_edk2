@@ -40,7 +40,6 @@ enum
 };
 
 #define VB_SHA256_SIZE  32
-#define LE_BOOTIMG_SIG_SIZE 256
 
 typedef enum {
   VB_UNDEFINED_HASH = 0,
