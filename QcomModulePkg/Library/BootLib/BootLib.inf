@@ -70,6 +70,7 @@
 	EarlyEthernet.c
 	EarlyUsbInit.c
 	NandMultiSlotBoot.c
+	IntegrityIMA.c
 
 [Packages]
 	ArmPkg/ArmPkg.dec

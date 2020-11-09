@@ -88,6 +88,7 @@ typedef struct UpdateCmdLineParamList {
   CHAR8 *ModemPathCmdLine;
   CHAR8 *UsbCompCmdLine;
   CHAR8 *ResumeCmdLine;
+  CHAR8 *IntegrityIMACmdline;
 } UpdateCmdLineParamList;
 
 EFI_STATUS
