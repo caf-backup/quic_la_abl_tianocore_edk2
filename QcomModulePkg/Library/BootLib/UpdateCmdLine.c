@@ -43,6 +43,7 @@
 #include <Library/HypervisorMvCalls.h>
 #include <Library/EarlyUsbInit.h>
 #include <Library/NandMultiSlotBoot.h>
+#include <Library/IntegrityIMA.h>
 
 #include "AutoGen.h"
 #include <DeviceInfo.h>
@@ -594,6 +595,11 @@ UpdateCmdLineParams (UpdateCmdLineParamList *Param,
     AsciiStrCatS (Dst, MaxCmdLineLen, Src);
   }
 
+  if (IsIntegrityIMAEnabled()) {
+	Src = Param->IntegrityIMACmdline;
+    AsciiStrCatS (Dst, MaxCmdLineLen, Src);
+  }
+
   if (IsHibernationEnabled()) {
     Src = Param->ResumeCmdLine;
     AsciiStrCatS (Dst, MaxCmdLineLen, Src);
@@ -635,6 +641,7 @@ UpdateCmdLine (CONST CHAR8 *CmdLine,
   CHAR8 *EarlyServicesStr = NULL;
   CHAR8 *ModemPathStr = NULL;
   CHAR8 UsbCompositionCmdline[COMPOSITION_CMDLINE_LEN]= "\0";
+  CHAR8 IntegrityIMACmdline[IMA_CMDLINE_LEN] = "\0";
 
   if (FlashlessBoot)
     goto skip_BoardSerialNum;
@@ -810,6 +817,11 @@ skip_BoardSerialNum:
     CmdLineLen += AsciiStrLen (UsbCompositionCmdline);
   }
 
+  if (IsIntegrityIMAEnabled()) {
+    GetIntegrityIMACmdline(IntegrityIMACmdline);
+    CmdLineLen += AsciiStrLen (IntegrityIMACmdline);
+  }
+
   if (IsHibernationEnabled()) {
     CmdLineLen += GetResumeCmdLine(&ResumeCmdLine, (CHAR16 *)L"swap_a");
   }
@@ -855,6 +867,10 @@ skip_BoardSerialNum:
 
   if (EarlyUsbInitEnabled()) {
     Param.UsbCompCmdLine = UsbCompositionCmdline;
+  }
+
+  if (IsIntegrityIMAEnabled()) {
+    Param.IntegrityIMACmdline = IntegrityIMACmdline;
   }
 
   if (IsHibernationEnabled()) {
