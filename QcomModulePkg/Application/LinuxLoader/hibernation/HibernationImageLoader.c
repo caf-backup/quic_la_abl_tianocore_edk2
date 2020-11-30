@@ -1117,7 +1117,7 @@ void BootIntoHibernationImage(BootInfo *Info)
 	printf("Entrying Hibernation restore\n");
 
 	if (check_for_valid_header() < 0)
-		goto err;
+		return;
 
 	Status = LoadImageAndAuth (Info, TRUE);
 	if (Status != EFI_SUCCESS) {
