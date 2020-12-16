@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -88,6 +88,10 @@ typedef enum
   /**< Newline separated list of supported panels (Type: CHAR16*) */
   EFI_DISPLAY_UTILS_PANEL_CONFIG,
   /**< Panel raw configuration */
+  EFI_DISPLAY_UTILS_DYNAMIC_REFRESH,
+  /**< Dynamic refresh settings (Type: UINT32*) */
+  EFI_DISPLAY_UTILS_WAIT_FOR_EVENT,
+  /**< Wait for an event */
 } EFI_DISPLAY_UTILS_PROPERTY_TYPE;
 
 /**

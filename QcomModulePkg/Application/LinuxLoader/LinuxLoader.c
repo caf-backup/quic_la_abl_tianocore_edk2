@@ -2,7 +2,7 @@
  * Copyright (c) 2009, Google Inc.
  * All rights reserved.
  *
- * Copyright (c) 2009-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2018, 2020 The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -35,6 +35,8 @@
 #include "BootStats.h"
 #include "KeyPad.h"
 #include "LinuxLoaderLib.h"
+#include <Protocol/DiskIo.h>
+#include <Protocol/EFIDisplayUtils.h>
 #include <FastbootLib/FastbootMain.h>
 #include <Library/DeviceInfo.h>
 #include <Library/DrawUI.h>
@@ -143,6 +145,29 @@ GetRebootReason (UINT32 *ResetReason)
   @retval other             Some error occurs when executing this entry point.
 
  **/
+
+STATIC UINT8 WaitForDisplayCompletion()
+{
+  EFI_STATUS Status;
+  EfiQcomDisplayUtilsProtocol *pDisplayUtilsProtocol = NULL;
+  CHAR8 *sLockName = "DispInit";
+
+  Status = gBS->LocateProtocol (&gQcomDisplayUtilsProtocolGuid,
+                                NULL,
+                                (VOID **)&pDisplayUtilsProtocol);
+  if ((EFI_ERROR (Status)) ||
+      (pDisplayUtilsProtocol == NULL)) {
+    DEBUG ((EFI_D_ERROR, "Failed to locate DisplayUtils protocol, Status=%r\n",
+                Status));
+    return Status;
+  } else {
+    Status = pDisplayUtilsProtocol->DisplayUtilsSetProperty(
+                                     EFI_DISPLAY_UTILS_WAIT_FOR_EVENT,
+                                     sLockName, strlen(sLockName));
+  }
+
+  return Status;
+}
 
 EFI_STATUS EFIAPI  __attribute__ ( (no_sanitize ("safe-stack")))
 LinuxLoaderEntry (IN EFI_HANDLE ImageHandle, IN EFI_SYSTEM_TABLE *SystemTable)
@@ -307,10 +332,19 @@ flashless_boot:
       goto fastboot;
     }
 
+    Status = WaitForDisplayCompletion();
+    if (Status != EFI_SUCCESS) {
+      DEBUG ((EFI_D_ERROR, "Failed to wait for display completion: %r\n", Status));
+    }
     BootLinux (&Info);
   }
 
 fastboot:
+  Status = WaitForDisplayCompletion();
+  if (Status != EFI_SUCCESS) {
+    DEBUG ((EFI_D_ERROR, "Failed to wait for display completion: %r\n", Status));
+  }
+
   if (FlashlessBoot) {
     DEBUG ((EFI_D_INFO, "No fastboot support for flashless chipsets, Infinte loop\n"));
     while(1);
