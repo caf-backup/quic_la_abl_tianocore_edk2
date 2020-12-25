@@ -100,7 +100,7 @@ GetEarlyEthInfoFromPartition (CHAR8 *ipv4buf, CHAR8 *ipv6buf, CHAR8 *macbuf)
        Qidx++;
     } else {
         FreePages (Buffer, 1);
-        DEBUG ((EFI_D_ERROR, "Invalid char for early ipv4 0x%x at %d\n",
+        DEBUG ((EFI_D_VERBOSE, "Invalid char for early ipv4 0x%x at %d\n",
                rawbuf[Pidx], Pidx));
         return EFI_INVALID_PARAMETER;
     }
@@ -125,7 +125,7 @@ GetEarlyEthInfoFromPartition (CHAR8 *ipv4buf, CHAR8 *ipv6buf, CHAR8 *macbuf)
        Qidx++;
     } else {
         FreePages (Buffer, 1);
-        DEBUG ((EFI_D_ERROR, "Invalid char for early ipv6 0x%x at %d\n",
+        DEBUG ((EFI_D_VERBOSE, "Invalid char for early ipv6 0x%x at %d\n",
               rawbuf[Pidx], Pidx));
         return EFI_INVALID_PARAMETER;
     }
@@ -134,7 +134,7 @@ GetEarlyEthInfoFromPartition (CHAR8 *ipv4buf, CHAR8 *ipv6buf, CHAR8 *macbuf)
   /* Extract mac address string */
   ++Pidx;
   Qidx = 0;
-  while (((CHAR8)rawbuf[Pidx] != EARLY_ADDR_TERMINATOR) && (Qidx < 18)) {
+  while (((CHAR8)rawbuf[Pidx] != EARLY_ADDR_TERMINATOR) && (Qidx < MAC_ADDR_LEN)) {
     if ((rawbuf[Pidx] == ':')
        || ((rawbuf[Pidx] > 47)
        && (rawbuf[Pidx] < 58))
@@ -148,7 +148,7 @@ GetEarlyEthInfoFromPartition (CHAR8 *ipv4buf, CHAR8 *ipv6buf, CHAR8 *macbuf)
        Qidx++;
     } else {
         FreePages (Buffer, 1);
-        DEBUG ((EFI_D_ERROR, "Invalid char for early mac 0x%x at %d\n",
+        DEBUG ((EFI_D_VERBOSE, "Invalid char for early mac 0x%x at %d\n",
               rawbuf[Pidx], Pidx));
         return EFI_INVALID_PARAMETER;
     }

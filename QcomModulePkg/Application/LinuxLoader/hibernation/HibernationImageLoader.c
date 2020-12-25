@@ -25,7 +25,7 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
-#if HIBERNATION_SUPPORT
+#if HIBERNATION_SUPPORT_INSECURE
 
 #include <Library/DeviceInfo.h>
 #include <Library/DrawUI.h>
@@ -1117,7 +1117,7 @@ void BootIntoHibernationImage(BootInfo *Info)
 	printf("Entrying Hibernation restore\n");
 
 	if (check_for_valid_header() < 0)
-		goto err;
+		return;
 
 	Status = LoadImageAndAuth (Info, TRUE);
 	if (Status != EFI_SUCCESS) {
