@@ -736,6 +736,10 @@ struct fdt_header *ufdt_apply_multi_overlay(struct fdt_header *main_fdt_header,
   i=1;
   overlay_tree = fdt_to_ufdt((void *)overlay_dt_list->address,
                              overlay_dt_list->size);
+
+  if(!overlay_tree)
+       return NULL;
+
   err = ufdt_overlay_apply(main_tree, overlay_tree, overlay_dt_list->size);
   ufdt_destruct(overlay_tree);
   if (err < 0) {
