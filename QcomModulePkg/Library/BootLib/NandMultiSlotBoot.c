@@ -140,7 +140,7 @@ ReadFromNandPartition (EFI_GUID *Ptype, VOID *Msg, UINT32 Size, UINT32 PageOffse
 
   BlkIo = HandleInfoList[0].BlkIo;
   MsgSize = ROUND_TO_PAGE (Size, BlkIo->Media->BlockSize - 1);
-  PartitionSize = GetPartitionSize (BlockIo);
+  PartitionSize = GetPartitionSize (BlkIo);
   if (!PartitionSize) {
     return EFI_BAD_BUFFER_SIZE;
   }
