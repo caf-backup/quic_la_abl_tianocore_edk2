@@ -33,12 +33,14 @@
 
 #include "UpdateDeviceTree.h"
 #include "AutoGen.h"
+#include "DisplayCtrl.h"
 #include <Library/UpdateDeviceTree.h>
 #include <Library/LocateDeviceTree.h>
 #include <Library/BootLinux.h>
 #include <Protocol/EFIChipInfoTypes.h>
 #include <Protocol/EFIDDRGetConfig.h>
 #include <Protocol/EFIRng.h>
+#include <Protocol/EFIDisplayPwr.h>
 #include <Library/PartialGoods.h>
 #include <Library/FdtRw.h>
 
@@ -144,6 +146,31 @@ GetRandomSeed (UINT64 *RandomSeed)
   return Status;
 }
 
+STATIC VOID
+DisableDisplay (VOID)
+{
+  EFI_STATUS                     Status           = EFI_SUCCESS;
+  EFI_DISPLAY_POWER_PROTOCOL    *pDispPwrProtocol = NULL;
+
+  Status = gBS->LocateProtocol (&gEfiDisplayPowerStateProtocolGuid,
+                                NULL,
+                                (VOID **)&pDispPwrProtocol);
+
+  if ((EFI_SUCCESS != Status) ||
+      (NULL        == pDispPwrProtocol)) {
+    DEBUG ((EFI_D_ERROR,
+           "ERROR: Unable to get display power protocol,Status=%d\n", Status));
+  }
+  else {
+    Status = pDispPwrProtocol->SetDisplayPowerState (pDispPwrProtocol,
+                                                     EfiDisplayPowerStateOff);
+    if (EFI_SUCCESS != Status) {
+      DEBUG ((EFI_D_ERROR,
+             "ERROR: Fail to turn display off,Status=%d\n", Status));
+    }
+  }
+}
+
 STATIC EFI_STATUS
 UpdateSplashMemInfo (VOID *fdt)
 {
@@ -169,9 +196,19 @@ UpdateSplashMemInfo (VOID *fdt)
   /* Get offset of the splash memory reservation node */
   ret = FdtPathOffset (fdt, "/reserved-memory/splash_region");
   if (ret < 0) {
-    DEBUG ((EFI_D_ERROR, "ERROR: Could not get splash memory region node\n"));
+    DEBUG ((EFI_D_WARN, "Splash region not found in device tree, " \
+                        "powering down the display and controller\n"));
+
+    /*
+     * This function call leads to the following:
+     * 1) Turn off display power
+     * 2) Disable display clocks
+     * 3) Reset display TE/RST pin
+     */
+    DisableDisplay ();
     return EFI_NOT_FOUND;
   }
+
   offset = ret;
   DEBUG ((EFI_D_VERBOSE, "FB mem node name: %a\n",
           fdt_get_name (fdt, offset, NULL)));
@@ -771,6 +808,7 @@ OutofUpdateRankChannel:
 
   UpdateSplashMemInfo (fdt);
   UpdateDemuraInfo (fdt);
+  UpdatePLLCodesInfo (fdt);
 
   /* Get offset of the chosen node */
   ret = FdtPathOffset (fdt, "/chosen");
