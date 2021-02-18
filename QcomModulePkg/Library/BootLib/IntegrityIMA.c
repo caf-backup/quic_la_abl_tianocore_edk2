@@ -33,13 +33,17 @@
 #include <Library/Board.h>
 #include <Library/IntegrityIMA.h>
 
-VOID
-IMAoff (CHAR8 *IntegrityIMACmdlinePtr)
+STATIC VOID
+IMAEVMoff (CHAR8 *IntegrityIMAEVMCmdlinePtr)
 {
-	CHAR8 *IMAAppraiseOff = " ima_appraise=off";
+#if INTEGRITY_LE_EVM
+	CHAR8 *IMAEVMAppraiseOff = " ima_appraise=off evm=fix";
+#else
+	CHAR8 *IMAEVMAppraiseOff = " ima_appraise=off";
+#endif
 
-	AsciiStrnCpyS (IntegrityIMACmdlinePtr, IMA_CMDLINE_LEN,
-				IMAAppraiseOff, AsciiStrLen(IMAAppraiseOff));
+	AsciiStrnCpyS (IntegrityIMAEVMCmdlinePtr, IMA_CMDLINE_LEN,
+			IMAEVMAppraiseOff, AsciiStrLen(IMAEVMAppraiseOff));
 }
 
 /*
@@ -58,17 +62,17 @@ GetIntegrityIMACmdline (CHAR8 *IntegrityIMACmdlinePtr)
 
 	/* Check for sa515m (0x1a2 soc id) withsubtype 2 and minor as 100 */
 	if (0x1A2 != (BoardPlatformRawChipId () & 0x0000ffff)) {
-		return IMAoff (IntegrityIMACmdlinePtr);
+		return IMAEVMoff (IntegrityIMACmdlinePtr);
 	}
 	if (2 != BoardPlatformSubType ()) {
-		return IMAoff (IntegrityIMACmdlinePtr);
+		return IMAEVMoff (IntegrityIMACmdlinePtr);
 	}
 	if (100 != ((BoardTargetId () >> 8) & 0xFF)) {
-		return IMAoff (IntegrityIMACmdlinePtr);
+		return IMAEVMoff (IntegrityIMACmdlinePtr);
 	}
 
 	AsciiStrnCpyS (IntegrityIMACmdlinePtr, IMA_CMDLINE_LEN,
-					IMAAppraiseOn, AsciiStrLen(IMAAppraiseOn));
+			IMAAppraiseOn, AsciiStrLen(IMAAppraiseOn));
 }
 
 /*
