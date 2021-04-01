@@ -123,10 +123,10 @@ else
 endif
 
 # SECIMAGE_BASE : sectools folder path
-ifneq ($(wildcard vendor/qcom/proprietary/sectools),)
-   SECIMAGE_BASE := vendor/qcom/proprietary/sectools
+ifneq ($(wildcard $(QCPATH)/sectools),)
+   SECIMAGE_BASE := $(QCPATH)/sectools
 else
-   SECIMAGE_BASE := vendor/qcom/proprietary/common/scripts/SecImage
+   SECIMAGE_BASE := $(QCPATH)/common/scripts/SecImage
 endif
 
 ifeq ($(USE_SOC_HW_VERSION), true)
@@ -138,7 +138,7 @@ SIGN_ID := abl
 
 ifeq ($(USE_SOC_HW_VERSION), true)
   # XML_FILE : this file will be used for singing abl and it might be different for each target
-   ifeq ($(SECIMAGE_BASE), vendor/qcom/proprietary/sectools)
+   ifeq ($(SECIMAGE_BASE), $(QCPATH)/sectools)
       ifeq ($(call is-board-platform-in-list,lahaina holi),true)
         XML_FILE := secimage_eccv3.xml
       else
