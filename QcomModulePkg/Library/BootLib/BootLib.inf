@@ -69,6 +69,7 @@
 	HypervisorMvCalls.c
 	FdtRw.c
 	ThreadStack.c
+	EarlyEthernet.c
 
 [Packages]
 	ArmPkg/ArmPkg.dec
