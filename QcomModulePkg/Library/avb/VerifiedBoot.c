@@ -1384,12 +1384,22 @@ STATIC EFI_STATUS LoadImageAndAuthForLE (BootInfo *Info)
 
 skip_verification:
     if (!IsRootCmdLineUpdated (Info)) {
-        SystemPathLen = GetSystemPath (&SystemPath,
+        if(IsNADUBIEnable()) {
+            SystemPathLen = GetSystemPath (&SystemPath,
                                        Info->MultiSlotBoot,
-				       Info->FlashlessBoot,
+                                       Info->FlashlessBoot,
+                                       Info->BootIntoRecovery,
+                                       (CHAR16 *)L"nad_ubi",
+                                       (CHAR8 *)"root");
+        } else {
+            SystemPathLen = GetSystemPath (&SystemPath,
+                                       Info->MultiSlotBoot,
+                                       Info->FlashlessBoot,
                                        Info->BootIntoRecovery,
                                        (CHAR16 *)L"system",
                                        (CHAR8 *)"root");
+        }
+
         if (SystemPathLen == 0 ||
             SystemPath == NULL) {
             return EFI_LOAD_ERROR;

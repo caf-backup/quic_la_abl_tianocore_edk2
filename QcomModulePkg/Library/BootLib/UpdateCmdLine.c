@@ -3,7 +3,7 @@
  * Copyright (c) 2009, Google Inc.
  * All rights reserved.
  *
- * Copyright (c) 2009-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2021, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -42,6 +42,7 @@
 #include <Protocol/Print2.h>
 #include <Library/HypervisorMvCalls.h>
 #include <Library/EarlyUsbInit.h>
+#include <Library/NandMultiSlotBoot.h>
 
 #include "AutoGen.h"
 #include <DeviceInfo.h>
@@ -81,6 +82,10 @@ STATIC UINTN DisplayCmdLineLen = sizeof (DisplayCmdLine);
 #define MAX_DTBO_IDX_STR 64
 STATIC CHAR8 *AndroidBootDtboIdx = " androidboot.dtbo_idx=";
 STATIC CHAR8 *AndroidBootDtbIdx = " androidboot.dtb_idx=";
+
+/* recovery vol idx =  total num of partitions + rootfs + firmware + telaf + recoveryfs
+   42                      + 1      + 1        + 1     + 1           = 46 */
+#define RECOVERYFS_VOLUME_INDEX 46
 
 STATIC EFI_STATUS
 TargetPauseForBatteryCharge (BOOLEAN *BatteryStatus)
@@ -321,7 +326,7 @@ GetSystemPath (CHAR8 **SysPath, BOOLEAN MultiSlotBoot, BOOLEAN FlashlessBoot,
   }
 
   if (IsLEVariant () &&
-      BootIntoRecovery) {
+      BootIntoRecovery && !(IsRecoveryVolumeUsed())) {
     StrnCpyS (PartitionName, MAX_GPT_NAME_SIZE, (CONST CHAR16 *)L"recoveryfs",
               StrLen ((CONST CHAR16 *)L"recoveryfs"));
   } else {
@@ -330,7 +335,8 @@ GetSystemPath (CHAR8 **SysPath, BOOLEAN MultiSlotBoot, BOOLEAN FlashlessBoot,
   }
 
   /* Append slot info for A/B Variant */
-  if (MultiSlotBoot) {
+  if (MultiSlotBoot &&
+      !IsNandABAttrSupport ()) {
      CurSlot = GetCurrentSlotSuffix ();
      StrnCatS (PartitionName, MAX_GPT_NAME_SIZE, CurSlot.Suffix,
             StrLen (CurSlot.Suffix));
@@ -362,15 +368,37 @@ GetSystemPath (CHAR8 **SysPath, BOOLEAN MultiSlotBoot, BOOLEAN FlashlessBoot,
       // The gluebi device that is to be passed to "root=" will be the first one
       // after all "regular" mtd devices have been populated.
       UINT32 PartitionCount = 0;
+      UINT32 MtdBlkIndex = 0;
       GetPartitionCount (&PartitionCount);
+      if (BootIntoRecovery)
+         DEBUG ((EFI_D_ERROR, " booting to recovery \n"));
+      else
+         DEBUG ((EFI_D_ERROR, " booting normal mode \n"));
+      if (MultiSlotBoot &&
+         (StrnCmp ((CONST CHAR16 *)L"_b", CurSlot.Suffix,
+          StrLen (CurSlot.Suffix)) == 0))
+         MtdBlkIndex = PartitionCount;
+      else
+         MtdBlkIndex = PartitionCount - 1;
+
       if (IsDefinedMTDUbiBebLimit ()){
+         if(BootIntoRecovery && IsRecoveryVolumeUsed()){
+             MtdBlkIndex = RECOVERYFS_VOLUME_INDEX;
+             DEBUG ((EFI_D_ERROR, "set root = %d as  recoveryfs vol index \n", MtdBlkIndex));
+          } else {
+             DEBUG ((EFI_D_ERROR, "%d  = root index  \n", MtdBlkIndex));
+          }
           AsciiSPrint (*SysPath, MAX_PATH_SIZE,
                    " rootfstype=squashfs root=/dev/mtdblock%d ubi.mtd=%d,0,%d",
-                   (PartitionCount - 1), (Index - 1), MTD_UBI_BEB_LIMIT_PER1024);
+                   MtdBlkIndex, (Index - 1), MTD_UBI_BEB_LIMIT_PER1024);
       } else {
+         if(BootIntoRecovery && IsRecoveryVolumeUsed()){
+             MtdBlkIndex = RECOVERYFS_VOLUME_INDEX;
+             DEBUG ((EFI_D_ERROR, "%d set recoveryfs vol index else \n", MtdBlkIndex));
+         }
           AsciiSPrint (*SysPath, MAX_PATH_SIZE,
                    " rootfstype=squashfs root=/dev/mtdblock%d ubi.mtd=%d",
-                   (PartitionCount - 1), (Index - 1));
+                   MtdBlkIndex, (Index - 1));
 
       }
     } else if (IsDefinedMTDUbiBebLimit ()) {
