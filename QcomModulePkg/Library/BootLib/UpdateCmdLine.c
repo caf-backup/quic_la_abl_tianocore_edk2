@@ -3,7 +3,7 @@
  * Copyright (c) 2009, Google Inc.
  * All rights reserved.
  *
- * Copyright (c) 2009-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2021, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -83,6 +83,10 @@ STATIC UINTN DisplayCmdLineLen = sizeof (DisplayCmdLine);
 #define MAX_DTBO_IDX_STR 64
 STATIC CHAR8 *AndroidBootDtboIdx = " androidboot.dtbo_idx=";
 STATIC CHAR8 *AndroidBootDtbIdx = " androidboot.dtb_idx=";
+
+/* recovery vol idx =  total num of partitions + rootfs + firmware + telaf + recoveryfs
+   42                      + 1      + 1        + 1     + 1           = 46 */
+#define RECOVERYFS_VOLUME_INDEX 46
 
 STATIC EFI_STATUS
 TargetPauseForBatteryCharge (BOOLEAN *BatteryStatus)
@@ -323,7 +327,7 @@ GetSystemPath (CHAR8 **SysPath, BOOLEAN MultiSlotBoot, BOOLEAN FlashlessBoot,
   }
 
   if (IsLEVariant () &&
-      BootIntoRecovery) {
+      BootIntoRecovery && !(IsRecoveryVolumeUsed())) {
     StrnCpyS (PartitionName, MAX_GPT_NAME_SIZE, (CONST CHAR16 *)L"recoveryfs",
               StrLen ((CONST CHAR16 *)L"recoveryfs"));
   } else {
@@ -368,6 +372,10 @@ GetSystemPath (CHAR8 **SysPath, BOOLEAN MultiSlotBoot, BOOLEAN FlashlessBoot,
       UINT32 MtdBlkIndex = 0;
       GetPartitionCount (&PartitionCount);
       CurSlot = GetCurrentSlotSuffix ();
+      if (BootIntoRecovery)
+         DEBUG ((EFI_D_ERROR, " booting to recovery \n"));
+      else
+         DEBUG ((EFI_D_ERROR, " booting normal mode \n"));
       if (MultiSlotBoot &&
          (StrnCmp ((CONST CHAR16 *)L"_b", CurSlot.Suffix,
           StrLen (CurSlot.Suffix)) == 0))
@@ -375,9 +383,26 @@ GetSystemPath (CHAR8 **SysPath, BOOLEAN MultiSlotBoot, BOOLEAN FlashlessBoot,
       else
          MtdBlkIndex = PartitionCount - 1;
 
-      AsciiSPrint (*SysPath, MAX_PATH_SIZE,
+      if (IsDefinedMTDUbiBebLimit ()){
+         if(BootIntoRecovery && IsRecoveryVolumeUsed()){
+             MtdBlkIndex = RECOVERYFS_VOLUME_INDEX;
+             DEBUG ((EFI_D_ERROR, "set root = %d as  recoveryfs vol index \n", MtdBlkIndex));
+          } else {
+             DEBUG ((EFI_D_ERROR, "%d  = root index  \n", MtdBlkIndex));
+          }
+          AsciiSPrint (*SysPath, MAX_PATH_SIZE,
+                   " rootfstype=squashfs root=/dev/mtdblock%d ubi.mtd=%d,0,%d",
+                   MtdBlkIndex, (Index - 1), MTD_UBI_BEB_LIMIT_PER1024);
+      } else {
+         if(BootIntoRecovery && IsRecoveryVolumeUsed()){
+             MtdBlkIndex = RECOVERYFS_VOLUME_INDEX;
+             DEBUG ((EFI_D_ERROR, "%d set recoveryfs vol index else \n", MtdBlkIndex));
+         }
+          AsciiSPrint (*SysPath, MAX_PATH_SIZE,
                    " rootfstype=squashfs root=/dev/mtdblock%d ubi.mtd=%d",
                    MtdBlkIndex, (Index - 1));
+
+      }
     } else if (IsDefinedMTDUbiBebLimit ()) {
       /* Attach MTD device (Index - 1) using default VID header offset and
        * reserve MTD_UBI_BEB_LIMIT_PER1024*nand_size_in_blocks/1024 erase blocks

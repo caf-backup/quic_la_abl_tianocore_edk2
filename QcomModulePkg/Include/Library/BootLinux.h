@@ -213,6 +213,8 @@ BOOLEAN IsABRetryCountDisabled (VOID);
 BOOLEAN IsDynamicPartitionSupport (VOID);
 UINT64 SetandGetLoadAddr (BootParamlist *BootParamlistPtr, AddrType Type);
 BOOLEAN IsNANDSquashFsSupport (VOID);
+BOOLEAN IsNADUBIEnable (VOID);
+BOOLEAN IsRecoveryVolumeUsed (VOID);
 BOOLEAN IsDefinedMTDUbiBebLimit (VOID);
 BOOLEAN IsHibernationEnabled (VOID);
 #endif
