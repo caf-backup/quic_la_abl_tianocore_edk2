@@ -24,7 +24,7 @@ MAKEPATH=$(ANDROID_TOP)/prebuilts/build-tools/linux-x86/bin/
   endif
 endif
 
-SECTOOLSV2_BIN=vendor/qcom/proprietary/sectools/Linux/sectools
+SECTOOLSV2_BIN=$(QCPATH)/sectools/Linux/sectools
 
 # Use host tools from prebuilts. Partner should determine the correct host tools to use
 PREBUILT_HOST_TOOLS := BUILD_CC=$(ANDROID_TOP)/$(CLANG)\ \
@@ -99,7 +99,7 @@ else
         VIRTUAL_AB_OTA := VIRTUAL_AB_OTA=0
 endif
 
-ifeq ($(BOARD_USES_RECOVERY_AS_BOOT),true)
+ifneq (,$(filter true,$(BOARD_USES_RECOVERY_AS_BOOT) $(BOARD_MOVE_RECOVERY_RESOURCES_TO_VENDOR_BOOT)))
 	BUILD_USES_RECOVERY_AS_BOOT := BUILD_USES_RECOVERY_AS_BOOT=1
 else
 	BUILD_USES_RECOVERY_AS_BOOT := BUILD_USES_RECOVERY_AS_BOOT=0
