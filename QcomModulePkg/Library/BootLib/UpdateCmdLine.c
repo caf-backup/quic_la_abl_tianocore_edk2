@@ -523,6 +523,11 @@ UpdateCmdLineParams (UpdateCmdLineParamList *Param,
     AsciiStrCatS (Dst, MaxCmdLineLen, Src);
   }
 
+  if (Param->EarlyServicesCmdLine) {
+    Src = Param->EarlyServicesCmdLine;
+    AsciiStrCatS (Dst, MaxCmdLineLen, Src);
+  }
+
   if (EarlyUsbInitEnabled ()) {
     Src = Param->UsbCompCmdLine;
     AsciiStrCatS (Dst, MaxCmdLineLen, Src);
@@ -561,6 +566,7 @@ UpdateCmdLine (CONST CHAR8 *CmdLine,
   CHAR8 *LEVerityCmdLine = NULL;
   UINT32 LEVerityCmdLineLen = 0;
   CHAR8 UsbCompositionCmdline[COMPOSITION_CMDLINE_LEN]= "\0";
+  CHAR8 *EarlyServicesStr = NULL;
 
   Status = BoardSerialNum (StrSerialNum, sizeof (StrSerialNum));
   if (Status != EFI_SUCCESS) {
@@ -678,6 +684,14 @@ UpdateCmdLine (CONST CHAR8 *CmdLine,
   GetDisplayCmdline ();
   CmdLineLen += AsciiStrLen (DisplayCmdLine);
 
+  if (EarlyServicesEnabled ()) {
+    CmdLineLen += GetSystemPath (&EarlyServicesStr,
+				MultiSlotBoot,
+                                  Recovery,
+                                  (CHAR16 *)L"early_services",
+                                  (CHAR8 *)"early_userspace");
+  }
+
   if (!IsLEVariant ()) {
     DtboIdx = GetDtboIdx ();
     if (DtboIdx != INVALID_PTN) {
@@ -739,6 +753,7 @@ UpdateCmdLine (CONST CHAR8 *CmdLine,
   Param.DtbIdxStr = DtbIdxStr;
   Param.LEVerityCmdLine = LEVerityCmdLine;
   Param.CvmSystemPtnCmdLine = CvmSystemPtnCmdLine;
+  Param.EarlyServicesCmdLine = EarlyServicesStr;
 
   if (EarlyUsbInitEnabled ()) {
     Param.UsbCompCmdLine = UsbCompositionCmdline;

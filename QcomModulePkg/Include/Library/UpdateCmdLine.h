@@ -81,6 +81,7 @@ typedef struct UpdateCmdLineParamList {
   CHAR8 *LEVerityCmdLine;
   CHAR8 *CvmSystemPtnCmdLine;
   CHAR8 *UsbCompCmdLine;
+  CHAR8 *EarlyServicesCmdLine;
 } UpdateCmdLineParamList;
 
 EFI_STATUS
