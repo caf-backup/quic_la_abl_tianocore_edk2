@@ -943,7 +943,7 @@ out:
   return ret;
 }
 
-#define NUM_GUIDS 3
+#define NUM_GUIDS 4
 
 /* Substitutes all variables (e.g. $(ANDROID_SYSTEM_PARTUUID)) with
  * values. Returns NULL on OOM, otherwise the cmdline with values
@@ -953,10 +953,11 @@ static char* sub_cmdline(AvbOps* ops,
                          const char* cmdline,
                          const char* ab_suffix,
                          bool using_boot_for_vbmeta) {
-  const char* part_name_str[NUM_GUIDS] = {"system", "boot", "vbmeta"};
+  const char* part_name_str[NUM_GUIDS] = {"system", "boot", "vbmeta","early_services"};
   const char* replace_str[NUM_GUIDS] = {"$(ANDROID_SYSTEM_PARTUUID)",
                                         "$(ANDROID_BOOT_PARTUUID)",
-                                        "$(ANDROID_VBMETA_PARTUUID)"};
+                                        "$(ANDROID_VBMETA_PARTUUID)",
+                                        "$(ANDROID_EARLY_SERVICES_PARTUUID)"};
   char* ret = NULL;
   AvbIOResult io_ret;
 
@@ -1010,7 +1011,6 @@ static char* sub_cmdline(AvbOps* ops,
       goto fail;
     }
   }
-
   return ret;
 
 fail:

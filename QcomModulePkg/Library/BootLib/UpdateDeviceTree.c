@@ -597,6 +597,11 @@ UpdateDeviceTree (VOID *fdt,
     DEBUG ((EFI_D_ERROR, "Removing the ODM partition from DT.\n"));
     UpdateVbmetaNode (fdt, "odm", NULL);
   }
+  /*Update Early Services to parts*/
+  if (EarlyServicesEnabled()) {
+    UpdateVbmetaNode (fdt, "dtbo","dtbo,early_services");
+  }
+
   /* Update fstab node */
   DEBUG ((EFI_D_VERBOSE, "Start DT fstab node update: %lu ms\n",
           GetTimerCountms ()));
