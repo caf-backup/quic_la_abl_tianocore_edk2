@@ -1,4 +1,4 @@
-/* Copyright (c) 2020 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2020-2021 The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -140,7 +140,11 @@ ReadFromNandPartition (EFI_GUID *Ptype, VOID *Msg, UINT32 Size, UINT32 PageOffse
 
   BlkIo = HandleInfoList[0].BlkIo;
   MsgSize = ROUND_TO_PAGE (Size, BlkIo->Media->BlockSize - 1);
-  PartitionSize = (BlkIo->Media->LastBlock + 1) * BlkIo->Media->BlockSize;
+  PartitionSize = GetPartitionSize (BlkIo);
+  if (!PartitionSize) {
+    return EFI_BAD_BUFFER_SIZE;
+  }
+
   if (MsgSize > PartitionSize) {
     return EFI_OUT_OF_RESOURCES;
   }

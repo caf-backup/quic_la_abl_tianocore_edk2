@@ -367,6 +367,7 @@ GetSystemPath (CHAR8 **SysPath, BOOLEAN MultiSlotBoot, BOOLEAN FlashlessBoot,
       UINT32 PartitionCount = 0;
       UINT32 MtdBlkIndex = 0;
       GetPartitionCount (&PartitionCount);
+      CurSlot = GetCurrentSlotSuffix ();
       if (MultiSlotBoot &&
          (StrnCmp ((CONST CHAR16 *)L"_b", CurSlot.Suffix,
           StrLen (CurSlot.Suffix)) == 0))

@@ -5715,26 +5715,45 @@ typedef struct {
 
 #define CEML_HASH_DIGEST_SIZE_SHA256 32
 
-/* New debug policy structure defined in TZ */
-typedef struct {
-  UINT32 magic;    /* Version of Debug Policy */
-  UINT32 size;     /* Fixed size debug policy*/
-  UINT32 revision; /* Revision of the debug policy*/
-  struct {
-    UINT64 enable_online_crash_dumps : 1;
-    UINT64 enable_offline_crash_dumps : 1;
-    UINT64 enable_jtag : 1;
-    UINT64 enable_logs : 1;
-    UINT64 reserved_bits : 44;     // reserved for QCT, must be 0
-    UINT64 oem_reserved_bits : 16; // reserved for OEM
-  } flags;
-  UINT32 image_id_bitmap;      /* Image ID Bit Map */
-  UINT32 root_cert_hash_count; /* Root Cert Hash Count */
-  UINT8 root_cert_hash_array[SEC_DBG_CERT_ARRAY_SIZE]
-                            [CEML_HASH_DIGEST_SIZE_SHA256]; /* Hash Array*/
-  UINT32 serial_num_count; /* Serial Number Count */
-  UINT32 serial_num_array[SEC_DBG_SERIAL_NUM_MAX_COUNT]; /* Serial Numbers */
-} __attribute__ ((packed)) sec_dbg_t;
+#define CEML_HASH_DIGEST_SIZE_SHA384 48
+
+#define SECBOOT_OTP_ROOT_OF_TRUST_BYTE_SIZE CEML_HASH_DIGEST_SIZE_SHA384
+
+typedef struct __attribute__((__packed__))
+{
+    uint32_t magic; /* Version of Debug Policy */
+    uint32_t size;  /* Fixed size debug policy*/
+    uint32_t revision; /* Revision of the debug policy*/
+    struct {
+            uint32_t enable_online_crash_dumps          :  1;
+            uint32_t enable_offline_crash_dumps         :  1;
+            uint32_t enable_jtag                        :  1;
+            uint32_t enable_logs                        :  1;
+            uint32_t enable_modem_inv_debug             :  1;
+            uint32_t enable_modem_ninv_debug            :  1;
+            uint32_t enable_apps_inv_debug              :  1;
+            uint32_t enable_debug_level_bit0            :  1;
+            uint32_t enable_debug_level_bit1            :  1;
+            uint32_t reserved_bits_with_serialnum       : 15; // reserved for QCT, must be 0
+            uint32_t enable_nonsecure_crash_dumps       :  1;
+            uint32_t enable_apps_encrypted_mini_dumps   :  1;
+            uint32_t enable_mpss_encrypted_mini_dumps   :  1;
+            uint32_t enable_lpass_encrypted_mini_dumps  :  1;
+            uint32_t enable_css_encrypted_mini_dumps    :  1;
+            uint32_t enable_adsp_encrypted_mini_dumps   :  1;
+            uint32_t enable_cdsp_encrypted_mini_dumps   :  1;
+            uint32_t enable_wlan_encrypted_mini_dumps   :  1;
+            uint32_t reserved_bits_without_serialnum    : 16; // reserved for QCT, must be 0
+            uint32_t oem_reserved_bits                  : 16; // reserved for OEM
+    } flags;
+    uint32_t image_id_bitmap; /* Image ID Bit Map */
+    uint32_t root_cert_hash_count; /* Root Cert Hash Count */
+    uint8_t  root_cert_hash_array[SEC_DBG_CERT_ARRAY_SIZE][SECBOOT_OTP_ROOT_OF_TRUST_BYTE_SIZE]; /* Hash Array*/
+    uint32_t serial_num_count; /* Serial Number Count */
+    uint32_t serial_num_array[SEC_DBG_SERIAL_NUM_MAX_COUNT]; /* Serial Numbers */
+    uint32_t root_cert_hash_count_qc; /* Root Cert Hash Count */
+    uint8_t  root_cert_hash_array_qc[SEC_DBG_CERT_ARRAY_SIZE][SECBOOT_OTP_ROOT_OF_TRUST_BYTE_SIZE]; /* Hash Array*/
+}sec_dbg_t;
 
 /**
    @weakgroup weak_tz_read_debug_policy_content_req_s
