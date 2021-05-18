@@ -54,9 +54,8 @@
 
 #define USB_BUFFER_SIZE \
   (IsLEVariant () \
-   && (CheckRootDeviceType () == NAND \
-       || CheckRootDeviceType () == EMMC) ? \
-   (1024 * 1024 * 4) : (1024 * 1024 * 16))
+   && CheckRootDeviceType () == NAND ? \
+   (1024 * 1024 * 8) : (1024 * 1024 * 16))
 
 #define VERSION_STR_LEN 96
 #define FASTBOOT_STRING_MAX_LENGTH 256
@@ -83,9 +82,8 @@
 /* Divide allocatable free memory by 3/4ths or 85/100ths */
 #define EFI_FREE_MEM_DIVISOR(BYTES) \
   (IsLEVariant () \
-   && (CheckRootDeviceType () == NAND \
-       || CheckRootDeviceType () == EMMC) ? \
-   (((BYTES) * 90) / 100) : (((BYTES) * 3) / 4))
+   && CheckRootDeviceType () == NAND ? \
+   (((BYTES) * 85) / 100) : (((BYTES) * 3) / 4))
 
 /* 64MB */
 #define MIN_BUFFER_SIZE (67108864)
