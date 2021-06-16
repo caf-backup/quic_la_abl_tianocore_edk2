@@ -377,7 +377,7 @@ GetSystemPath (CHAR8 **SysPath, BOOLEAN MultiSlotBoot, BOOLEAN FlashlessBoot,
          DEBUG ((EFI_D_ERROR, " booting normal mode \n"));
       if (MultiSlotBoot &&
          (StrnCmp ((CONST CHAR16 *)L"_b", CurSlot.Suffix,
-          StrLen (CurSlot.Suffix)) == 0))
+          StrLen (CurSlot.Suffix)) == 0) && !IsRecoveryVolumeUsed())
          MtdBlkIndex = PartitionCount;
       else
          MtdBlkIndex = PartitionCount - 1;
