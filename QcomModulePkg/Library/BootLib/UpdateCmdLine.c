@@ -383,6 +383,82 @@ GetSystemPath (CHAR8 **SysPath, BootInfo *Info)
   return AsciiStrLen (*SysPath);
 }
 
+/*
+ * Returns length = 0 when there is failure.
+ */
+UINT32
+GetSystemPathByPname (CHAR8 **SysPath, BOOLEAN MultiSlotBoot, BOOLEAN BootIntoRecovery,
+                      CHAR16 *ReqPartition, CHAR8 *Key)
+{
+  INT32 Index;
+  UINT32 Lun;
+  CHAR16 PartitionName[MAX_GPT_NAME_SIZE];
+  Slot CurSlot = GetCurrentSlotSuffix ();
+  CHAR8 LunCharMapping[] = {'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'};
+  CHAR8 RootDevStr[BOOT_DEV_NAME_SIZE_MAX];
+
+  *SysPath = AllocateZeroPool (sizeof (CHAR8) * MAX_PATH_SIZE);
+  if (!*SysPath) {
+    DEBUG ((EFI_D_ERROR, "GetSystemPathByPname: Failed to allocated memory System path query\n"));
+    return 0;
+  }
+
+  if (ReqPartition == NULL ||
+      Key == NULL) {
+     DEBUG ((EFI_D_ERROR, "GetSystemPathByPname: Invalid parameters: NULL\n"));
+     FreePool(*SysPath);
+     *SysPath = NULL;
+     return 0;
+  }
+
+  if (IsLEVariant () &&
+       BootIntoRecovery) {
+     StrnCpyS (PartitionName, MAX_GPT_NAME_SIZE, (CONST CHAR16 *)L"recoveryfs",
+               StrLen ((CONST CHAR16 *)L"recoveryfs"));
+  } else {
+     StrnCpyS (PartitionName, MAX_GPT_NAME_SIZE, ReqPartition,
+               StrLen (ReqPartition));
+  }
+
+  /* Append slot info for A/B Variant */
+  if (MultiSlotBoot) {
+     StrnCatS (PartitionName, MAX_GPT_NAME_SIZE, CurSlot.Suffix,
+            StrLen (CurSlot.Suffix));
+  }
+
+  Index = GetPartitionIndex (PartitionName);
+  if (Index == INVALID_PTN || Index >= MAX_NUM_PARTITIONS) {
+    DEBUG ((EFI_D_ERROR, "GetSystemPathByPname: System partition does not exist\n"));
+    FreePool (*SysPath);
+    *SysPath = NULL;
+    return 0;
+  }
+
+  Lun = GetPartitionLunFromIndex (Index);
+  GetRootDeviceType (RootDevStr, BOOT_DEV_NAME_SIZE_MAX);
+  if (!AsciiStrCmp ("Unknown", RootDevStr)) {
+    FreePool (*SysPath);
+    *SysPath = NULL;
+    return 0;
+  }
+
+  if (!AsciiStrCmp ("EMMC", RootDevStr)) {
+    AsciiSPrint (*SysPath, MAX_PATH_SIZE, " %a=/dev/mmcblk0p%d", Key, Index);
+  } else if (!AsciiStrCmp ("UFS", RootDevStr)) {
+    AsciiSPrint (*SysPath, MAX_PATH_SIZE, " %a=/dev/sd%c%d",
+                 Key,
+                 LunCharMapping[Lun],
+                 GetPartitionIdxInLun (PartitionName, Lun));
+  } else {
+    DEBUG ((EFI_D_ERROR, "GetSystemPathByPname: Unknown Device type\n"));
+    FreePool (*SysPath);
+    *SysPath = NULL;
+    return 0;
+  }
+  DEBUG ((EFI_D_ERROR, "GetSystemPathByPname: System Path - %a \n", *SysPath));
+
+  return AsciiStrLen (*SysPath);
+}
 STATIC
 EFI_STATUS
 UpdateCmdLineParams (UpdateCmdLineParamList *Param,
@@ -554,6 +630,17 @@ UpdateCmdLineParams (UpdateCmdLineParamList *Param,
     Src = Param->EarlyEthMacCmdLine;
     AsciiStrCatS (Dst, MaxCmdLineLen, Src);
   }
+
+  if (Param->EarlyServicesCmdLine) {
+    Src = Param->EarlyServicesCmdLine;
+    AsciiStrCatS (Dst, MaxCmdLineLen, Src);
+  }
+
+  if (Param->ModemPathCmdLine) {
+    Src = Param->ModemPathCmdLine;
+    AsciiStrCatS (Dst, MaxCmdLineLen, Src);
+  }
+
   return EFI_SUCCESS;
 }
 
@@ -587,6 +674,8 @@ UpdateCmdLine (CONST CHAR8 *CmdLine,
   CHAR8 *LEVerityCmdLine = NULL;
   UINT32 LEVerityCmdLineLen = 0;
   CHAR8 RootDevStr[BOOT_DEV_NAME_SIZE_MAX];
+  CHAR8 *EarlyServicesStr = NULL;
+  CHAR8 *ModemPathStr = NULL;
 
   Status = BoardSerialNum (StrSerialNum, sizeof (StrSerialNum));
   if (Status != EFI_SUCCESS) {
@@ -707,7 +796,19 @@ UpdateCmdLine (CONST CHAR8 *CmdLine,
 
   GetDisplayCmdline ();
   CmdLineLen += AsciiStrLen (DisplayCmdLine);
+  if (EarlyServicesEnabled ()) {
+    CmdLineLen += GetSystemPathByPname(&EarlyServicesStr,
+                                        MultiSlotBoot,
+                                        Recovery,
+                                        (CHAR16 *)L"early_services",
+                                        (CHAR8 *)"early_userspace");
 
+    CmdLineLen += GetSystemPathByPname(&ModemPathStr,
+                                        MultiSlotBoot,
+                                        Recovery,
+                                        (CHAR16 *)L"modem",
+                                        (CHAR8 *)"modem");
+  }
   if (!IsLEVariant ()) {
     DtboIdx = GetDtboIdx ();
     if (DtboIdx != INVALID_PTN) {
@@ -786,6 +887,8 @@ UpdateCmdLine (CONST CHAR8 *CmdLine,
   Param.LEVerityCmdLine = LEVerityCmdLine;
   Param.HeaderVersion = HeaderVersion;
   Param.SystemdSlotEnv = SystemdSlotEnv;
+  Param.EarlyServicesCmdLine = EarlyServicesStr;
+  Param.ModemPathCmdLine = ModemPathStr;
 
   if (EarlyEthEnabled ()) {
     Param.EarlyIPv4CmdLine = IPv4AddrBufCmdLine;

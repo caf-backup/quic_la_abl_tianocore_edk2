@@ -149,6 +149,9 @@
   !if $(ENABLE_SYSTEMD_BOOTSLOT)
       GCC:*_*_*_CC_FLAGS = -DENABLE_SYSTEMD_BOOTSLOT
   !endif
+  !if $(TARGET_SUPPORTS_EARLY_INIT)
+      GCC:*_*_*_CC_FLAGS = -DENABLE_EARLY_SERVICES
+  !endif
 
 [PcdsFixedAtBuild.common]
 
