@@ -371,6 +371,7 @@ GetSystemPath (CHAR8 **SysPath, BOOLEAN MultiSlotBoot, BOOLEAN FlashlessBoot,
       UINT32 PartitionCount = 0;
       UINT32 MtdBlkIndex = 0;
       GetPartitionCount (&PartitionCount);
+      CurSlot = GetCurrentSlotSuffix ();
       if (BootIntoRecovery)
          DEBUG ((EFI_D_ERROR, " booting to recovery \n"));
       else
