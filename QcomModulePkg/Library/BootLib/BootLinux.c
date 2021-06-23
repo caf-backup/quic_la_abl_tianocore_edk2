@@ -39,6 +39,7 @@
 #include <Protocol/EFIMdtp.h>
 #include <Protocol/EFIScmModeSwitch.h>
 #include <libufdt_sysdeps.h>
+#include <Library/NandMultiSlotBoot.h>
 
 #include "AutoGen.h"
 #include "BootImage.h"
@@ -1071,12 +1072,19 @@ BootLinux (BootInfo *Info)
   }
 
 skip_FfbmStr:
-  Status = GetImage (Info,
-                     &BootParamlistPtr.ImageBuffer,
-                     (UINTN *)&BootParamlistPtr.ImageSize,
-                     ((!Info->MultiSlotBoot ||
-                        IsDynamicPartitionSupport ()) &&
-                        Recovery)? "recovery" : "boot");
+  if(IsNADUBIEnable()) {
+       Status = GetImage (Info,
+                          &BootParamlistPtr.ImageBuffer,
+                          (UINTN *)&BootParamlistPtr.ImageSize,
+                           "boot");
+  } else {
+       Status = GetImage (Info,
+                          &BootParamlistPtr.ImageBuffer,
+                          (UINTN *)&BootParamlistPtr.ImageSize,
+                          ((!Info->MultiSlotBoot ||
+                             IsDynamicPartitionSupport ()) &&
+                             Recovery)? "recovery" : "boot");
+  }
   if (Status != EFI_SUCCESS ||
       BootParamlistPtr.ImageBuffer == NULL ||
       BootParamlistPtr.ImageSize <= 0) {
@@ -1717,6 +1725,37 @@ BOOLEAN IsNANDSquashFsSupport (VOID)
 }
 #else
 BOOLEAN IsNANDSquashFsSupport (VOID)
+{
+  return FALSE;
+}
+#endif
+
+#if NAD_PARTITION
+BOOLEAN IsRecoveryVolumeUsed (VOID)
+{
+   INT32 Index = INVALID_PTN;
+   Index = GetPartitionIndex ((CHAR16 *)L"misc");
+   if (Index == INVALID_PTN) {
+      DEBUG ((EFI_D_INFO, "IsRecoveryVolumeUsed: FALSE \n"));
+      return FALSE;
+   } else {
+      DEBUG ((EFI_D_INFO, "IsRecoveryVolumeUsed: TRUE \n"));
+      return TRUE;
+   }
+}
+
+BOOLEAN IsNADUBIEnable (VOID)
+{
+  return TRUE;
+}
+#else
+BOOLEAN IsRecoveryVolumeUsed (VOID)
+{
+  DEBUG ((EFI_D_INFO, "IsRecoveryVolumeUsed: FALSE\n"));
+  return FALSE;
+}
+
+BOOLEAN IsNADUBIEnable (VOID)
 {
   return FALSE;
 }
