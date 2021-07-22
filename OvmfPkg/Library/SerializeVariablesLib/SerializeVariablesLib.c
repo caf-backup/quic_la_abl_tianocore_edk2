@@ -2,7 +2,13 @@
   Serialize Variables Library implementation
 
   Copyright (c) 2004 - 2011, Intel Corporation. All rights reserved.<BR>
-  SPDX-License-Identifier: BSD-2-Clause-Patent
+  This program and the accompanying materials
+  are licensed and made available under the terms and conditions of the BSD License
+  which accompanies this distribution.  The full text of the license may be found at
+  http://opensource.org/licenses/bsd-license.php
+
+  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
@@ -294,11 +300,6 @@ IterateVariablesCallbackSetSystemVariable (
   if (Status == EFI_SECURITY_VIOLATION && (Attributes & AuthMask) != 0) {
     DEBUG ((DEBUG_WARN, "%a: setting authenticated variable \"%s\" "
             "failed with EFI_SECURITY_VIOLATION, ignoring\n", __FUNCTION__,
-            VariableName));
-    Status = EFI_SUCCESS;
-  } else if (Status == EFI_WRITE_PROTECTED) {
-    DEBUG ((DEBUG_WARN, "%a: setting ReadOnly variable \"%s\" "
-            "failed with EFI_WRITE_PROTECTED, ignoring\n", __FUNCTION__,
             VariableName));
     Status = EFI_SUCCESS;
   }

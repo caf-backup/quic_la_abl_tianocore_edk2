@@ -1,29 +1,37 @@
 /** @file
   Locate the entry point for the PEI Core
 
-  Copyright (c) 2008 - 2019, Intel Corporation. All rights reserved.<BR>
-  SPDX-License-Identifier: BSD-2-Clause-Patent
+  Copyright (c) 2008 - 2011, Intel Corporation. All rights reserved.<BR>
+  This program and the accompanying materials
+  are licensed and made available under the terms and conditions of the BSD License
+  which accompanies this distribution.  The full text of the license may be found at
+  http://opensource.org/licenses/bsd-license.php
+
+  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
 #include <PiPei.h>
+#include <Library/BaseLib.h>
+#include <Library/PeCoffGetEntryPointLib.h>
 
 #include "SecMain.h"
 
 /**
   Find core image base.
 
-  @param   FirmwareVolumePtr        Point to the firmware volume for finding core image.
-  @param   FileType                 The FileType for searching, either SecCore or PeiCore.
-  @param   CoreImageBase            The base address of the core image.
+  @param   BootFirmwareVolumePtr    Point to the boot firmware volume.
+  @param   SecCoreImageBase         The base address of the SEC core image.
+  @param   PeiCoreImageBase         The base address of the PEI core image.
 
 **/
 EFI_STATUS
 EFIAPI
 FindImageBase (
-  IN  EFI_FIRMWARE_VOLUME_HEADER       *FirmwareVolumePtr,
-  IN  EFI_FV_FILETYPE                  FileType,
-  OUT EFI_PHYSICAL_ADDRESS             *CoreImageBase
+  IN  EFI_FIRMWARE_VOLUME_HEADER       *BootFirmwareVolumePtr,
+  OUT EFI_PHYSICAL_ADDRESS             *SecCoreImageBase,
+  OUT EFI_PHYSICAL_ADDRESS             *PeiCoreImageBase
   )
 {
   EFI_PHYSICAL_ADDRESS        CurrentAddress;
@@ -34,15 +42,16 @@ FindImageBase (
   EFI_COMMON_SECTION_HEADER   *Section;
   EFI_PHYSICAL_ADDRESS        EndOfSection;
 
-  *CoreImageBase = 0;
+  *SecCoreImageBase = 0;
+  *PeiCoreImageBase = 0;
 
-  CurrentAddress = (EFI_PHYSICAL_ADDRESS)(UINTN) FirmwareVolumePtr;
-  EndOfFirmwareVolume = CurrentAddress + FirmwareVolumePtr->FvLength;
+  CurrentAddress = (EFI_PHYSICAL_ADDRESS)(UINTN) BootFirmwareVolumePtr;
+  EndOfFirmwareVolume = CurrentAddress + BootFirmwareVolumePtr->FvLength;
 
   //
   // Loop through the FFS files in the Boot Firmware Volume
   //
-  for (EndOfFile = CurrentAddress + FirmwareVolumePtr->HeaderLength; ; ) {
+  for (EndOfFile = CurrentAddress + BootFirmwareVolumePtr->HeaderLength; ; ) {
 
     CurrentAddress = (EndOfFile + 7) & 0xfffffffffffffff8ULL;
     if (CurrentAddress > EndOfFirmwareVolume) {
@@ -68,9 +77,10 @@ FindImageBase (
     }
 
     //
-    // Look for particular Core file (either SEC Core or PEI Core)
+    // Look for SEC Core / PEI Core files
     //
-    if (File->Type != FileType) {
+    if (File->Type != EFI_FV_FILETYPE_SECURITY_CORE &&
+        File->Type != EFI_FV_FILETYPE_PEI_CORE) {
       continue;
     }
 
@@ -107,11 +117,17 @@ FindImageBase (
       // Look for executable sections
       //
       if (Section->Type == EFI_SECTION_PE32 || Section->Type == EFI_SECTION_TE) {
-        if (File->Type == FileType) {
+        if (File->Type == EFI_FV_FILETYPE_SECURITY_CORE) {
           if (IS_SECTION2 (Section)) {
-            *CoreImageBase = (PHYSICAL_ADDRESS) (UINTN) ((UINT8 *) Section + sizeof (EFI_COMMON_SECTION_HEADER2));
+            *SecCoreImageBase = (PHYSICAL_ADDRESS) (UINTN) ((UINT8 *) Section + sizeof (EFI_COMMON_SECTION_HEADER2));
           } else {
-            *CoreImageBase = (PHYSICAL_ADDRESS) (UINTN) ((UINT8 *) Section + sizeof (EFI_COMMON_SECTION_HEADER));
+            *SecCoreImageBase = (PHYSICAL_ADDRESS) (UINTN) ((UINT8 *) Section + sizeof (EFI_COMMON_SECTION_HEADER));
+          }
+        } else {
+          if (IS_SECTION2 (Section)) {
+            *PeiCoreImageBase = (PHYSICAL_ADDRESS) (UINTN) ((UINT8 *) Section + sizeof (EFI_COMMON_SECTION_HEADER2));
+          } else {
+            *PeiCoreImageBase = (PHYSICAL_ADDRESS) (UINTN) ((UINT8 *) Section + sizeof (EFI_COMMON_SECTION_HEADER));
           }
         }
         break;
@@ -119,9 +135,9 @@ FindImageBase (
     }
 
     //
-    // Either SEC Core or PEI Core images found
+    // Both SEC Core and PEI Core images found
     //
-    if (*CoreImageBase != 0) {
+    if (*SecCoreImageBase != 0 && *PeiCoreImageBase != 0) {
       return EFI_SUCCESS;
     }
   }
@@ -133,16 +149,14 @@ FindImageBase (
   It also find SEC and PEI Core file debug information. It will report them if
   remote debug is enabled.
 
-  @param   SecCoreFirmwareVolumePtr Point to the firmware volume for finding SecCore.
-  @param   PeiCoreFirmwareVolumePtr Point to the firmware volume for finding PeiCore.
+  @param   BootFirmwareVolumePtr    Point to the boot firmware volume.
   @param   PeiCoreEntryPoint        The entry point of the PEI core.
 
 **/
 VOID
 EFIAPI
 FindAndReportEntryPoints (
-  IN  EFI_FIRMWARE_VOLUME_HEADER       *SecCoreFirmwareVolumePtr,
-  IN  EFI_FIRMWARE_VOLUME_HEADER       *PeiCoreFirmwareVolumePtr,
+  IN  EFI_FIRMWARE_VOLUME_HEADER       *BootFirmwareVolumePtr,
   OUT EFI_PEI_CORE_ENTRY_POINT         *PeiCoreEntryPoint
   )
 {
@@ -152,9 +166,9 @@ FindAndReportEntryPoints (
   PE_COFF_LOADER_IMAGE_CONTEXT     ImageContext;
 
   //
-  // Find SEC Core image base
+  // Find SEC Core and PEI Core image base
   //
-  Status = FindImageBase (SecCoreFirmwareVolumePtr, EFI_FV_FILETYPE_SECURITY_CORE, &SecCoreImageBase);
+  Status = FindImageBase (BootFirmwareVolumePtr, &SecCoreImageBase, &PeiCoreImageBase);
   ASSERT_EFI_ERROR (Status);
 
   ZeroMem ((VOID *) &ImageContext, sizeof (PE_COFF_LOADER_IMAGE_CONTEXT));
@@ -164,12 +178,6 @@ FindAndReportEntryPoints (
   ImageContext.ImageAddress = SecCoreImageBase;
   ImageContext.PdbPointer = PeCoffLoaderGetPdbPointer ((VOID*) (UINTN) ImageContext.ImageAddress);
   PeCoffLoaderRelocateImageExtraAction (&ImageContext);
-
-  //
-  // Find PEI Core image base
-  //
-  Status = FindImageBase (PeiCoreFirmwareVolumePtr, EFI_FV_FILETYPE_PEI_CORE, &PeiCoreImageBase);
-  ASSERT_EFI_ERROR (Status);
 
   //
   // Report PEI Core debug information when remote debug is enabled

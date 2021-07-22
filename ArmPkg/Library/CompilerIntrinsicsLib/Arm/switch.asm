@@ -2,16 +2,23 @@
 //
 // Copyright (c) 2008 - 2009, Apple Inc. All rights reserved.<BR>
 //
-// SPDX-License-Identifier: BSD-2-Clause-Patent
+// This program and the accompanying materials
+// are licensed and made available under the terms and conditions of the BSD License
+// which accompanies this distribution.  The full text of the license may be found at
+// http://opensource.org/licenses/bsd-license.php
+//
+// THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+// WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 //
 //------------------------------------------------------------------------------
 
 
 
+    EXPORT  __ARM_switch8
 
-    INCLUDE AsmMacroExport.inc
+    AREA  ArmSwitch, CODE, READONLY
 
- RVCT_ASM_EXPORT __ARM_switch8
+__ARM_switch8
   LDRB    r12,[lr,#-1]
   CMP      r3,r12
   LDRBCC  r3,[lr,r3]

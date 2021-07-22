@@ -1,9 +1,15 @@
 /** @file
   Support functions declaration for UefiPxeBc Driver.
 
-  Copyright (c) 2007 - 2018, Intel Corporation. All rights reserved.<BR>
+  Copyright (c) 2007 - 2014, Intel Corporation. All rights reserved.<BR>
 
-  SPDX-License-Identifier: BSD-2-Clause-Patent
+  This program and the accompanying materials
+  are licensed and made available under the terms and conditions of the BSD License
+  which accompanies this distribution.  The full text of the license may be found at
+  http://opensource.org/licenses/bsd-license.php.
+
+  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
@@ -21,7 +27,7 @@
 
 
 /**
-  Flush the previous configuration using the new station Ip address.
+  Flush the previous configration using the new station Ip address.
 
   @param[in]   Private        Pointer to PxeBc private data.
   @param[in]   StationIp      Pointer to the station Ip address.
@@ -34,7 +40,7 @@
 EFI_STATUS
 PxeBcFlushStationIp (
   PXEBC_PRIVATE_DATA       *Private,
-  EFI_IP_ADDRESS           *StationIp,     OPTIONAL
+  EFI_IP_ADDRESS           *StationIp,
   EFI_IP_ADDRESS           *SubnetMask     OPTIONAL
   );
 
@@ -59,7 +65,7 @@ PxeBcCommonNotify (
 
   @param  Mode           Pointer to EFI_PXE_BASE_CODE_MODE.
   @param  Ip4Addr        The Ip4 address for resolution.
-  @param  MacAddress     The resolved MAC address if the resolution is successful.
+  @param  MacAddress     The resoluted MAC address if the resolution is successful.
                          The value is undefined if resolution fails.
 
   @retval TRUE           Found a matched entry.
@@ -122,15 +128,13 @@ PxeBcIcmp6ErrorUpdate (
 /**
   This function is to configure a UDPv4 instance for UdpWrite.
 
-  @param[in]       Udp4                 The pointer to EFI_UDP4_PROTOCOL.
-  @param[in]       StationIp            The pointer to the station address.
-  @param[in]       SubnetMask           The pointer to the subnet mask.
-  @param[in]       Gateway              The pointer to the gateway address.
-  @param[in, out]  SrcPort              The pointer to the source port.
-  @param[in]       DoNotFragment        If TRUE, fragment is not enabled.
-                                        Otherwise, fragment is enabled.
-  @param[in]       Ttl                  The time to live field of the IP header.
-  @param[in]       ToS                  The type of service field of the IP header.
+  @param[in]       Udp4                 Pointer to EFI_UDP4_PROTOCOL.
+  @param[in]       StationIp            Pointer to the station address.
+  @param[in]       SubnetMask           Pointer to the subnet mask.
+  @param[in]       Gateway              Pointer to the gateway address.
+  @param[in, out]  SrcPort              Pointer to the source port.
+  @param[in]       DoNotFragment        The flag of DoNotFragment bit in the IPv4
+                                        packet.
 
   @retval          EFI_SUCCESS          Successfully configured this instance.
   @retval          Others               Failed to configure this instance.
@@ -143,9 +147,7 @@ PxeBcConfigUdp4Write (
   IN     EFI_IPv4_ADDRESS   *SubnetMask,
   IN     EFI_IPv4_ADDRESS   *Gateway,
   IN OUT UINT16             *SrcPort,
-  IN     BOOLEAN            DoNotFragment,
-  IN     UINT8              Ttl,
-  IN     UINT8              ToS
+  IN     BOOLEAN            DoNotFragment
   );
 
 
@@ -156,7 +158,7 @@ PxeBcConfigUdp4Write (
   @param[in]       StationIp            Pointer to the station address.
   @param[in, out]  SrcPort              Pointer to the source port.
 
-  @retval          EFI_SUCCESS          Successfully configured this instance.
+  @retval          EFI_SUCCESS          Successfuly configured this instance.
   @retval          Others               Failed to configure this instance.
 
 **/
@@ -234,7 +236,7 @@ PxeBcUdp6Write (
   @param[in]  Session             Pointer to the current UDPv4 session.
   @param[in]  OpFlags             Operation flag for UdpRead/UdpWrite.
 
-  @retval     TRUE                Successfully passed the Ip filter.
+  @retval     TRUE                Succesfully passed the Ip filter.
   @retval     FALSE               Failed to pass the Ip filter.
 
 **/
@@ -254,7 +256,7 @@ PxeBcCheckByIpFilter (
   @param[in, out]  DestIp         Pointer to the dest Ip address.
   @param[in]       OpFlags        Operation flag for UdpRead/UdpWrite.
 
-  @retval     TRUE                Successfully passed the IPv4 filter.
+  @retval     TRUE                Succesfully passed the IPv4 filter.
   @retval     FALSE               Failed to pass the IPv4 filter.
 
 **/
@@ -275,7 +277,7 @@ PxeBcCheckByDestIp (
   @param[in, out]  DestPort       Pointer to the destination port.
   @param[in]       OpFlags        Operation flag for UdpRead/UdpWrite.
 
-  @retval     TRUE                Successfully passed the IPv4 filter.
+  @retval     TRUE                Succesfully passed the IPv4 filter.
   @retval     FALSE               Failed to pass the IPv4 filter.
 
 **/
@@ -296,7 +298,7 @@ PxeBcCheckByDestPort (
   @param[in, out]  SrcIp          Pointer to the source Ip address.
   @param[in]       OpFlags        Operation flag for UdpRead/UdpWrite.
 
-  @retval     TRUE                Successfully passed the IPv4 filter.
+  @retval     TRUE                Succesfully passed the IPv4 filter.
   @retval     FALSE               Failed to pass the IPv4 filter.
 
 **/
@@ -317,7 +319,7 @@ PxeBcFilterBySrcIp (
   @param[in, out]  SrcPort        Pointer to the source port.
   @param[in]       OpFlags        Operation flag for UdpRead/UdpWrite.
 
-  @retval     TRUE                Successfully passed the IPv4 filter.
+  @retval     TRUE                Succesfully passed the IPv4 filter.
   @retval     FALSE               Failed to pass the IPv4 filter.
 
 **/
@@ -447,7 +449,7 @@ PxeBcUintnToAscDecWithFormat (
   @param[in]  Number         Numeric value to be converted.
   @param[in]  Buffer         Pointer to the buffer for ASCII string.
   @param[in]  BufferSize     The maxsize of the buffer.
-
+  
   @return     Length         The actual length of the ASCII string.
 
 **/

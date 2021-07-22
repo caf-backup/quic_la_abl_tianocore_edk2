@@ -2,7 +2,13 @@
 *
 *  Copyright (c) 2012-2014, ARM Limited. All rights reserved.
 *
-*  SPDX-License-Identifier: BSD-2-Clause-Patent
+*  This program and the accompanying materials
+*  are licensed and made available under the terms and conditions of the BSD License
+*  which accompanies this distribution.  The full text of the license may be found at
+*  http://opensource.org/licenses/bsd-license.php
+*
+*  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+*  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 *
 **/
 
@@ -92,7 +98,7 @@ IndirectMACRead32 (
   ASSERT(Index <= 12);
 
   // Wait until CSR busy bit is cleared
-  while ((Lan9118MmioRead32 (LAN9118_MAC_CSR_CMD) & MAC_CSR_BUSY) == MAC_CSR_BUSY);
+  while ((MmioRead32 (LAN9118_MAC_CSR_CMD) & MAC_CSR_BUSY) == MAC_CSR_BUSY);
 
   // Set CSR busy bit to ensure read will occur
   // Set the R/W bit to indicate we are reading
@@ -100,61 +106,13 @@ IndirectMACRead32 (
   MacCSR = MAC_CSR_BUSY | MAC_CSR_READ | MAC_CSR_ADDR(Index);
 
   // Write to the register
-  Lan9118MmioWrite32 (LAN9118_MAC_CSR_CMD, MacCSR);
+  MmioWrite32 (LAN9118_MAC_CSR_CMD, MacCSR);
 
   // Wait until CSR busy bit is cleared
-  while ((Lan9118MmioRead32 (LAN9118_MAC_CSR_CMD) & MAC_CSR_BUSY) == MAC_CSR_BUSY);
+  while ((MmioRead32 (LAN9118_MAC_CSR_CMD) & MAC_CSR_BUSY) == MAC_CSR_BUSY);
 
   // Now read from data register to get read value
-  return Lan9118MmioRead32 (LAN9118_MAC_CSR_DATA);
-}
-
-/*
- * LAN9118 chips have special restrictions on some back-to-back Write/Read or
- * Read/Read pairs of accesses. After a read or write that changes the state of
- * the device, there is a period in which stale values may be returned in
- * response to a read. This period is dependent on the registers accessed.
- *
- * We must delay prior reads by this period. This can either be achieved by
- * timer-based delays, or by performing dummy reads of the BYTE_TEST register,
- * for which the recommended number of reads is described in the LAN9118 data
- * sheet. This is required in addition to any memory barriers.
- *
- * This function performs a number of dummy reads of the BYTE_TEST register, as
- * a building block for the above.
- */
-VOID
-WaitDummyReads (
-  UINTN Count
-  )
-{
-  while (Count--)
-    MmioRead32(LAN9118_BYTE_TEST);
-}
-
-UINT32
-Lan9118RawMmioRead32(
-  UINTN Address,
-  UINTN Delay
-  )
-{
-  UINT32 Value;
-
-  Value = MmioRead32(Address);
-  WaitDummyReads(Delay);
-  return Value;
-}
-
-UINT32
-Lan9118RawMmioWrite32(
-  UINTN Address,
-  UINT32 Value,
-  UINTN Delay
-  )
-{
-  MmioWrite32(Address, Value);
-  WaitDummyReads(Delay);
-  return Value;
+  return MmioRead32 (LAN9118_MAC_CSR_DATA);
 }
 
 // Function to write to MAC indirect registers
@@ -171,7 +129,7 @@ IndirectMACWrite32 (
   ASSERT(Index <= 12);
 
   // Wait until CSR busy bit is cleared
-  while ((Lan9118MmioRead32 (LAN9118_MAC_CSR_CMD) & MAC_CSR_BUSY) == MAC_CSR_BUSY);
+  while ((MmioRead32 (LAN9118_MAC_CSR_CMD) & MAC_CSR_BUSY) == MAC_CSR_BUSY);
 
   // Set CSR busy bit to ensure read will occur
   // Set the R/W bit to indicate we are writing
@@ -179,13 +137,13 @@ IndirectMACWrite32 (
   MacCSR = MAC_CSR_BUSY | MAC_CSR_WRITE | MAC_CSR_ADDR(Index);
 
   // Now write the value to the register before issuing the write command
-  ValueWritten = Lan9118MmioWrite32 (LAN9118_MAC_CSR_DATA, Value);
+  ValueWritten = MmioWrite32 (LAN9118_MAC_CSR_DATA, Value);
 
   // Write the config to the register
-  Lan9118MmioWrite32 (LAN9118_MAC_CSR_CMD, MacCSR);
+  MmioWrite32 (LAN9118_MAC_CSR_CMD, MacCSR);
 
   // Wait until CSR busy bit is cleared
-  while ((Lan9118MmioRead32 (LAN9118_MAC_CSR_CMD) & MAC_CSR_BUSY) == MAC_CSR_BUSY);
+  while ((MmioRead32 (LAN9118_MAC_CSR_CMD) & MAC_CSR_BUSY) == MAC_CSR_BUSY);
 
   return ValueWritten;
 }
@@ -277,22 +235,23 @@ IndirectEEPROMRead32 (
   EepromCmd |= E2P_EPC_ADDRESS(Index);
 
   // Write to Eeprom command register
-  Lan9118MmioWrite32 (LAN9118_E2P_CMD, EepromCmd);
+  MmioWrite32 (LAN9118_E2P_CMD, EepromCmd);
+  gBS->Stall (LAN9118_STALL);
 
   // Wait until operation has completed
-  while (Lan9118MmioRead32 (LAN9118_E2P_CMD) & E2P_EPC_BUSY);
+  while (MmioRead32 (LAN9118_E2P_CMD) & E2P_EPC_BUSY);
 
   // Check that operation didn't time out
-  if (Lan9118MmioRead32 (LAN9118_E2P_CMD) & E2P_EPC_TIMEOUT) {
+  if (MmioRead32 (LAN9118_E2P_CMD) & E2P_EPC_TIMEOUT) {
     DEBUG ((EFI_D_ERROR, "EEPROM Operation Timed out: Read command on index %x\n",Index));
     return 0;
   }
 
   // Wait until operation has completed
-  while (Lan9118MmioRead32 (LAN9118_E2P_CMD) & E2P_EPC_BUSY);
+  while (MmioRead32 (LAN9118_E2P_CMD) & E2P_EPC_BUSY);
 
   // Finally read the value
-  return Lan9118MmioRead32 (LAN9118_E2P_DATA);
+  return MmioRead32 (LAN9118_E2P_DATA);
 }
 
 // Function to write to EEPROM memory
@@ -308,7 +267,7 @@ IndirectEEPROMWrite32 (
   ValueWritten = 0;
 
   // Read the EEPROM Command register
-  EepromCmd = Lan9118MmioRead32 (LAN9118_E2P_CMD);
+  EepromCmd = MmioRead32 (LAN9118_E2P_CMD);
 
   // Set the busy bit to ensure read will occur
   EepromCmd |= ((UINT32)1 << 31);
@@ -321,22 +280,23 @@ IndirectEEPROMWrite32 (
   EepromCmd |= (Index & 0xF);
 
   // Write the value to the data register first
-  ValueWritten = Lan9118MmioWrite32 (LAN9118_E2P_DATA, Value);
+  ValueWritten = MmioWrite32 (LAN9118_E2P_DATA, Value);
 
   // Write to Eeprom command register
-  Lan9118MmioWrite32 (LAN9118_E2P_CMD, EepromCmd);
+  MmioWrite32 (LAN9118_E2P_CMD, EepromCmd);
+  gBS->Stall (LAN9118_STALL);
 
   // Wait until operation has completed
-  while (Lan9118MmioRead32 (LAN9118_E2P_CMD) & E2P_EPC_BUSY);
+  while (MmioRead32 (LAN9118_E2P_CMD) & E2P_EPC_BUSY);
 
   // Check that operation didn't time out
-  if (Lan9118MmioRead32 (LAN9118_E2P_CMD) & E2P_EPC_TIMEOUT) {
+  if (MmioRead32 (LAN9118_E2P_CMD) & E2P_EPC_TIMEOUT) {
     DEBUG ((EFI_D_ERROR, "EEPROM Operation Timed out: Write command at memloc 0x%x, with value 0x%x\n",Index, Value));
     return 0;
   }
 
   // Wait until operation has completed
-  while (Lan9118MmioRead32 (LAN9118_E2P_CMD) & E2P_EPC_BUSY);
+  while (MmioRead32 (LAN9118_E2P_CMD) & E2P_EPC_BUSY);
 
   return ValueWritten;
 }
@@ -395,39 +355,40 @@ Lan9118Initialize (
   IN  EFI_SIMPLE_NETWORK_PROTOCOL *Snp
   )
 {
-  UINTN  Retries;
+  UINTN  Timeout;
   UINT64 DefaultMacAddress;
 
   // Attempt to wake-up the device if it is in a lower power state
-  if (((Lan9118MmioRead32 (LAN9118_PMT_CTRL) & MPTCTRL_PM_MODE_MASK) >> 12) != 0) {
+  if (((MmioRead32 (LAN9118_PMT_CTRL) & MPTCTRL_PM_MODE_MASK) >> 12) != 0) {
     DEBUG ((DEBUG_NET, "Waking from reduced power state.\n"));
-    Lan9118MmioWrite32 (LAN9118_BYTE_TEST, 0xFFFFFFFF);
+    MmioWrite32 (LAN9118_BYTE_TEST, 0xFFFFFFFF);
+    gBS->Stall (LAN9118_STALL);
   }
 
   // Check that device is active
-  Retries = 20;
-  while ((Lan9118MmioRead32 (LAN9118_PMT_CTRL) & MPTCTRL_READY) == 0 && --Retries) {
+  Timeout = 20;
+  while ((MmioRead32 (LAN9118_PMT_CTRL) & MPTCTRL_READY) == 0 && --Timeout) {
     gBS->Stall (LAN9118_STALL);
   }
-  if (!Retries) {
+  if (!Timeout) {
     return EFI_TIMEOUT;
   }
 
   // Check that EEPROM isn't active
-  Retries = 20;
-  while ((Lan9118MmioRead32 (LAN9118_E2P_CMD) & E2P_EPC_BUSY) && --Retries){
+  Timeout = 20;
+  while ((MmioRead32 (LAN9118_E2P_CMD) & E2P_EPC_BUSY) && --Timeout){
     gBS->Stall (LAN9118_STALL);
   }
-  if (!Retries) {
+  if (!Timeout) {
     return EFI_TIMEOUT;
   }
 
   // Check if a MAC address was loaded from EEPROM, and if it was, set it as the
   // current address.
-  if ((Lan9118MmioRead32 (LAN9118_E2P_CMD) & E2P_EPC_MAC_ADDRESS_LOADED) == 0) {
+  if ((MmioRead32 (LAN9118_E2P_CMD) & E2P_EPC_MAC_ADDRESS_LOADED) == 0) {
     DEBUG ((EFI_D_ERROR, "Warning: There was an error detecting EEPROM or loading the MAC Address.\n"));
 
-    // If we had an address before (set by StationAddress), continue to use it
+    // If we had an address before (set by StationAddess), continue to use it
     if (CompareMem (&Snp->Mode->CurrentAddress, &mZeroMac, NET_ETHER_ADDR_LEN)) {
       Lan9118SetMacAddress (&Snp->Mode->CurrentAddress, Snp);
     } else {
@@ -444,9 +405,9 @@ Lan9118Initialize (
   }
 
   // Clear and acknowledge interrupts
-  Lan9118MmioWrite32 (LAN9118_INT_EN, 0);
-  Lan9118MmioWrite32 (LAN9118_IRQ_CFG, 0);
-  Lan9118MmioWrite32 (LAN9118_INT_STS, 0xFFFFFFFF);
+  MmioWrite32 (LAN9118_INT_EN, 0);
+  MmioWrite32 (LAN9118_IRQ_CFG, 0);
+  MmioWrite32 (LAN9118_INT_STS, 0xFFFFFFFF);
 
   // Do self tests here?
 
@@ -473,7 +434,7 @@ SoftReset (
   StopRx (STOP_RX_CLEAR, Snp); // Clear receiver FIFO
 
   // Issue the reset
-  HwConf = Lan9118MmioRead32 (LAN9118_HW_CFG);
+  HwConf = MmioRead32 (LAN9118_HW_CFG);
   HwConf |= 1;
 
   // Set the Must Be One (MBO) bit
@@ -482,13 +443,14 @@ SoftReset (
   }
 
   // Check that EEPROM isn't active
-  while (Lan9118MmioRead32 (LAN9118_E2P_CMD) & E2P_EPC_BUSY);
+  while (MmioRead32 (LAN9118_E2P_CMD) & E2P_EPC_BUSY);
 
   // Write the configuration
-  Lan9118MmioWrite32 (LAN9118_HW_CFG, HwConf);
+  MmioWrite32 (LAN9118_HW_CFG, HwConf);
+  gBS->Stall (LAN9118_STALL);
 
   // Wait for reset to complete
-  while (Lan9118MmioRead32 (LAN9118_HW_CFG) & HWCFG_SRST) {
+  while (MmioRead32 (LAN9118_HW_CFG) & HWCFG_SRST) {
 
     gBS->Stall (LAN9118_STALL);
     ResetTime += 1;
@@ -501,15 +463,15 @@ SoftReset (
   }
 
   // Check that EEPROM isn't active
-  while (Lan9118MmioRead32 (LAN9118_E2P_CMD) & E2P_EPC_BUSY);
+  while (MmioRead32 (LAN9118_E2P_CMD) & E2P_EPC_BUSY);
 
   // TODO we probably need to re-set the mac address here.
 
   // Clear and acknowledge all interrupts
   if (Flags & SOFT_RESET_CLEAR_INT) {
-    Lan9118MmioWrite32 (LAN9118_INT_EN, 0);
-    Lan9118MmioWrite32 (LAN9118_IRQ_CFG, 0);
-    Lan9118MmioWrite32 (LAN9118_INT_STS, 0xFFFFFFFF);
+    MmioWrite32 (LAN9118_INT_EN, 0);
+    MmioWrite32 (LAN9118_IRQ_CFG, 0);
+    MmioWrite32 (LAN9118_INT_STS, 0xFFFFFFFF);
   }
 
   // Do self tests here?
@@ -532,12 +494,12 @@ PhySoftReset (
 
   // PMT PHY reset takes precedence over BCR
   if (Flags & PHY_RESET_PMT) {
-    PmtCtrl = Lan9118MmioRead32 (LAN9118_PMT_CTRL);
+    PmtCtrl = MmioRead32 (LAN9118_PMT_CTRL);
     PmtCtrl |= MPTCTRL_PHY_RST;
-    Lan9118MmioWrite32 (LAN9118_PMT_CTRL,PmtCtrl);
+    MmioWrite32 (LAN9118_PMT_CTRL,PmtCtrl);
 
     // Wait for completion
-    while (Lan9118MmioRead32 (LAN9118_PMT_CTRL) & MPTCTRL_PHY_RST) {
+    while (MmioRead32 (LAN9118_PMT_CTRL) & MPTCTRL_PHY_RST) {
       gBS->Stall (LAN9118_STALL);
     }
   // PHY Basic Control Register reset
@@ -552,9 +514,9 @@ PhySoftReset (
 
   // Clear and acknowledge all interrupts
   if (Flags & PHY_SOFT_RESET_CLEAR_INT) {
-    Lan9118MmioWrite32 (LAN9118_INT_EN, 0);
-    Lan9118MmioWrite32 (LAN9118_IRQ_CFG, 0);
-    Lan9118MmioWrite32 (LAN9118_INT_STS, 0xFFFFFFFF);
+    MmioWrite32 (LAN9118_INT_EN, 0);
+    MmioWrite32 (LAN9118_IRQ_CFG, 0);
+    MmioWrite32 (LAN9118_INT_STS, 0xFFFFFFFF);
   }
 
   return EFI_SUCCESS;
@@ -572,14 +534,15 @@ ConfigureHardware (
 
   // Check if we want to use LEDs on GPIO
   if (Flags & HW_CONF_USE_LEDS) {
-    GpioConf = Lan9118MmioRead32 (LAN9118_GPIO_CFG);
+    GpioConf = MmioRead32 (LAN9118_GPIO_CFG);
 
     // Enable GPIO as LEDs and Config as Push-Pull driver
     GpioConf |= GPIO_GPIO0_PUSH_PULL | GPIO_GPIO1_PUSH_PULL | GPIO_GPIO2_PUSH_PULL |
                 GPIO_LED1_ENABLE | GPIO_LED2_ENABLE | GPIO_LED3_ENABLE;
 
     // Write the configuration
-    Lan9118MmioWrite32 (LAN9118_GPIO_CFG, GpioConf);
+    MmioWrite32 (LAN9118_GPIO_CFG, GpioConf);
+    gBS->Stall (LAN9118_STALL);
   }
 
   return EFI_SUCCESS;
@@ -608,7 +571,7 @@ AutoNegotiate (
   UINT32 PhyControl;
   UINT32 PhyStatus;
   UINT32 Features;
-  UINT32 Retries;
+  UINT32 TimeOut;
 
   // First check that auto-negotiation is supported
   PhyStatus = IndirectPHYRead32 (PHY_INDEX_BASIC_STATUS);
@@ -620,11 +583,11 @@ AutoNegotiate (
   // Check that link is up first
   if ((PhyStatus & PHYSTS_LINK_STS) == 0) {
     // Wait until it is up or until Time Out
-    Retries = FixedPcdGet32 (PcdLan9118DefaultNegotiationTimeout) / LAN9118_STALL;
+    TimeOut = 2000;
     while ((IndirectPHYRead32 (PHY_INDEX_BASIC_STATUS) & PHYSTS_LINK_STS) == 0) {
       gBS->Stall (LAN9118_STALL);
-      Retries--;
-      if (!Retries) {
+      TimeOut--;
+      if (!TimeOut) {
         DEBUG ((EFI_D_ERROR, "Link timeout in auto-negotiation.\n"));
         return EFI_TIMEOUT;
       }
@@ -642,7 +605,6 @@ AutoNegotiate (
     Features &= ~(PHYANA_PAUSE_OP_MASK);
     Features |= 3 << 10;
   }
-  Features &= FixedPcdGet32 (PcdLan9118NegotiationFeatureMask);
 
   // Write the features
   IndirectPHYWrite32 (PHY_INDEX_AUTO_NEG_ADVERT, Features);
@@ -706,9 +668,10 @@ StopTx (
 
   // Check if we want to clear tx
   if (Flags & STOP_TX_CLEAR) {
-    TxCfg = Lan9118MmioRead32 (LAN9118_TX_CFG);
+    TxCfg = MmioRead32 (LAN9118_TX_CFG);
     TxCfg |= TXCFG_TXS_DUMP | TXCFG_TXD_DUMP;
-    Lan9118MmioWrite32 (LAN9118_TX_CFG, TxCfg);
+    MmioWrite32 (LAN9118_TX_CFG, TxCfg);
+    gBS->Stall (LAN9118_STALL);
   }
 
   // Check if already stopped
@@ -722,14 +685,15 @@ StopTx (
   }
 
   if (Flags & STOP_TX_CFG) {
-    TxCfg = Lan9118MmioRead32 (LAN9118_TX_CFG);
+    TxCfg = MmioRead32 (LAN9118_TX_CFG);
 
     if (TxCfg & TXCFG_TX_ON) {
       TxCfg |= TXCFG_STOP_TX;
-      Lan9118MmioWrite32 (LAN9118_TX_CFG, TxCfg);
+      MmioWrite32 (LAN9118_TX_CFG, TxCfg);
+      gBS->Stall (LAN9118_STALL);
 
       // Wait for Tx to finish transmitting
-      while (Lan9118MmioRead32 (LAN9118_TX_CFG) & TXCFG_STOP_TX);
+      while (MmioRead32 (LAN9118_TX_CFG) & TXCFG_STOP_TX);
     }
   }
 
@@ -758,11 +722,12 @@ StopRx (
 
   // Check if we want to clear receiver FIFOs
   if (Flags & STOP_RX_CLEAR) {
-    RxCfg = Lan9118MmioRead32 (LAN9118_RX_CFG);
+    RxCfg = MmioRead32 (LAN9118_RX_CFG);
     RxCfg |= RXCFG_RX_DUMP;
-    Lan9118MmioWrite32 (LAN9118_RX_CFG, RxCfg);
+    MmioWrite32 (LAN9118_RX_CFG, RxCfg);
+    gBS->Stall (LAN9118_STALL);
 
-    while (Lan9118MmioRead32 (LAN9118_RX_CFG) & RXCFG_RX_DUMP);
+    while (MmioRead32 (LAN9118_RX_CFG) & RXCFG_RX_DUMP);
   }
 
   return EFI_SUCCESS;
@@ -783,26 +748,31 @@ StartTx (
 
   // Check if we want to clear tx
   if (Flags & START_TX_CLEAR) {
-    TxCfg = Lan9118MmioRead32 (LAN9118_TX_CFG);
+    TxCfg = MmioRead32 (LAN9118_TX_CFG);
     TxCfg |= TXCFG_TXS_DUMP | TXCFG_TXD_DUMP;
-    Lan9118MmioWrite32 (LAN9118_TX_CFG, TxCfg);
+    MmioWrite32 (LAN9118_TX_CFG, TxCfg);
+    gBS->Stall (LAN9118_STALL);
   }
 
   // Check if tx was started from MAC and enable if not
   if (Flags & START_TX_MAC) {
     MacCsr = IndirectMACRead32 (INDIRECT_MAC_INDEX_CR);
+    gBS->Stall (LAN9118_STALL);
     if ((MacCsr & MACCR_TX_EN) == 0) {
       MacCsr |= MACCR_TX_EN;
       IndirectMACWrite32 (INDIRECT_MAC_INDEX_CR, MacCsr);
+      gBS->Stall (LAN9118_STALL);
     }
   }
 
   // Check if tx was started from TX_CFG and enable if not
   if (Flags & START_TX_CFG) {
-    TxCfg = Lan9118MmioRead32 (LAN9118_TX_CFG);
+    TxCfg = MmioRead32 (LAN9118_TX_CFG);
+    gBS->Stall (LAN9118_STALL);
     if ((TxCfg & TXCFG_TX_ON) == 0) {
       TxCfg |= TXCFG_TX_ON;
-      Lan9118MmioWrite32 (LAN9118_TX_CFG, TxCfg);
+      MmioWrite32 (LAN9118_TX_CFG, TxCfg);
+      gBS->Stall (LAN9118_STALL);
     }
   }
 
@@ -829,15 +799,17 @@ StartRx (
   if ((MacCsr & MACCR_RX_EN) == 0) {
     // Check if we want to clear receiver FIFOs before starting
     if (Flags & START_RX_CLEAR) {
-      RxCfg = Lan9118MmioRead32 (LAN9118_RX_CFG);
+      RxCfg = MmioRead32 (LAN9118_RX_CFG);
       RxCfg |= RXCFG_RX_DUMP;
-      Lan9118MmioWrite32 (LAN9118_RX_CFG, RxCfg);
+      MmioWrite32 (LAN9118_RX_CFG, RxCfg);
+      gBS->Stall (LAN9118_STALL);
 
-      while (Lan9118MmioRead32 (LAN9118_RX_CFG) & RXCFG_RX_DUMP);
+      while (MmioRead32 (LAN9118_RX_CFG) & RXCFG_RX_DUMP);
     }
 
     MacCsr |= MACCR_RX_EN;
     IndirectMACWrite32 (INDIRECT_MAC_INDEX_CR, MacCsr);
+    gBS->Stall (LAN9118_STALL);
   }
 
   return EFI_SUCCESS;
@@ -854,7 +826,7 @@ TxDataFreeSpace (
   UINT32 FreeSpace;
 
   // Get the amount of free space from information register
-  TxInf = Lan9118MmioRead32 (LAN9118_TX_FIFO_INF);
+  TxInf = MmioRead32 (LAN9118_TX_FIFO_INF);
   FreeSpace = (TxInf & TXFIFOINF_TDFREE_MASK);
 
   return FreeSpace; // Value in bytes
@@ -871,7 +843,7 @@ TxStatusUsedSpace (
   UINT32 UsedSpace;
 
   // Get the amount of used space from information register
-  TxInf = Lan9118MmioRead32 (LAN9118_TX_FIFO_INF);
+  TxInf = MmioRead32 (LAN9118_TX_FIFO_INF);
   UsedSpace = (TxInf & TXFIFOINF_TXSUSED_MASK) >> 16;
 
   return UsedSpace << 2; // Value in bytes
@@ -888,7 +860,7 @@ RxDataUsedSpace (
   UINT32 UsedSpace;
 
   // Get the amount of used space from information register
-  RxInf = Lan9118MmioRead32 (LAN9118_RX_FIFO_INF);
+  RxInf = MmioRead32 (LAN9118_RX_FIFO_INF);
   UsedSpace = (RxInf & RXFIFOINF_RXDUSED_MASK);
 
   return UsedSpace; // Value in bytes (rounded up to nearest DWORD)
@@ -905,7 +877,7 @@ RxStatusUsedSpace (
   UINT32 UsedSpace;
 
   // Get the amount of used space from information register
-  RxInf = Lan9118MmioRead32 (LAN9118_RX_FIFO_INF);
+  RxInf = MmioRead32 (LAN9118_RX_FIFO_INF);
   UsedSpace = (RxInf & RXFIFOINF_RXSUSED_MASK) >> 16;
 
   return UsedSpace << 2; // Value in bytes
@@ -943,7 +915,7 @@ ChangeFifoAllocation (
   // If we use the FIFOs (always use this first)
   if (Flags & ALLOC_USE_FIFOS) {
     // Read the current value of allocation
-    HwConf = Lan9118MmioRead32 (LAN9118_HW_CFG);
+    HwConf = MmioRead32 (LAN9118_HW_CFG);
     TxFifoOption = (HwConf >> 16) & 0xF;
 
     // Choose the correct size (always use larger than requested if possible)
@@ -1026,7 +998,8 @@ ChangeFifoAllocation (
   // Clear and assign the new size option
   HwConf &= ~(0xF0000);
   HwConf |= ((TxFifoOption & 0xF) << 16);
-  Lan9118MmioWrite32 (LAN9118_HW_CFG, HwConf);
+  MmioWrite32 (LAN9118_HW_CFG, HwConf);
+  gBS->Stall (LAN9118_STALL);
 
   return EFI_SUCCESS;
 }

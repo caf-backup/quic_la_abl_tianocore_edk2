@@ -1,9 +1,15 @@
 /*++ @file
 
-Copyright (c) 2006 - 2019, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2006 - 2011, Intel Corporation. All rights reserved.<BR>
 Portions copyright (c) 2008 - 2011, Apple Inc. All rights reserved.<BR>
 
-SPDX-License-Identifier: BSD-2-Clause-Patent
+This program and the accompanying materials
+are licensed and made available under the terms and conditions of the BSD License
+which accompanies this distribution.  The full text of the license may be found at
+http://opensource.org/licenses/bsd-license.php
+
+THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
@@ -14,9 +20,7 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
 // Name mangle to prevent build errors. I.e conflicts between EFI and OS
 //
 #define NTOHL   _UNIX_EFI_NAME_MANGLE_NTOHL_
-#define NTOHLL  _UNIX_EFI_NAME_MANGLE_NTOHLL_
 #define HTONL   _UNIX_EFI_NAME_MANGLE_HTONL_
-#define HTONLL  _UNIX_EFI_NAME_MANGLE_HTONLL_
 #define NTOHS   _UNIX_EFI_NAME_MANGLE_NTOHS_
 #define HTONS   _UNIX_EFI_NAME_MANGLE_HTOHS_
 #define B0      _UNIX_EFI_NAME_MANGLE_B0_
@@ -74,13 +78,11 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
 #include <utime.h>
 
 #undef NTOHL
-#undef NTOHLL
 #undef HTONL
-#undef HTONLL
 #undef NTOHS
 #undef HTONS
 #undef B0
-#undef CR3
+
 
 #include <PiPei.h>
 #include <Uefi.h>
@@ -253,9 +255,9 @@ AsciiToUnicode (
   );
 
 UINTN
-CountSeparatorsInString (
+CountSeperatorsInString (
   IN  const CHAR16   *String,
-  IN  CHAR16   Separator
+  IN  CHAR16   Seperator
   );
 
 EFI_STATUS

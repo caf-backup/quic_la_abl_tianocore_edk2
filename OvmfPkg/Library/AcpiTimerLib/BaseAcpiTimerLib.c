@@ -3,12 +3,19 @@
 
   Copyright (C) 2014, Gabriel L. Somlo <somlo@cmu.edu>
 
-  SPDX-License-Identifier: BSD-2-Clause-Patent
+  This program and the accompanying materials are licensed and made
+  available under the terms and conditions of the BSD License which
+  accompanies this distribution.   The full text of the license may
+  be found at http://opensource.org/licenses/bsd-license.php
+
+  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 **/
 
 #include <Library/DebugLib.h>
 #include <Library/IoLib.h>
 #include <Library/PciLib.h>
+#include <Library/PcdLib.h>
 #include <OvmfPlatforms.h>
 
 //
@@ -31,8 +38,6 @@ AcpiTimerLibConstructor (
 {
   UINT16 HostBridgeDevId;
   UINTN Pmba;
-  UINT32 PmbaAndVal;
-  UINT32 PmbaOrVal;
   UINTN AcpiCtlReg;
   UINT8 AcpiEnBit;
 
@@ -43,15 +48,11 @@ AcpiTimerLibConstructor (
   switch (HostBridgeDevId) {
     case INTEL_82441_DEVICE_ID:
       Pmba       = POWER_MGMT_REGISTER_PIIX4 (PIIX4_PMBA);
-      PmbaAndVal = ~(UINT32)PIIX4_PMBA_MASK;
-      PmbaOrVal  = PIIX4_PMBA_VALUE;
       AcpiCtlReg = POWER_MGMT_REGISTER_PIIX4 (PIIX4_PMREGMISC);
       AcpiEnBit  = PIIX4_PMREGMISC_PMIOSE;
       break;
     case INTEL_Q35_MCH_DEVICE_ID:
       Pmba       = POWER_MGMT_REGISTER_Q35 (ICH9_PMBASE);
-      PmbaAndVal = ~(UINT32)ICH9_PMBASE_MASK;
-      PmbaOrVal  = ICH9_PMBASE_VALUE;
       AcpiCtlReg = POWER_MGMT_REGISTER_Q35 (ICH9_ACPI_CNTL);
       AcpiEnBit  = ICH9_ACPI_CNTL_ACPI_EN;
       break;
@@ -62,15 +63,17 @@ AcpiTimerLibConstructor (
       return RETURN_UNSUPPORTED;
   }
 
+  mAcpiTimerIoAddr = (PciRead32 (Pmba) & ~PMBA_RTE) + ACPI_TIMER_OFFSET;
+
   //
   // Check to see if the Power Management Base Address is already enabled
   //
   if ((PciRead8 (AcpiCtlReg) & AcpiEnBit) == 0) {
     //
     // If the Power Management Base Address is not programmed,
-    // then program it now.
+    // then program the Power Management Base Address from a PCD.
     //
-    PciAndThenOr32 (Pmba, PmbaAndVal, PmbaOrVal);
+    PciAndThenOr32 (Pmba, (UINT32) ~0xFFC0, PcdGet16 (PcdAcpiPmBaseAddress));
 
     //
     // Enable PMBA I/O port decodes
@@ -78,7 +81,6 @@ AcpiTimerLibConstructor (
     PciOr8 (AcpiCtlReg, AcpiEnBit);
   }
 
-  mAcpiTimerIoAddr = (PciRead32 (Pmba) & ~PMBA_RTE) + ACPI_TIMER_OFFSET;
   return RETURN_SUCCESS;
 }
 

@@ -1,13 +1,21 @@
 /** @file
   Graphics Output Protocol functions for the QEMU video controller.
 
-  Copyright (c) 2007 - 2018, Intel Corporation. All rights reserved.<BR>
+  Copyright (c) 2007 - 2010, Intel Corporation. All rights reserved.<BR>
 
-  SPDX-License-Identifier: BSD-2-Clause-Patent
+  This program and the accompanying materials
+  are licensed and made available under the terms and conditions of the BSD License
+  which accompanies this distribution. The full text of the license may be found at
+  http://opensource.org/licenses/bsd-license.php
+
+  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
 #include "Qemu.h"
+#include <IndustryStandard/Acpi.h>
+#include <Library/BltLib.h>
 
 STATIC
 VOID
@@ -54,7 +62,7 @@ QemuVideoCompleteModeData (
 
   Private->PciIo->GetBarAttributes (
                         Private->PciIo,
-                        Private->FrameBufferVramBarIndex,
+                        0,
                         NULL,
                         (VOID**) &FrameBufDesc
                         );
@@ -62,15 +70,13 @@ QemuVideoCompleteModeData (
   Mode->FrameBufferBase = FrameBufDesc->AddrRangeMin;
   Mode->FrameBufferSize = Info->HorizontalResolution * Info->VerticalResolution;
   Mode->FrameBufferSize = Mode->FrameBufferSize * ((ModeData->ColorDepth + 7) / 8);
-  Mode->FrameBufferSize = EFI_PAGES_TO_SIZE (
-                            EFI_SIZE_TO_PAGES (Mode->FrameBufferSize)
-                            );
   DEBUG ((EFI_D_INFO, "FrameBufferBase: 0x%Lx, FrameBufferSize: 0x%Lx\n",
     Mode->FrameBufferBase, (UINT64)Mode->FrameBufferSize));
 
   FreePool (FrameBufDesc);
   return EFI_SUCCESS;
 }
+
 
 //
 // Graphics Output Protocol Member Functions
@@ -151,10 +157,9 @@ Routine Description:
 
 --*/
 {
-  QEMU_VIDEO_PRIVATE_DATA       *Private;
-  QEMU_VIDEO_MODE_DATA          *ModeData;
-  RETURN_STATUS                 Status;
-  EFI_GRAPHICS_OUTPUT_BLT_PIXEL Black;
+  QEMU_VIDEO_PRIVATE_DATA    *Private;
+  QEMU_VIDEO_MODE_DATA       *ModeData;
+//  UINTN                             Count;
 
   Private = QEMU_VIDEO_PRIVATE_DATA_FROM_GRAPHICS_OUTPUT_THIS (This);
 
@@ -163,6 +168,15 @@ Routine Description:
   }
 
   ModeData = &Private->ModeData[ModeNumber];
+
+  if (Private->LineBuffer) {
+    gBS->FreePool (Private->LineBuffer);
+  }
+
+  Private->LineBuffer = AllocatePool (4 * ModeData->HorizontalResolution);
+  if (Private->LineBuffer == NULL) {
+    return EFI_OUT_OF_RESOURCES;
+  }
 
   switch (Private->Variant) {
   case QEMU_VIDEO_CIRRUS_5430:
@@ -175,6 +189,8 @@ Routine Description:
     break;
   default:
     ASSERT (FALSE);
+    gBS->FreePool (Private->LineBuffer);
+    Private->LineBuffer = NULL;
     return EFI_DEVICE_ERROR;
   }
 
@@ -185,52 +201,10 @@ Routine Description:
 
   QemuVideoCompleteModeData (Private, This->Mode);
 
-  //
-  // Re-initialize the frame buffer configure when mode changes.
-  //
-  Status = FrameBufferBltConfigure (
-             (VOID*) (UINTN) This->Mode->FrameBufferBase,
-             This->Mode->Info,
-             Private->FrameBufferBltConfigure,
-             &Private->FrameBufferBltConfigureSize
-             );
-  if (Status == RETURN_BUFFER_TOO_SMALL) {
-    //
-    // Frame buffer configure may be larger in new mode.
-    //
-    if (Private->FrameBufferBltConfigure != NULL) {
-      FreePool (Private->FrameBufferBltConfigure);
-    }
-    Private->FrameBufferBltConfigure =
-      AllocatePool (Private->FrameBufferBltConfigureSize);
-    ASSERT (Private->FrameBufferBltConfigure != NULL);
-
-    //
-    // Create the configuration for FrameBufferBltLib
-    //
-    Status = FrameBufferBltConfigure (
-                (VOID*) (UINTN) This->Mode->FrameBufferBase,
-                This->Mode->Info,
-                Private->FrameBufferBltConfigure,
-                &Private->FrameBufferBltConfigureSize
-                );
-  }
-  ASSERT (Status == RETURN_SUCCESS);
-
-  //
-  // Per UEFI Spec, need to clear the visible portions of the output display to black.
-  //
-  ZeroMem (&Black, sizeof (Black));
-  Status = FrameBufferBlt (
-             Private->FrameBufferBltConfigure,
-             &Black,
-             EfiBltVideoFill,
-             0, 0,
-             0, 0,
-             This->Mode->Info->HorizontalResolution, This->Mode->Info->VerticalResolution,
-             0
-             );
-  ASSERT_RETURN_ERROR (Status);
+  BltLibConfigure (
+    (VOID*)(UINTN) This->Mode->FrameBufferBase,
+    This->Mode->Info
+    );
 
   return EFI_SUCCESS;
 }
@@ -280,9 +254,7 @@ Returns:
 {
   EFI_STATUS                      Status;
   EFI_TPL                         OriginalTPL;
-  QEMU_VIDEO_PRIVATE_DATA         *Private;
 
-  Private = QEMU_VIDEO_PRIVATE_DATA_FROM_GRAPHICS_OUTPUT_THIS (This);
   //
   // We have to raise to TPL Notify, so we make an atomic write the frame buffer.
   // We would not want a timer based event (Cursor, ...) to come in while we are
@@ -295,8 +267,7 @@ Returns:
   case EfiBltBufferToVideo:
   case EfiBltVideoFill:
   case EfiBltVideoToVideo:
-    Status = FrameBufferBlt (
-      Private->FrameBufferBltConfigure,
+    Status = BltLibGopBlt (
       BltBuffer,
       BltOperation,
       SourceX,
@@ -311,7 +282,7 @@ Returns:
 
   default:
     Status = EFI_INVALID_PARAMETER;
-    break;
+    ASSERT (FALSE);
   }
 
   gBS->RestoreTPL (OriginalTPL);
@@ -355,8 +326,7 @@ QemuVideoGraphicsOutputConstructor (
   }
   Private->GraphicsOutput.Mode->MaxMode = (UINT32) Private->MaxMode;
   Private->GraphicsOutput.Mode->Mode    = GRAPHICS_OUTPUT_INVALIDE_MODE_NUMBER;
-  Private->FrameBufferBltConfigure      = NULL;
-  Private->FrameBufferBltConfigureSize  = 0;
+  Private->LineBuffer                   = NULL;
 
   //
   // Initialize the hardware
@@ -400,8 +370,8 @@ Returns:
 
 --*/
 {
-  if (Private->FrameBufferBltConfigure != NULL) {
-    FreePool (Private->FrameBufferBltConfigure);
+  if (Private->LineBuffer != NULL) {
+    FreePool (Private->LineBuffer);
   }
 
   if (Private->GraphicsOutput.Mode != NULL) {

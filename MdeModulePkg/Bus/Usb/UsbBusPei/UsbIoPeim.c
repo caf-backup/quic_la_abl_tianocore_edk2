@@ -1,9 +1,16 @@
 /** @file
 The module is used to implement Usb Io PPI interfaces.
 
-Copyright (c) 2006 - 2018, Intel Corporation. All rights reserved. <BR>
+Copyright (c) 2006 - 2014, Intel Corporation. All rights reserved. <BR>
+  
+This program and the accompanying materials
+are licensed and made available under the terms and conditions
+of the BSD License which accompanies this distribution.  The
+full text of the license may be found at
+http://opensource.org/licenses/bsd-license.php
 
-SPDX-License-Identifier: BSD-2-Clause-Patent
+THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
@@ -12,7 +19,7 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
 
 /**
   Submits control transfer to a target USB device.
-
+  
   @param  PeiServices            The pointer of EFI_PEI_SERVICES.
   @param  This                   The pointer of PEI_USB_IO_PPI.
   @param  Request                USB device request to send.
@@ -125,13 +132,13 @@ PeiUsbControlTransfer (
 
 /**
   Submits bulk transfer to a bulk endpoint of a USB device.
-
+  
   @param  PeiServices           The pointer of EFI_PEI_SERVICES.
   @param  This                  The pointer of PEI_USB_IO_PPI.
   @param  DeviceEndpoint        Endpoint number and its direction in bit 7.
-  @param  Data                  A pointer to the buffer of data to transmit
+  @param  Data                  A pointer to the buffer of data to transmit 
                                 from or receive into.
-  @param  DataLength            The length of the data buffer.
+  @param  DataLength            The lenght of the data buffer.
   @param  Timeout               Indicates the maximum time, in millisecond, which the
                                 transfer is allowed to complete. If Timeout is 0, then
                                 the caller must wait for the function to be completed

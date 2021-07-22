@@ -2,14 +2,19 @@
   This module contains EBC support routines that are customized based on
   the target x64 processor.
 
-Copyright (c) 2006 - 2018, Intel Corporation. All rights reserved.<BR>
-SPDX-License-Identifier: BSD-2-Clause-Patent
+Copyright (c) 2006 - 2014, Intel Corporation. All rights reserved.<BR>
+This program and the accompanying materials
+are licensed and made available under the terms and conditions of the BSD License
+which accompanies this distribution.  The full text of the license may be found at
+http://opensource.org/licenses/bsd-license.php
+
+THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
 #include "EbcInt.h"
 #include "EbcExecute.h"
-#include "EbcDebuggerHook.h"
 
 //
 // NOTE: This is the stack size allocated for the interpreter
@@ -38,7 +43,7 @@ UINT8  mInstructionBufferTemplate[] = {
   // These 8 bytes of the thunk entry is the address of the EBC
   // entry point.
   //
-  0x49, 0xBA,
+  0x49, 0xBA, 
     (UINT8)(EBC_ENTRYPOINT_SIGNATURE & 0xFF),
     (UINT8)((EBC_ENTRYPOINT_SIGNATURE >> 8) & 0xFF),
     (UINT8)((EBC_ENTRYPOINT_SIGNATURE >> 16) & 0xFF),
@@ -273,11 +278,10 @@ EbcInterpret (
   //
   // Begin executing the EBC code
   //
-  EbcDebuggerHookEbcInterpret (&VmContext);
   EbcExecute (&VmContext);
 
   //
-  // Return the value in Gpr[7] unless there was an error
+  // Return the value in R[7] unless there was an error
   //
   ReturnEBCStack(StackIndex);
   return (UINT64) VmContext.Gpr[7];
@@ -385,11 +389,10 @@ ExecuteEbcImageEntryPoint (
   //
   // Begin executing the EBC code
   //
-  EbcDebuggerHookExecuteEbcImageEntryPoint (&VmContext);
   EbcExecute (&VmContext);
 
   //
-  // Return the value in Gpr[7] unless there was an error
+  // Return the value in R[7] unless there was an error
   //
   ReturnEBCStack(StackIndex);
   return (UINT64) VmContext.Gpr[7];
@@ -435,7 +438,7 @@ EbcCreateThunks (
 
   ThunkSize = sizeof(mInstructionBufferTemplate);
 
-  Ptr = EbcAllocatePoolForThunk (sizeof(mInstructionBufferTemplate));
+  Ptr = AllocatePool (sizeof(mInstructionBufferTemplate));
 
   if (Ptr == NULL) {
     return EFI_OUT_OF_RESOURCES;

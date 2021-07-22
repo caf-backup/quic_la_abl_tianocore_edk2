@@ -2,9 +2,15 @@
  POSIX Pthreads to emulate APs and implement threads
 
 Copyright (c) 2011, Apple Inc. All rights reserved.
-Copyright (c) 2011 - 2019, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2011, Intel Corporation. All rights reserved.<BR>
 
-SPDX-License-Identifier: BSD-2-Clause-Patent
+This program and the accompanying materials
+are licensed and made available under the terms and conditions of the BSD License
+which accompanies this distribution.  The full text of the license may be found at
+http://opensource.org/licenses/bsd-license.php
+
+THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 
 **/
@@ -109,7 +115,7 @@ SecFakePthreadStart (
   // This is a great example of how all problems in computer
   // science can be solved by adding another level of indirection
   //
- return  (VOID *)ReverseGasketUint64 ((UINTN)Start, (UINTN)Context);
+ return  (VOID *)ReverseGasketUint64 ((CALL_BACK)Start, (UINTN)Context);
 }
 
 UINTN
@@ -133,7 +139,7 @@ PthreadCreate (
     EnabledOnEntry = FALSE;
   }
 
-  // Acquire lock for global, SecFakePthreadStart runs in a different thread.
+  // Aquire lock for global, SecFakePthreadStart runs in a different thread.
   pthread_mutex_lock (&mThreadMangle.Mutex);
   mThreadMangle.Start   = Start;
 

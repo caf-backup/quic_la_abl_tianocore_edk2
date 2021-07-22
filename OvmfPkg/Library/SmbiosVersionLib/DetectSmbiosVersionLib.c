@@ -7,7 +7,13 @@
   Copyright (C) 2013, 2015, Red Hat, Inc.
   Copyright (c) 2008 - 2012, Intel Corporation. All rights reserved.<BR>
 
-  SPDX-License-Identifier: BSD-2-Clause-Patent
+  This program and the accompanying materials are licensed and made available
+  under the terms and conditions of the BSD License which accompanies this
+  distribution. The full text of the license may be found at
+  http://opensource.org/licenses/bsd-license.php
+
+  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS, WITHOUT
+  WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
@@ -34,7 +40,6 @@ DetectSmbiosVersion (
   UINTN                AnchorSize, TablesSize;
   QEMU_SMBIOS_ANCHOR   QemuAnchor;
   UINT16               SmbiosVersion;
-  RETURN_STATUS        PcdStatus;
 
   if (PcdGetBool (PcdQemuSmbiosValidated)) {
     //
@@ -82,8 +87,7 @@ DetectSmbiosVersion (
 
     DEBUG ((EFI_D_INFO, "%a: SMBIOS 3.x DocRev from QEMU: 0x%02x\n",
       __FUNCTION__, QemuAnchor.V3.DocRev));
-    PcdStatus = PcdSet8S (PcdSmbiosDocRev, QemuAnchor.V3.DocRev);
-    ASSERT_RETURN_ERROR (PcdStatus);
+    PcdSet8 (PcdSmbiosDocRev, QemuAnchor.V3.DocRev);
     break;
 
   default:
@@ -92,14 +96,12 @@ DetectSmbiosVersion (
 
   DEBUG ((EFI_D_INFO, "%a: SMBIOS version from QEMU: 0x%04x\n", __FUNCTION__,
     SmbiosVersion));
-  PcdStatus = PcdSet16S (PcdSmbiosVersion, SmbiosVersion);
-  ASSERT_RETURN_ERROR (PcdStatus);
+  PcdSet16 (PcdSmbiosVersion, SmbiosVersion);
 
   //
   // SMBIOS platform drivers can now fetch and install
   // "etc/smbios/smbios-tables" from QEMU.
   //
-  PcdStatus = PcdSetBoolS (PcdQemuSmbiosValidated, TRUE);
-  ASSERT_RETURN_ERROR (PcdStatus);
+  PcdSetBool (PcdQemuSmbiosValidated, TRUE);
   return RETURN_SUCCESS;
 }

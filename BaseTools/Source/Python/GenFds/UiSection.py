@@ -1,23 +1,27 @@
 ## @file
 # process UI section generation
 #
-#  Copyright (c) 2007 - 2017, Intel Corporation. All rights reserved.<BR>
+#  Copyright (c) 2007 - 2014, Intel Corporation. All rights reserved.<BR>
 #
-#  SPDX-License-Identifier: BSD-2-Clause-Patent
+#  This program and the accompanying materials
+#  are licensed and made available under the terms and conditions of the BSD License
+#  which accompanies this distribution.  The full text of the license may be found at
+#  http://opensource.org/licenses/bsd-license.php
+#
+#  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 #
 
 ##
 # Import Modules
 #
-from __future__ import absolute_import
-from . import Section
-from .Ffs import SectionSuffix
+import Section
+from Ffs import Ffs
 import subprocess
 import Common.LongFilePathOs as os
-from .GenFdsGlobalVariable import GenFdsGlobalVariable
+from GenFdsGlobalVariable import GenFdsGlobalVariable
 from CommonDataClass.FdfClass import UiSectionClassObject
 from Common.LongFilePathSupport import OpenLongFilePath as open
-from Common.DataType import *
 
 ## generate UI section
 #
@@ -44,30 +48,30 @@ class UiSection (UiSectionClassObject):
     #   @param  Dict        dictionary contains macro and its value
     #   @retval tuple       (Generated file name, section alignment)
     #
-    def GenSection(self, OutputPath, ModuleName, SecNum, KeyStringList, FfsInf=None, Dict=None, IsMakefile = False):
+    def GenSection(self, OutputPath, ModuleName, SecNum, KeyStringList, FfsInf = None, Dict = {}):
         #
         # Prepare the parameter of GenSection
         #
-        if FfsInf is not None:
+        if FfsInf != None:
             self.Alignment = FfsInf.__ExtendMacro__(self.Alignment)
             self.StringData = FfsInf.__ExtendMacro__(self.StringData)
             self.FileName = FfsInf.__ExtendMacro__(self.FileName)
 
-        OutputFile = os.path.join(OutputPath, ModuleName + SUP_MODULE_SEC + SecNum + SectionSuffix.get(BINARY_FILE_TYPE_UI))
+        OutputFile = os.path.join(OutputPath, ModuleName + 'SEC' + SecNum + Ffs.SectionSuffix.get('UI'))
 
-        if self.StringData is not None :
+        if self.StringData != None :
             NameString = self.StringData
-        elif self.FileName is not None:
-            if Dict is None:
-                Dict = {}
+        elif self.FileName != None:
             FileNameStr = GenFdsGlobalVariable.ReplaceWorkspaceMacro(self.FileName)
             FileNameStr = GenFdsGlobalVariable.MacroExtend(FileNameStr, Dict)
             FileObj = open(FileNameStr, 'r')
             NameString = FileObj.read()
+            NameString = '\"' + NameString + "\""
             FileObj.close()
         else:
             NameString = ''
-        GenFdsGlobalVariable.GenerateSection(OutputFile, None, 'EFI_SECTION_USER_INTERFACE', Ui=NameString, IsMakefile=IsMakefile)
+
+        GenFdsGlobalVariable.GenerateSection(OutputFile, None, 'EFI_SECTION_USER_INTERFACE', Ui=NameString)
 
         OutputFileList = []
         OutputFileList.append(OutputFile)

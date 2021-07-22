@@ -3,7 +3,13 @@
 *
 *  Copyright (c) 2011-2014, ARM Limited. All rights reserved.
 *
-*  SPDX-License-Identifier: BSD-2-Clause-Patent
+*  This program and the accompanying materials
+*  are licensed and made available under the terms and conditions of the BSD License
+*  which accompanies this distribution.  The full text of the license may be found at
+*  http://opensource.org/licenses/bsd-license.php
+*
+*  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+*  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 *
 **/
 
@@ -11,15 +17,23 @@
 #include <Library/DebugAgentLib.h>
 #include <Library/ArmLib.h>
 
+#include <Ppi/ArmGlobalVariable.h>
+
 #include "PrePeiCore.h"
 
 CONST EFI_PEI_TEMPORARY_RAM_SUPPORT_PPI   mTemporaryRamSupportPpi = { PrePeiCoreTemporaryRamSupport };
+CONST ARM_GLOBAL_VARIABLE_PPI             mGlobalVariablePpi = { PrePeiCoreGetGlobalVariableMemory };
 
 CONST EFI_PEI_PPI_DESCRIPTOR      gCommonPpiTable[] = {
   {
     EFI_PEI_PPI_DESCRIPTOR_PPI,
     &gEfiTemporaryRamSupportPpiGuid,
     (VOID *) &mTemporaryRamSupportPpi
+  },
+  {
+    EFI_PEI_PPI_DESCRIPTOR_PPI,
+    &gArmGlobalVariablePpiGuid,
+    (VOID *) &mGlobalVariablePpi
   }
 };
 
@@ -38,7 +52,7 @@ CreatePpiList (
   PlatformPpiListSize = 0;
   ArmPlatformGetPlatformPpiList (&PlatformPpiListSize, &PlatformPpiList);
 
-  // Copy the Common and Platform PPis in Temporary Memory
+  // Copy the Common and Platform PPis in Temporrary Memory
   ListBase = PcdGet64 (PcdCPUCoresStackBase);
   CopyMem ((VOID*)ListBase, gCommonPpiTable, sizeof(gCommonPpiTable));
   CopyMem ((VOID*)(ListBase + sizeof(gCommonPpiTable)), PlatformPpiList, PlatformPpiListSize);
@@ -77,11 +91,6 @@ CEntryPoint (
   ASSERT (((UINTN)PeiVectorTable & ARM_VECTOR_TABLE_ALIGNMENT) == 0);
   ArmWriteVBar ((UINTN)PeiVectorTable);
 
-  // Enable Floating Point
-  if (FixedPcdGet32 (PcdVFPEnabled)) {
-    ArmEnableVFP ();
-  }
-
   //Note: The MMU will be enabled by MemoryPeim. Only the primary core will have the MMU on.
 
   // If not primary Jump to Secondary Main
@@ -116,27 +125,39 @@ PrePeiCoreTemporaryRamSupport (
   VOID                             *NewHeap;
   VOID                             *OldStack;
   VOID                             *NewStack;
-  UINTN                            HeapSize;
-
-  HeapSize = ALIGN_VALUE (CopySize / 2, CPU_STACK_ALIGNMENT);
 
   OldHeap = (VOID*)(UINTN)TemporaryMemoryBase;
-  NewHeap = (VOID*)((UINTN)PermanentMemoryBase + (CopySize - HeapSize));
+  NewHeap = (VOID*)((UINTN)PermanentMemoryBase + (CopySize >> 1));
 
-  OldStack = (VOID*)((UINTN)TemporaryMemoryBase + HeapSize);
+  OldStack = (VOID*)((UINTN)TemporaryMemoryBase + (CopySize >> 1));
   NewStack = (VOID*)(UINTN)PermanentMemoryBase;
 
   //
   // Migrate the temporary memory stack to permanent memory stack.
   //
-  CopyMem (NewStack, OldStack, CopySize - HeapSize);
+  CopyMem (NewStack, OldStack, CopySize >> 1);
 
   //
   // Migrate the temporary memory heap to permanent memory heap.
   //
-  CopyMem (NewHeap, OldHeap, HeapSize);
+  CopyMem (NewHeap, OldHeap, CopySize >> 1);
 
   SecSwitchStack ((UINTN)NewStack - (UINTN)OldStack);
 
   return EFI_SUCCESS;
 }
+
+EFI_STATUS
+PrePeiCoreGetGlobalVariableMemory (
+  OUT EFI_PHYSICAL_ADDRESS    *GlobalVariableBase
+  )
+{
+  ASSERT (GlobalVariableBase != NULL);
+
+  *GlobalVariableBase = (UINTN)PcdGet64 (PcdCPUCoresStackBase) +
+                        (UINTN)PcdGet32 (PcdCPUCorePrimaryStackSize) -
+                        (UINTN)PcdGet32 (PcdPeiGlobalVariableSize);
+
+  return EFI_SUCCESS;
+}
+

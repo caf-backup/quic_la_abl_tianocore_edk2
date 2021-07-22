@@ -3,7 +3,13 @@
   Copyright (c) 2008 - 2009, Apple Inc. All rights reserved.<BR>
   Copyright (c) 2011, ARM Limited. All rights reserved.
 
-  SPDX-License-Identifier: BSD-2-Clause-Patent
+  This program and the accompanying materials
+  are licensed and made available under the terms and conditions of the BSD License
+  which accompanies this distribution.  The full text of the license may be found at
+  http://opensource.org/licenses/bsd-license.php
+
+  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
@@ -11,7 +17,8 @@
 
 #include <Guid/IdleLoopEvent.h>
 
-BOOLEAN                   mIsFlushingGCD;
+BOOLEAN mInterruptState   = FALSE;
+
 
 /**
   This function flushes the range of addresses from Start to Start+Length
@@ -34,7 +41,7 @@ BOOLEAN                   mIsFlushingGCD;
 
   @retval EFI_SUCCESS           The address range from Start to Start+Length was flushed from
                                 the processor's data cache.
-  @retval EFI_UNSUPPORTED       The processor does not support the cache flush type specified
+  @retval EFI_UNSUPPORTEDT      The processor does not support the cache flush type specified
                                 by FlushType.
   @retval EFI_DEVICE_ERROR      The address range from Start to Start+Length could not be flushed
                                 from the processor's data cache.
@@ -85,6 +92,7 @@ CpuEnableInterrupt (
 {
   ArmEnableInterrupts ();
 
+  mInterruptState  = TRUE;
   return EFI_SUCCESS;
 }
 
@@ -106,6 +114,7 @@ CpuDisableInterrupt (
 {
   ArmDisableInterrupts ();
 
+  mInterruptState = FALSE;
   return EFI_SUCCESS;
 }
 
@@ -134,7 +143,7 @@ CpuGetInterruptState (
     return EFI_INVALID_PARAMETER;
   }
 
-  *State = ArmGetInterruptState();
+  *State = mInterruptState;
   return EFI_SUCCESS;
 }
 
@@ -220,17 +229,8 @@ EFI_CPU_ARCH_PROTOCOL mCpu = {
   CpuGetTimerValue,
   CpuSetMemoryAttributes,
   0,          // NumberOfTimers
-  2048,       // DmaBufferAlignment
+  4,          // DmaBufferAlignment
 };
-
-STATIC
-VOID
-InitializeDma (
-  IN OUT  EFI_CPU_ARCH_PROTOCOL   *CpuArchProtocol
-  )
-{
-  CpuArchProtocol->DmaBufferAlignment = ArmCacheWritebackGranule ();
-}
 
 EFI_STATUS
 CpuDxeInitialize (
@@ -243,11 +243,10 @@ CpuDxeInitialize (
 
   InitializeExceptions (&mCpu);
 
-  InitializeDma (&mCpu);
-
   Status = gBS->InstallMultipleProtocolInterfaces (
                 &mCpuHandle,
                 &gEfiCpuArchProtocolGuid,           &mCpu,
+                &gVirtualUncachedPagesProtocolGuid, &gVirtualUncachedPages,
                 NULL
                 );
 
@@ -256,9 +255,7 @@ CpuDxeInitialize (
   // and that calls EFI_CPU_ARCH_PROTOCOL.SetMemoryAttributes, so this code needs to go
   // after the protocol is installed
   //
-  mIsFlushingGCD = TRUE;
   SyncCacheConfig (&mCpu);
-  mIsFlushingGCD = FALSE;
 
   // If the platform is a MPCore system then install the Configuration Table describing the
   // secondary core states

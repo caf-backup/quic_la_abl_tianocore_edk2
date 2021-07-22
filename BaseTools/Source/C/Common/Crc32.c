@@ -1,8 +1,14 @@
 /** @file
-CalculateCrc32 routine.
+CalcuateCrc32 routine.
 
-Copyright (c) 2004 - 2018, Intel Corporation. All rights reserved.<BR>
-SPDX-License-Identifier: BSD-2-Clause-Patent
+Copyright (c) 2004 - 2014, Intel Corporation. All rights reserved.<BR>
+This program and the accompanying materials                          
+are licensed and made available under the terms and conditions of the BSD License         
+which accompanies this distribution.  The full text of the license may be found at        
+http://opensource.org/licenses/bsd-license.php                                            
+                                                                                          
+THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,                     
+WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.             
 
 **/
 
@@ -282,7 +288,7 @@ Routine Description:
 
 Arguments:
 
-  Data        - The buffer containing the data to be processed
+  Data        - The buffer contaning the data to be processed
   DataSize    - The size of data to be processed
   CrcOut      - A pointer to the caller allocated UINT32 that on
                 contains the CRC32 checksum of Data

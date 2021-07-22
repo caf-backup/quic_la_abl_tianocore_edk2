@@ -1,8 +1,15 @@
 /** @file
 
-  Copyright (c) 2006 - 2020, Intel Corporation. All rights reserved.<BR>
+  Copyright (c) 2006 - 2010, Intel Corporation. All rights reserved.<BR>
 
-  SPDX-License-Identifier: BSD-2-Clause-Patent
+  This program and the accompanying materials
+  are licensed and made available under the terms and conditions
+  of the BSD License which accompanies this distribution.  The
+  full text of the license may be found at
+  http://opensource.org/licenses/bsd-license.php
+
+  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
@@ -45,7 +52,7 @@ UINT32                  GenericMemoryTestMonoPattern[GENERIC_CACHELINE_SIZE / 4]
   If all Length bytes of the two buffers are identical, then 0 is returned.  Otherwise, the
   value returned is the first mismatched byte in SourceBuffer subtracted from the first
   mismatched byte in DestinationBuffer.
-
+  
   If Length = 0, then ASSERT().
 
   @param[in] DestinationBuffer The pointer to the destination buffer to compare.
@@ -55,7 +62,7 @@ UINT32                  GenericMemoryTestMonoPattern[GENERIC_CACHELINE_SIZE / 4]
   @return 0                 All Length bytes of the two buffers are identical.
   @retval Non-zero          The first mismatched byte in SourceBuffer subtracted from the first
                             mismatched byte in DestinationBuffer.
-
+                            
 **/
 INTN
 EFIAPI
@@ -82,7 +89,7 @@ CompareMemWithoutCheckArgument (
   @retval EFI_SUCCESS          Successful construct the base memory range through GCD service.
   @retval EFI_OUT_OF_RESOURCE  Could not allocate needed resource from base memory.
   @retval Others               Failed to construct base memory range through GCD service.
-
+                            
 **/
 EFI_STATUS
 ConstructBaseMemoryRange (
@@ -99,8 +106,7 @@ ConstructBaseMemoryRange (
   gDS->GetMemorySpaceMap (&NumberOfDescriptors, &MemorySpaceMap);
 
   for (Index = 0; Index < NumberOfDescriptors; Index++) {
-    if ((MemorySpaceMap[Index].GcdMemoryType == EfiGcdMemoryTypeSystemMemory) ||
-        (MemorySpaceMap[Index].GcdMemoryType == EfiGcdMemoryTypeMoreReliable)) {
+    if (MemorySpaceMap[Index].GcdMemoryType == EfiGcdMemoryTypeSystemMemory) {
       Private->BaseMemorySize += MemorySpaceMap[Index].Length;
     }
   }
@@ -112,7 +118,7 @@ ConstructBaseMemoryRange (
   Destroy the link list base on the correspond link list type.
 
   @param[in] Private  Point to generic memory test driver's private data.
-
+                            
 **/
 VOID
 DestroyLinkList (
@@ -133,48 +139,13 @@ DestroyLinkList (
 }
 
 /**
-  Convert the memory range to tested.
-
-  @param BaseAddress  Base address of the memory range.
-  @param Length       Length of the memory range.
-  @param Capabilities Capabilities of the memory range.
-
-  @retval EFI_SUCCESS The memory range is converted to tested.
-  @retval others      Error happens.
-**/
-EFI_STATUS
-ConvertToTestedMemory (
-  IN UINT64           BaseAddress,
-  IN UINT64           Length,
-  IN UINT64           Capabilities
-  )
-{
-  EFI_STATUS Status;
-  Status = gDS->RemoveMemorySpace (
-                  BaseAddress,
-                  Length
-                  );
-  if (!EFI_ERROR (Status)) {
-    Status = gDS->AddMemorySpace (
-                    ((Capabilities & EFI_MEMORY_MORE_RELIABLE) == EFI_MEMORY_MORE_RELIABLE) ?
-                    EfiGcdMemoryTypeMoreReliable : EfiGcdMemoryTypeSystemMemory,
-                    BaseAddress,
-                    Length,
-                    Capabilities &~
-                    (EFI_MEMORY_PRESENT | EFI_MEMORY_INITIALIZED | EFI_MEMORY_TESTED | EFI_MEMORY_RUNTIME)
-                    );
-  }
-  return Status;
-}
-
-/**
   Add the extened memory to whole system memory map.
 
   @param[in] Private  Point to generic memory test driver's private data.
 
   @retval EFI_SUCCESS Successful add all the extended memory to system memory map.
   @retval Others      Failed to add the tested extended memory.
-
+                            
 **/
 EFI_STATUS
 UpdateMemoryMap (
@@ -189,12 +160,18 @@ UpdateMemoryMap (
   while (Link != &Private->NonTestedMemRanList) {
     Range = NONTESTED_MEMORY_RANGE_FROM_LINK (Link);
 
-    ConvertToTestedMemory (
-      Range->StartAddress,
-      Range->Length,
-      Range->Capabilities &~
-      (EFI_MEMORY_PRESENT | EFI_MEMORY_INITIALIZED | EFI_MEMORY_TESTED | EFI_MEMORY_RUNTIME)
-      );
+    gDS->RemoveMemorySpace (
+          Range->StartAddress,
+          Range->Length
+          );
+
+    gDS->AddMemorySpace (
+          EfiGcdMemoryTypeSystemMemory,
+          Range->StartAddress,
+          Range->Length,
+          Range->Capabilities &~(EFI_MEMORY_PRESENT | EFI_MEMORY_INITIALIZED | EFI_MEMORY_TESTED | EFI_MEMORY_RUNTIME)
+          );
+
     Link = Link->ForwardLink;
   }
 
@@ -211,7 +188,7 @@ UpdateMemoryMap (
 
   @retval EFI_SUCCESS      Successful test the range of memory.
   @retval Others           Failed to test the range of memory.
-
+                            
 **/
 EFI_STATUS
 DirectRangeTest (
@@ -238,12 +215,17 @@ DirectRangeTest (
   //
   // Add the tested compatible memory to system memory using GCD service
   //
-  ConvertToTestedMemory (
-      StartAddress,
-      Length,
-      Capabilities &~
-      (EFI_MEMORY_PRESENT | EFI_MEMORY_INITIALIZED | EFI_MEMORY_TESTED | EFI_MEMORY_RUNTIME)
-      );
+  gDS->RemoveMemorySpace (
+        StartAddress,
+        Length
+        );
+
+  gDS->AddMemorySpace (
+        EfiGcdMemoryTypeSystemMemory,
+        StartAddress,
+        Length,
+        Capabilities &~(EFI_MEMORY_PRESENT | EFI_MEMORY_INITIALIZED | EFI_MEMORY_TESTED | EFI_MEMORY_RUNTIME)
+        );
 
   return EFI_SUCCESS;
 }
@@ -256,7 +238,7 @@ DirectRangeTest (
   @retval EFI_SUCCESS          Successful construct the non-tested memory range through GCD service.
   @retval EFI_OUT_OF_RESOURCE  Could not allocate needed resource from base memory.
   @retval Others               Failed to construct non-tested memory range through GCD service.
-
+                            
 **/
 EFI_STATUS
 ConstructNonTestedMemoryRange (
@@ -317,7 +299,7 @@ ConstructNonTestedMemoryRange (
 
   @retval EFI_SUCCESS Successful write the test pattern into the non-tested memory.
   @retval Others      The test pattern may not really write into the physical memory.
-
+                            
 **/
 EFI_STATUS
 WriteMemory (
@@ -365,7 +347,7 @@ WriteMemory (
 
   @retval EFI_SUCCESS Successful verify the range of memory, no errors' location found.
   @retval Others      The range of memory have errors contained.
-
+                            
 **/
 EFI_STATUS
 VerifyMemory (
@@ -425,7 +407,7 @@ VerifyMemory (
           NULL,
           (UINT8 *) ExtendedErrorData + sizeof (EFI_STATUS_CODE_DATA),
           ExtendedErrorData->DataHeader.Size
-          );
+          ); 
 
       return EFI_DEVICE_ERROR;
     }
@@ -439,12 +421,12 @@ VerifyMemory (
 /**
   Initialize the generic memory test.
 
-  @param[in]  This                The protocol instance pointer.
-  @param[in]  Level               The coverage level of the memory test.
-  @param[out] RequireSoftECCInit  Indicate if the memory need software ECC init.
+  @param[in]  This                The protocol instance pointer. 
+  @param[in]  Level               The coverage level of the memory test. 
+  @param[out] RequireSoftECCInit  Indicate if the memory need software ECC init. 
 
-  @retval EFI_SUCCESS         The generic memory test is initialized correctly.
-  @retval EFI_NO_MEDIA        The system had no memory to be tested.
+  @retval EFI_SUCCESS         The generic memory test is initialized correctly. 
+  @retval EFI_NO_MEDIA        The system had no memory to be tested. 
 
 **/
 EFI_STATUS
@@ -535,12 +517,12 @@ InitializeMemoryTest (
 /**
   Perform the memory test.
 
-  @param[in]  This              The protocol instance pointer.
-  @param[out] TestedMemorySize  Return the tested extended memory size.
-  @param[out] TotalMemorySize   Return the whole system physical memory size.
-                                The total memory size does not include memory in a slot with a disabled DIMM.
+  @param[in]  This              The protocol instance pointer. 
+  @param[out] TestedMemorySize  Return the tested extended memory size. 
+  @param[out] TotalMemorySize   Return the whole system physical memory size. 
+                                The total memory size does not include memory in a slot with a disabled DIMM.  
   @param[out] ErrorOut          TRUE if the memory error occured.
-  @param[in]  IfTestAbort       Indicates that the user pressed "ESC" to skip the memory test.
+  @param[in]  IfTestAbort       Indicates that the user pressed "ESC" to skip the memory test. 
 
   @retval EFI_SUCCESS         One block of memory passed the test.
   @retval EFI_NOT_FOUND       All memory blocks have already been tested.
@@ -569,7 +551,7 @@ GenPerformMemoryTest (
 
   //
   // In extensive mode the boundary of "mCurrentRange->Length" may will lost
-  // some range that is not Private->BdsBlockSize size boundary, so need
+  // some range that is not Private->BdsBlockSize size boundry, so need
   // the software mechanism to confirm all memory location be covered.
   //
   if (mCurrentAddress < (mCurrentRange->StartAddress + mCurrentRange->Length)) {
@@ -660,7 +642,7 @@ GenPerformMemoryTest (
 /**
   Finish the memory test.
 
-  @param[in] This             The protocol instance pointer.
+  @param[in] This             The protocol instance pointer. 
 
   @retval EFI_SUCCESS         Success. All resources used in the memory test are freed.
 
@@ -677,12 +659,10 @@ GenMemoryTestFinished (
   Private = GENERIC_MEMORY_TEST_PRIVATE_FROM_THIS (This);
 
   //
-  // Perform Data and Address line test only if not ignore memory test
+  // Perform Data and Address line test
   //
-  if (Private->CoverLevel != IGNORE) {
-    Status = PerformAddressDataLineTest (Private);
-    ASSERT_EFI_ERROR (Status);
-  }
+  Status = PerformAddressDataLineTest (Private);
+  ASSERT_EFI_ERROR (Status);
 
   //
   // Add the non tested memory range to system memory map through GCD service
@@ -700,12 +680,12 @@ GenMemoryTestFinished (
 /**
   Provides the capability to test the compatible range used by some special drivers.
 
-  @param[in]  This              The protocol instance pointer.
+  @param[in]  This              The protocol instance pointer. 
   @param[in]  StartAddress      The start address of the compatible memory range that
                                 must be below 16M.
-  @param[in]  Length            The compatible memory range's length.
-
-  @retval EFI_SUCCESS           The compatible memory range pass the memory test.
+  @param[in]  Length            The compatible memory range's length. 
+  
+  @retval EFI_SUCCESS           The compatible memory range pass the memory test. 
   @retval EFI_INVALID_PARAMETER The compatible memory range are not below Low 16M.
 
 **/
@@ -775,9 +755,9 @@ GenCompatibleRangeTest (
   Perform the address line walking ones test.
 
   @param[in] Private  Point to generic memory test driver's private data.
-
-  @retval EFI_SUCCESS          Successful finished walking ones test.
-  @retval EFI_OUT_OF_RESOURCE  Could not get resource in base memory.
+  
+  @retval EFI_SUCCESS          Successful finished walking ones test. 
+  @retval EFI_OUT_OF_RESOURCE  Could not get resource in base memory. 
   @retval EFI_ACCESS_DENIED    Code may can not run here because if walking one test
                                failed, system may be already halt.
 
@@ -856,9 +836,9 @@ GENERIC_MEMORY_TEST_PRIVATE mGenericMemoryTestPrivate = {
 
   It initializes private data to default value.
 
-  @param[in] ImageHandle  The firmware allocated handle for the EFI image.
+  @param[in] ImageHandle  The firmware allocated handle for the EFI image.  
   @param[in] SystemTable  A pointer to the EFI System Table.
-
+  
   @retval EFI_SUCCESS     The entry point is executed successfully.
   @retval EFI_NOT_FOUND   Can't find HandOff Hob in HobList.
   @retval other           Some error occurs when executing this entry point.

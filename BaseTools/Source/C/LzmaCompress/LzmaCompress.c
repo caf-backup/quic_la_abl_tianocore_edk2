@@ -1,12 +1,18 @@
 /** @file
   LZMA Compress/Decompress tool (LzmaCompress)
 
-  Based on LZMA SDK 18.05:
+  Based on LZMA SDK 4.65:
     LzmaUtil.c -- Test application for LZMA compression
-    2018-04-30 : Igor Pavlov : Public domain
+    2008-11-23 : Igor Pavlov : Public domain
 
-  Copyright (c) 2006 - 2019, Intel Corporation. All rights reserved.<BR>
-  SPDX-License-Identifier: BSD-2-Clause-Patent
+  Copyright (c) 2006 - 2012, Intel Corporation. All rights reserved.<BR>
+  This program and the accompanying materials
+  are licensed and made available under the terms and conditions of the BSD License
+  which accompanies this distribution.  The full text of the license may be found at
+  http://opensource.org/licenses/bsd-license.php
+
+  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
@@ -23,12 +29,11 @@
 #include "Sdk/C/LzmaEnc.h"
 #include "Sdk/C/Bra.h"
 #include "CommonLib.h"
-#include "ParseInf.h"
 
 #define LZMA_HEADER_SIZE (LZMA_PROPS_SIZE + 8)
 
 typedef enum {
-  NoConverter,
+  NoConverter, 
   X86Converter,
   MaxConverter
 } CONVERTER_TYPE;
@@ -37,19 +42,19 @@ const char *kCantReadMessage = "Can not read input file";
 const char *kCantWriteMessage = "Can not write output file";
 const char *kCantAllocateMessage = "Can not allocate memory";
 const char *kDataErrorMessage = "Data error";
-const char *kInvalidParamValMessage = "Invalid parameter value";
+
+static void *SzAlloc(void *p, size_t size) { (void)p; return MyAlloc(size); }
+static void SzFree(void *p, void *address) { (void)p; MyFree(address); }
+static ISzAlloc g_Alloc = { SzAlloc, SzFree };
 
 static Bool mQuietMode = False;
 static CONVERTER_TYPE mConType = NoConverter;
-
-UINT64 mDictionarySize = 28;
-UINT64 mCompressionMode = 2;
 
 #define UTILITY_NAME "LzmaCompress"
 #define UTILITY_MAJOR_VERSION 0
 #define UTILITY_MINOR_VERSION 2
 #define INTEL_COPYRIGHT \
-  "Copyright (c) 2009-2018, Intel Corporation. All rights reserved."
+  "Copyright (c) 2009-2012, Intel Corporation. All rights reserved."
 void PrintHelp(char *buffer)
 {
   strcat(buffer,
@@ -63,8 +68,6 @@ void PrintHelp(char *buffer)
              "  -v, --verbose: increase output messages\n"
              "  -q, --quiet: reduce output messages\n"
              "  --debug [0-9]: set debug level\n"
-             "  -a: set compression mode 0 = fast, 1 = normal, default: 1 (normal)\n"
-             "  d: sets Dictionary size - [0, 27], default: 24 (16MB)\n"
              "  --version: display the program version and exit\n"
              "  -h, --help: display this help text\n"
              );
@@ -94,7 +97,7 @@ void PrintVersion(char *buffer)
   sprintf (buffer, "%s Version %d.%d %s ", UTILITY_NAME, UTILITY_MAJOR_VERSION, UTILITY_MINOR_VERSION, __BUILD_VERSION);
 }
 
-static SRes Encode(ISeqOutStream *outStream, ISeqInStream *inStream, UInt64 fileSize, CLzmaEncProps *props)
+static SRes Encode(ISeqOutStream *outStream, ISeqInStream *inStream, UInt64 fileSize)
 {
   SRes res;
   size_t inSize = (size_t)fileSize;
@@ -102,6 +105,10 @@ static SRes Encode(ISeqOutStream *outStream, ISeqInStream *inStream, UInt64 file
   Byte *outBuffer = 0;
   Byte *filteredStream = 0;
   size_t outSize;
+  CLzmaEncProps props;
+
+  LzmaEncProps_Init(&props);
+  LzmaEncProps_Normalize(&props);
 
   if (inSize != 0) {
     inBuffer = (Byte *)MyAlloc(inSize);
@@ -110,7 +117,7 @@ static SRes Encode(ISeqOutStream *outStream, ISeqInStream *inStream, UInt64 file
   } else {
     return SZ_ERROR_INPUT_EOF;
   }
-
+  
   if (SeqInStream_Read(inStream, inBuffer, inSize) != SZ_OK) {
     res = SZ_ERROR_READ;
     goto Done;
@@ -123,7 +130,7 @@ static SRes Encode(ISeqOutStream *outStream, ISeqInStream *inStream, UInt64 file
     res = SZ_ERROR_MEM;
     goto Done;
   }
-
+  
   {
     int i;
     for (i = 0; i < 8; i++)
@@ -138,7 +145,7 @@ static SRes Encode(ISeqOutStream *outStream, ISeqInStream *inStream, UInt64 file
       goto Done;
     }
     memcpy(filteredStream, inBuffer, inSize);
-
+    
     if (mConType == X86Converter) {
       {
         UInt32 x86State;
@@ -151,12 +158,12 @@ static SRes Encode(ISeqOutStream *outStream, ISeqInStream *inStream, UInt64 file
   {
     size_t outSizeProcessed = outSize - LZMA_HEADER_SIZE;
     size_t outPropsSize = LZMA_PROPS_SIZE;
-
+    
     res = LzmaEncode(outBuffer + LZMA_HEADER_SIZE, &outSizeProcessed,
         mConType != NoConverter ? filteredStream : inBuffer, inSize,
-        props, outBuffer, &outPropsSize, 0,
+        &props, outBuffer, &outPropsSize, 0,
         NULL, &g_Alloc, &g_Alloc);
-
+    
     if (res != SZ_OK)
       goto Done;
 
@@ -187,13 +194,13 @@ static SRes Decode(ISeqOutStream *outStream, ISeqInStream *inStream, UInt64 file
 
   int i;
 
-  if (inSize < LZMA_HEADER_SIZE)
+  if (inSize < LZMA_HEADER_SIZE) 
     return SZ_ERROR_INPUT_EOF;
 
   inBuffer = (Byte *)MyAlloc(inSize);
   if (inBuffer == 0)
     return SZ_ERROR_MEM;
-
+  
   if (SeqInStream_Read(inStream, inBuffer, inSize) != SZ_OK) {
     res = SZ_ERROR_READ;
     goto Done;
@@ -249,10 +256,6 @@ int main2(int numArgs, const char *args[], char *rs)
   const char *outputFile = "file.tmp";
   int param;
   UInt64 fileSize;
-  CLzmaEncProps props;
-
-  LzmaEncProps_Init(&props);
-  LzmaEncProps_Normalize(&props);
 
   FileSeqInStream_CreateVTable(&inStream);
   File_Construct(&inStream.file);
@@ -287,28 +290,6 @@ int main2(int numArgs, const char *args[], char *rs)
       // parameter compatibility with other build tools.
       //
       param++;
-    } else if (strcmp(args[param], "-a") == 0) {
-      AsciiStringToUint64(args[param + 1],FALSE,&mCompressionMode);
-      if ((mCompressionMode == 0)||(mCompressionMode == 1)){
-        props.algo = (int)mCompressionMode;
-        param++;
-        continue;
-      } else {
-        return PrintError(rs, kInvalidParamValMessage);
-      }
-    } else if (strcmp(args[param], "d") == 0) {
-      AsciiStringToUint64(args[param + 1],FALSE,&mDictionarySize);
-      if (mDictionarySize <= 27) {
-        if (mDictionarySize == 0) {
-          props.dictSize = 0;
-        } else {
-          props.dictSize = (1 << mDictionarySize);
-        }
-        param++;
-        continue;
-      } else {
-        return PrintError(rs, kInvalidParamValMessage);
-      }
     } else if (
                 strcmp(args[param], "-h") == 0 ||
                 strcmp(args[param], "--help") == 0
@@ -352,10 +333,8 @@ int main2(int numArgs, const char *args[], char *rs)
   if (InFile_Open(&inStream.file, inputFile) != 0)
     return PrintError(rs, "Can not open input file");
 
-  if (OutFile_Open(&outStream.file, outputFile) != 0) {
-    File_Close(&inStream.file);
+  if (OutFile_Open(&outStream.file, outputFile) != 0)
     return PrintError(rs, "Can not open output file");
-  }
 
   File_GetLength(&inStream.file, &fileSize);
 
@@ -364,14 +343,14 @@ int main2(int numArgs, const char *args[], char *rs)
     if (!mQuietMode) {
       printf("Encoding\n");
     }
-    res = Encode(&outStream.vt, &inStream.vt, fileSize, &props);
+    res = Encode(&outStream.s, &inStream.s, fileSize);
   }
   else
   {
     if (!mQuietMode) {
       printf("Decoding\n");
     }
-    res = Decode(&outStream.vt, &inStream.vt, fileSize);
+    res = Decode(&outStream.s, &inStream.s, fileSize);
   }
 
   File_Close(&outStream.file);

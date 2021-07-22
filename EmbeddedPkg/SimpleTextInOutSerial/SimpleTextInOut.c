@@ -3,7 +3,13 @@
 
   Copyright (c) 2008 - 2009, Apple Inc. All rights reserved.<BR>
 
-  SPDX-License-Identifier: BSD-2-Clause-Patent
+  This program and the accompanying materials
+  are licensed and made available under the terms and conditions of the BSD License
+  which accompanies this distribution.  The full text of the license may be found at
+  http://opensource.org/licenses/bsd-license.php
+
+  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
@@ -297,7 +303,7 @@ ReadKeyStroke (
   SerialPortRead ((UINT8 *)&Char, 1);
 
   //
-  // Check for ESC sequence. This code is not technically correct VT100 code.
+  // Check for ESC sequence. This code is not techincally correct VT100 code.
   // An illegal ESC sequence represents an ESC and the characters that follow.
   // This code will eat one or two chars after an escape. This is done to
   // prevent some complex FIFOing of the data. It is good enough to get

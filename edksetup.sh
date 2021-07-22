@@ -1,11 +1,19 @@
 #
-# Copyright (c) 2006 - 2016, Intel Corporation. All rights reserved.<BR>
-# Copyright (c) 2016, Linaro Ltd. All rights reserved.<BR>
-# SPDX-License-Identifier: BSD-2-Clause-Patent
+# Copyright (c) 2006 - 2015, Intel Corporation. All rights reserved.<BR>
+# This program and the accompanying materials
+# are licensed and made available under the terms and conditions of the BSD License
+# which accompanies this distribution.  The full text of the license may be found at
+# http://opensource.org/licenses/bsd-license.php
+# 
+# THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+# WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 #
 # In *inux environment, the build tools's source is required and need to be compiled
-# firstly, please reference https://github.com/tianocore/tianocore.github.io/wiki/SourceForge-to-Github-Quick-Start
+# firstly, please reference https://edk2.tianocore.org/unix-getting-started.html to 
 # to get how to setup build tool.
+#
+# After build tool is downloaded and compiled, a soft symbol linker need to be created
+# at <workspace>/Conf. For example: ln -s /work/BaseTools /work/edk2/Conf/BaseToolsSource.
 #
 # Setup the environment for unix-like systems running a bash-like shell.
 # This file must be "sourced" not merely executed. For example: ". edksetup.sh"
@@ -14,28 +22,15 @@
 # set up in the unix style.  This script will make the necessary conversions to
 # windows style.
 #
-# Please reference edk2 user manual for more detail descriptions at https://github.com/tianocore-docs/Docs/raw/master/User_Docs/EDK_II_UserManual_0_7.pdf
+# Please reference edk2 user manual for more detail descriptions at https://edk2.tianocore.org/files/documents/64/494/EDKII_UserManual.pdf
 #
-
-SCRIPTNAME="edksetup.sh"
-RECONFIG=FALSE
 
 function HelpMsg()
 {
-  echo "Usage: $SCRIPTNAME [Options]"
-  echo
-  echo "The system environment variable, WORKSPACE, is always set to the current"
-  echo "working directory."
-  echo
-  echo "Options: "
-  echo "  --help, -h, -?        Print this help screen and exit."
-  echo
-  echo "  --reconfig            Overwrite the WORKSPACE/Conf/*.txt files with the"
-  echo "                        template files from the BaseTools/Conf directory."
-  echo
   echo Please note: This script must be \'sourced\' so the environment can be changed.
-  echo ". $SCRIPTNAME"
-  echo "source $SCRIPTNAME"
+  echo ". edksetup.sh" 
+  echo "source edksetup.sh"
+  return 1
 }
 
 function SetWorkspace()
@@ -43,17 +38,16 @@ function SetWorkspace()
   #
   # If WORKSPACE is already set, then we can return right now
   #
-  export PYTHONHASHSEED=1
   if [ -n "$WORKSPACE" ]
   then
     return 0
   fi
 
-  if [ ! ${BASH_SOURCE[0]} -ef ./$SCRIPTNAME ] && [ -z "$PACKAGES_PATH" ]
+  if [ ! ${BASH_SOURCE[0]} -ef ./edksetup.sh ]
   then
     echo Run this script from the base of your tree.  For example:
     echo "  cd /Path/To/Edk/Root"
-    echo "  . $SCRIPTNAME"
+    echo "  . edksetup.sh"
     return 1
   fi
 
@@ -71,7 +65,8 @@ function SetWorkspace()
   #
   # Set $WORKSPACE
   #
-  export WORKSPACE=$PWD
+  export WORKSPACE=`pwd`
+
   return 0
 }
 
@@ -79,12 +74,12 @@ function SetupEnv()
 {
   if [ -n "$EDK_TOOLS_PATH" ]
   then
-    . $EDK_TOOLS_PATH/BuildEnv
+    . $EDK_TOOLS_PATH/BuildEnv $*
   elif [ -f "$WORKSPACE/BaseTools/BuildEnv" ]
   then
-    . $WORKSPACE/BaseTools/BuildEnv
+    . $WORKSPACE/BaseTools/BuildEnv $*
   elif [ -n "$PACKAGES_PATH" ]
-  then
+  then 
     PATH_LIST=$PACKAGES_PATH
     PATH_LIST=${PATH_LIST//:/ }
     for DIR in $PATH_LIST
@@ -92,7 +87,7 @@ function SetupEnv()
       if [ -f "$DIR/BaseTools/BuildEnv" ]
       then
         export EDK_TOOLS_PATH=$DIR/BaseTools
-        . $DIR/BaseTools/BuildEnv
+        . $DIR/BaseTools/BuildEnv $*
         break
       fi
     done
@@ -105,110 +100,34 @@ function SetupEnv()
   fi
 }
 
-function SetupPython3()
-{
-  if [ $origin_version ];then
-    origin_version=
-  fi
-  for python in $(whereis python3)
-  do
-    python=$(echo $python | grep "[[:digit:]]$" || true)
-    python_version=${python##*python}
-    if [ -z "${python_version}" ] || (! command -v $python >/dev/null 2>&1);then
-      continue
-    fi
-    if [ -z $origin_version ];then
-      origin_version=$python_version
-      export PYTHON_COMMAND=$python
-      continue
-    fi
-      if [[ "$origin_version" < "$python_version" ]]; then
-      origin_version=$python_version
-      export PYTHON_COMMAND=$python
-    fi
-  done
-  return 0
-}
-
-function SetupPython()
-{
-  if [ $PYTHON_COMMAND ] && [ -z $PYTHON3_ENABLE ];then
-    if ( command -v $PYTHON_COMMAND >/dev/null 2>&1 );then
-      return 0
-    else
-      echo $PYTHON_COMMAND Cannot be used to build or execute the python tools.
-      return 1
-    fi
-  fi
-
-  if [ $PYTHON3_ENABLE ] && [ $PYTHON3_ENABLE == TRUE ]
-  then
-    SetupPython3
-  fi
-
-  if [ $PYTHON3_ENABLE ] && [ $PYTHON3_ENABLE != TRUE ]
-  then
-    if [ $origin_version ];then
-      origin_version=
-    fi
-    for python in $(whereis python2)
-    do
-      python=$(echo $python | grep "[[:digit:]]$" || true)
-      python_version=${python##*python}
-      if [ -z "${python_version}" ] || (! command -v $python >/dev/null 2>&1);then
-        continue
-      fi
-      if [ -z $origin_version ]
-      then
-        origin_version=$python_version
-        export PYTHON_COMMAND=$python
-        continue
-      fi
-      if [[ "$origin_version" < "$python_version" ]]; then
-        origin_version=$python_version
-        export PYTHON_COMMAND=$python
-      fi
-    done
-    return 0
-  fi
-
-  SetupPython3
-}
-
 function SourceEnv()
 {
-  SetWorkspace &&
-  SetupEnv
-  SetupPython
+  if [ \
+       "$1" = "-?" -o \
+       "$1" = "-h" -o \
+       "$1" = "--help" \
+     ]
+  then
+    HelpMsg
+  else
+    SetWorkspace &&
+    SetupEnv "$*"
+  fi
 }
 
-I=$#
-while [ $I -gt 0 ]
-do
-  case "$1" in
-    BaseTools)
-      # Ignore argument for backwards compatibility
-      shift
-    ;;
-    --reconfig)
-      RECONFIG=TRUE
-      shift
-    ;;
-    *)
-      HelpMsg
-      break
-    ;;
-  esac
-  I=$((I - 1))
-done
-
-if [ $I -gt 0 ]
+if [ $# -gt 1 ]
 then
-  return 1
+  HelpMsg
+elif [ $# -eq 1 ] && [ "$1" != "BaseTools" ]
+then
+  HelpMsg
 fi
 
-SourceEnv
+RETVAL=$?
+if [ $RETVAL -ne 0 ]
+then
+  return $RETVAL
+fi
 
-unset SCRIPTNAME RECONFIG
+SourceEnv "$*"
 
-return $?

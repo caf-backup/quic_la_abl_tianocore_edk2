@@ -2,9 +2,15 @@
   Emulator Thunk to abstract OS services from pure EFI code
 
   Copyright (c) 2008 - 2011, Apple Inc. All rights reserved.<BR>
-  Copyright (c) 2011 - 2019, Intel Corporation. All rights reserved.<BR>
+  Copyright (c) 2011, Intel Corporation. All rights reserved.<BR>
 
-  SPDX-License-Identifier: BSD-2-Clause-Patent
+  This program and the accompanying materials
+  are licensed and made available under the terms and conditions of the BSD License
+  which accompanies this distribution.  The full text of the license may be found at
+  http://opensource.org/licenses/bsd-license.php
+
+  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
@@ -37,7 +43,6 @@ AddThunkProtocol (
   IN  BOOLEAN                 EmuBusDriver
   )
 {
-  UINTN                       Size;
   CHAR16                      *StartString;
   CHAR16                      *SubString;
   UINTN                       Instance;
@@ -48,12 +53,8 @@ AddThunkProtocol (
   }
 
   Instance = 0;
-  Size = StrSize (ConfigString);
-  StartString = AllocatePool (Size);
-  if (StartString == NULL) {
-    return EFI_OUT_OF_RESOURCES;
-  }
-  StrCpyS (StartString, Size / sizeof (CHAR16), ConfigString);
+  StartString = AllocatePool (StrSize (ConfigString));
+  StrCpy (StartString, ConfigString);
   while (*StartString != '\0') {
 
     //
@@ -81,7 +82,7 @@ AddThunkProtocol (
     Private->EmuBusDriver       = EmuBusDriver;
 
     CopyMem (&Private->Data, ThunkIo, sizeof (EMU_IO_THUNK_PROTOCOL));
-    Private->Data.Instance      = (UINT16)Instance++;
+    Private->Data.Instance      = Instance++;
     Private->Data.ConfigString  = StartString;
 
     InsertTailList (&mThunkList, &Private->Link);

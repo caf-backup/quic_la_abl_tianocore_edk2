@@ -1,8 +1,14 @@
 /** @file
   DXE Core Main Entry Point
 
-Copyright (c) 2006 - 2018, Intel Corporation. All rights reserved.<BR>
-SPDX-License-Identifier: BSD-2-Clause-Patent
+Copyright (c) 2006 - 2015, Intel Corporation. All rights reserved.<BR>
+This program and the accompanying materials
+are licensed and made available under the terms and conditions of the BSD License
+which accompanies this distribution.  The full text of the license may be found at
+http://opensource.org/licenses/bsd-license.php
+
+THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
@@ -201,7 +207,6 @@ EFI_SYSTEM_TABLE      *gDxeCoreST = NULL;
 EFI_RUNTIME_SERVICES  *gDxeCoreRT = &mEfiRuntimeServicesTableTemplate;
 EFI_HANDLE            gDxeCoreImageHandle = NULL;
 
-BOOLEAN               gMemoryMapTerminated = FALSE;
 
 //
 // EFI Decompress Protocol
@@ -242,7 +247,6 @@ DxeMain (
   EFI_HOB_GUID_TYPE             *GuidHob;
   EFI_VECTOR_HANDOFF_INFO       *VectorInfoList;
   EFI_VECTOR_HANDOFF_INFO       *VectorInfo;
-  VOID                          *EntryPoint;
 
   //
   // Setup the default exception handlers
@@ -252,9 +256,9 @@ DxeMain (
   if (GuidHob != NULL) {
     VectorInfoList = (EFI_VECTOR_HANDOFF_INFO *) (GET_GUID_HOB_DATA(GuidHob));
   }
-  Status = InitializeCpuExceptionHandlersEx (VectorInfoList, NULL);
+  Status = InitializeCpuExceptionHandlers (VectorInfoList);
   ASSERT_EFI_ERROR (Status);
-
+  
   //
   // Initialize Debug Agent to support source level debug in DXE phase
   //
@@ -286,6 +290,14 @@ DxeMain (
   ASSERT_EFI_ERROR (Status);
 
   //
+  // Report DXE Core image information to the PE/COFF Extra Action Library
+  //
+  ZeroMem (&ImageContext, sizeof (ImageContext));
+  ImageContext.ImageAddress = (EFI_PHYSICAL_ADDRESS)(UINTN)gDxeCoreLoadedImage->ImageBase;
+  ImageContext.PdbPointer   = PeCoffLoaderGetPdbPointer ((VOID*) (UINTN) ImageContext.ImageAddress);
+  PeCoffLoaderRelocateImageExtraAction (&ImageContext);
+
+  //
   // Initialize the Global Coherency Domain Services
   //
   Status = CoreInitializeGcdServices (&HobStart, MemoryBaseAddress, MemoryLength);
@@ -295,23 +307,8 @@ DxeMain (
   // Call constructor for all libraries
   //
   ProcessLibraryConstructorList (gDxeCoreImageHandle, gDxeCoreST);
-  PERF_CROSSMODULE_END   ("PEI");
-  PERF_CROSSMODULE_BEGIN ("DXE");
-
-  //
-  // Report DXE Core image information to the PE/COFF Extra Action Library
-  //
-  ZeroMem (&ImageContext, sizeof (ImageContext));
-  ImageContext.ImageAddress   = (EFI_PHYSICAL_ADDRESS)(UINTN)gDxeCoreLoadedImage->ImageBase;
-  ImageContext.PdbPointer     = PeCoffLoaderGetPdbPointer ((VOID*)(UINTN)ImageContext.ImageAddress);
-  ImageContext.SizeOfHeaders  = PeCoffGetSizeOfHeaders ((VOID*)(UINTN)ImageContext.ImageAddress);
-  Status = PeCoffLoaderGetEntryPoint ((VOID*)(UINTN)ImageContext.ImageAddress, &EntryPoint);
-  if (Status == EFI_SUCCESS) {
-    ImageContext.EntryPoint = (EFI_PHYSICAL_ADDRESS)(UINTN)EntryPoint;
-  }
-  ImageContext.Handle         = (VOID *)(UINTN)gDxeCoreLoadedImage->ImageBase;
-  ImageContext.ImageRead      = PeCoffLoaderImageReadFromMemory;
-  PeCoffLoaderRelocateImageExtraAction (&ImageContext);
+  PERF_END   (NULL,"PEI", NULL, 0) ;
+  PERF_START (NULL,"DXE", NULL, 0) ;
 
   //
   // Install the DXE Services Table into the EFI System Tables's Configuration Table
@@ -374,43 +371,10 @@ DxeMain (
       }
     }
     for (Hob.Raw = HobStart; !END_OF_HOB_LIST(Hob); Hob.Raw = GET_NEXT_HOB(Hob)) {
-      if (GET_HOB_TYPE (Hob) == EFI_HOB_TYPE_FV) {
-        DEBUG ((
-          DEBUG_INFO | DEBUG_LOAD,
-          "FV Hob            0x%0lx - 0x%0lx\n",
-          Hob.FirmwareVolume->BaseAddress,
-          Hob.FirmwareVolume->BaseAddress + Hob.FirmwareVolume->Length - 1
-          ));
-      } else if (GET_HOB_TYPE (Hob) == EFI_HOB_TYPE_FV2) {
-        DEBUG ((
-          DEBUG_INFO | DEBUG_LOAD,
-          "FV2 Hob           0x%0lx - 0x%0lx\n",
-          Hob.FirmwareVolume2->BaseAddress,
-          Hob.FirmwareVolume2->BaseAddress + Hob.FirmwareVolume2->Length - 1
-          ));
-        DEBUG ((
-          DEBUG_INFO | DEBUG_LOAD,
-          "                  %g - %g\n",
-          &Hob.FirmwareVolume2->FvName,
-          &Hob.FirmwareVolume2->FileName
-          ));
-      } else if (GET_HOB_TYPE (Hob) == EFI_HOB_TYPE_FV3) {
-        DEBUG ((
-          DEBUG_INFO | DEBUG_LOAD,
-          "FV3 Hob           0x%0lx - 0x%0lx - 0x%x - 0x%x\n",
-          Hob.FirmwareVolume3->BaseAddress,
-          Hob.FirmwareVolume3->BaseAddress + Hob.FirmwareVolume3->Length - 1,
-          Hob.FirmwareVolume3->AuthenticationStatus,
-          Hob.FirmwareVolume3->ExtractedFv
-          ));
-        if (Hob.FirmwareVolume3->ExtractedFv) {
-          DEBUG ((
-            DEBUG_INFO | DEBUG_LOAD,
-            "                  %g - %g\n",
-            &Hob.FirmwareVolume3->FvName,
-            &Hob.FirmwareVolume3->FileName
-            ));
-        }
+      if (GET_HOB_TYPE (Hob) == EFI_HOB_TYPE_FV2) {
+        DEBUG ((DEBUG_INFO | DEBUG_LOAD, "FV2 Hob           0x%0lx - 0x%0lx\n", Hob.FirmwareVolume2->BaseAddress, Hob.FirmwareVolume2->BaseAddress + Hob.FirmwareVolume2->Length - 1));
+      } else if (GET_HOB_TYPE (Hob) == EFI_HOB_TYPE_FV) {
+        DEBUG ((DEBUG_INFO | DEBUG_LOAD, "FV Hob            0x%0lx - 0x%0lx\n", Hob.FirmwareVolume->BaseAddress, Hob.FirmwareVolume->BaseAddress + Hob.FirmwareVolume->Length - 1));
       }
     }
   DEBUG_CODE_END ();
@@ -424,8 +388,6 @@ DxeMain (
   MemoryProfileInstallProtocol ();
 
   CoreInitializePropertiesTable ();
-  CoreInitializeMemoryAttributesTable ();
-  CoreInitializeMemoryProtection ();
 
   //
   // Get persisted vector hand-off info from GUIDeed HOB again due to HobStart may be updated,
@@ -493,12 +455,16 @@ DxeMain (
   //
   // Initialize the DXE Dispatcher
   //
+  PERF_START (NULL,"CoreInitializeDispatcher", "DxeMain", 0) ;
   CoreInitializeDispatcher ();
+  PERF_END (NULL,"CoreInitializeDispatcher", "DxeMain", 0) ;
 
   //
   // Invoke the DXE Dispatcher
   //
+  PERF_START (NULL, "CoreDispatcher", "DxeMain", 0);
   CoreDispatcher ();
+  PERF_END (NULL, "CoreDispatcher", "DxeMain", 0);
 
   //
   // Display Architectural protocols that were not loaded if this is DEBUG build
@@ -526,7 +492,7 @@ DxeMain (
     REPORT_STATUS_CODE (
       EFI_ERROR_CODE | EFI_ERROR_MAJOR,
       (EFI_SOFTWARE_DXE_CORE | EFI_SW_DXE_CORE_EC_NO_ARCH)
-      );
+      );    
   }
   ASSERT_EFI_ERROR (Status);
 
@@ -548,11 +514,31 @@ DxeMain (
   //
   ASSERT (FALSE);
   CpuDeadLoop ();
-
-  UNREACHABLE ();
 }
 
 
+
+/**
+  Place holder function until all the Boot Services and Runtime Services are
+  available.
+
+  @return EFI_NOT_AVAILABLE_YET
+
+**/
+EFI_STATUS
+EFIAPI
+CoreEfiNotAvailableYetArg0 (
+  VOID
+  )
+{
+  //
+  // This function should never be executed.  If it does, then the architectural protocols
+  // have not been designed correctly.  The CpuBreakpoint () is commented out for now until the
+  // DXE Core and all the Architectural Protocols are complete.
+  //
+
+  return EFI_NOT_AVAILABLE_YET;
+}
 
 
 /**
@@ -752,13 +738,11 @@ CoreExitBootServices (
   Status = CoreTerminateMemoryMap (MapKey);
   if (EFI_ERROR (Status)) {
     //
-    // Notify other drivers that ExitBootServices fail
+    // Notify other drivers that ExitBootServices fail 
     //
     CoreNotifySignalList (&gEventExitBootServicesFailedGuid);
     return Status;
   }
-
-  gMemoryMapTerminated = TRUE;
 
   //
   // Notify other drivers that we are exiting boot services.
@@ -772,8 +756,6 @@ CoreExitBootServices (
     EFI_PROGRESS_CODE,
     (EFI_SOFTWARE_EFI_BOOT_SERVICE | EFI_SW_BS_PC_EXIT_BOOT_SERVICES)
     );
-
-  MemoryProtectionExitBootServicesCallback();
 
   //
   // Disable interrupt of Debug timer.

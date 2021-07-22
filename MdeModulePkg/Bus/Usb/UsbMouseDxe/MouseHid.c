@@ -1,8 +1,14 @@
 /** @file
   Helper functions to parse HID report descriptor and items.
 
-Copyright (c) 2004 - 2018, Intel Corporation. All rights reserved.<BR>
-SPDX-License-Identifier: BSD-2-Clause-Patent
+Copyright (c) 2004 - 2010, Intel Corporation. All rights reserved.<BR>
+This program and the accompanying materials
+are licensed and made available under the terms and conditions of the BSD License
+which accompanies this distribution.  The full text of the license may be found at
+http://opensource.org/licenses/bsd-license.php
+
+THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
@@ -22,7 +28,7 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
   Only short item is supported here.
 
   @param  StartPos          Start position of the HID item to get.
-  @param  EndPos            End position of the range to get the next HID item.
+  @param  EndPos            End position of the range to get the the next HID item.
   @param  HidItem           Buffer for the HID Item to return.
 
   @return Pointer to end of the HID item returned.
@@ -154,7 +160,7 @@ GetItemData (
   There are three item types: Main, Global, and Local.
   This function parses these types of HID items according
   to tag info.
-
+  
   @param  UsbMouse          The instance of USB_MOUSE_DEV
   @param  HidItem           The HID item to parse
 

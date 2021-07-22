@@ -1,9 +1,14 @@
 /** @file
   Provides interface to shell functionality for shell commands and applications.
 
-  Copyright (c) 2006 - 2018, Intel Corporation. All rights reserved.<BR>
-  Copyright 2018 Dell Technologies.<BR>
-  SPDX-License-Identifier: BSD-2-Clause-Patent
+  Copyright (c) 2006 - 2015, Intel Corporation. All rights reserved.<BR>
+  This program and the accompanying materials
+  are licensed and made available under the terms and conditions of the BSD License
+  which accompanies this distribution.  The full text of the license may be found at
+  http://opensource.org/licenses/bsd-license.php
+
+  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
@@ -16,53 +21,14 @@
 #include <Protocol/LoadedImage.h>
 #include <Protocol/EfiShellInterface.h>
 #include <Protocol/EfiShellEnvironment2.h>
-#include <Protocol/Shell.h>
-#include <Protocol/ShellParameters.h>
+#include <Protocol/EfiShell.h>
+#include <Protocol/EfiShellParameters.h>
 
-#define SHELL_FREE_NON_NULL(Pointer)  \
-  do {                                \
-    if ((Pointer) != NULL) {          \
-      FreePool((Pointer));            \
-      (Pointer) = NULL;               \
-    }                                 \
-  } while(FALSE)
+// (20 * (6+5+2))+1) unicode characters from EFI FAT spec (doubled for bytes)
+#define MAX_FILE_NAME_LEN 512
 
 extern EFI_SHELL_PARAMETERS_PROTOCOL *gEfiShellParametersProtocol;
 extern EFI_SHELL_PROTOCOL            *gEfiShellProtocol;
-
-/**
-  Return a clean, fully-qualified version of an input path.  If the return value
-  is non-NULL the caller must free the memory when it is no longer needed.
-
-  If asserts are disabled, and if the input parameter is NULL, NULL is returned.
-
-  If there is not enough memory available to create the fully-qualified path or
-  a copy of the input path, NULL is returned.
-
-  If there is no working directory, a clean copy of Path is returned.
-
-  Otherwise, the current file system or working directory (as appropriate) is
-  prepended to Path and the resulting path is cleaned and returned.
-
-  NOTE: If the input path is an empty string, then the current working directory
-  (if it exists) is returned.  In other words, an empty input path is treated
-  exactly the same as ".".
-
-  @param[in] Path  A pointer to some file or directory path.
-
-  @retval NULL          The input path is NULL or out of memory.
-
-  @retval non-NULL      A pointer to a clean, fully-qualified version of Path.
-                        If there is no working directory, then a pointer to a
-                        clean, but not necessarily fully-qualified version of
-                        Path.  The caller must free this memory when it is no
-                        longer needed.
-**/
-CHAR16*
-EFIAPI
-FullyQualifyPath(
-  IN     CONST CHAR16     *Path
-  );
 
 /**
   This function will retrieve the information about the file for the handle
@@ -118,6 +84,7 @@ ShellSetFileInfo (
 
   @param[in, out]  FilePath      On input, the device path to the file.  On output,
                                  the remaining device path.
+  @param[out]   DeviceHandle     Pointer to the system device handle.
   @param[out]   FileHandle       Pointer to the file handle.
   @param[in]    OpenMode         The mode to open the file with.
   @param[in]    Attributes       The file's file attributes.
@@ -143,6 +110,7 @@ EFI_STATUS
 EFIAPI
 ShellOpenFileByDevicePath(
   IN OUT EFI_DEVICE_PATH_PROTOCOL     **FilePath,
+  OUT EFI_HANDLE                      *DeviceHandle,
   OUT SHELL_FILE_HANDLE               *FileHandle,
   IN UINT64                           OpenMode,
   IN UINT64                           Attributes
@@ -155,7 +123,7 @@ ShellOpenFileByDevicePath(
   otherwise, the Filehandle is NULL. Attributes is valid only for
   EFI_FILE_MODE_CREATE.
 
-  @param[in] FileName           The pointer to file name.
+  @param[in] FilePath           The pointer to file name.
   @param[out] FileHandle        The pointer to the file handle.
   @param[in] OpenMode           The mode to open the file with.
   @param[in] Attributes         The file's file attributes.
@@ -180,7 +148,7 @@ ShellOpenFileByDevicePath(
 EFI_STATUS
 EFIAPI
 ShellOpenFileByName(
-  IN CONST CHAR16               *FileName,
+  IN CONST CHAR16               *FilePath,
   OUT SHELL_FILE_HANDLE         *FileHandle,
   IN UINT64                     OpenMode,
   IN UINT64                     Attributes
@@ -965,7 +933,7 @@ ShellPrintHiiEx(
   IN INT32                Row OPTIONAL,
   IN CONST CHAR8          *Language OPTIONAL,
   IN CONST EFI_STRING_ID  HiiFormatStringId,
-  IN CONST EFI_HII_HANDLE HiiFormatHandle,
+  IN CONST EFI_HANDLE     HiiFormatHandle,
   ...
   );
 
@@ -1210,7 +1178,7 @@ typedef enum {
   Prompt the user and return the resultant answer to the requestor.
 
   This function will display the requested question on the shell prompt and then
-  wait for an appropriate answer to be input from the console.
+  wait for an apropriate answer to be input from the console.
 
   If the SHELL_PROMPT_REQUEST_TYPE is SHELL_PROMPT_REQUEST_TYPE_YESNO, ShellPromptResponseTypeQuitContinue
   or SHELL_PROMPT_REQUEST_TYPE_YESNOCANCEL then *Response is of type SHELL_PROMPT_RESPONSE.
@@ -1260,7 +1228,7 @@ EFIAPI
 ShellPromptForResponseHii (
   IN SHELL_PROMPT_REQUEST_TYPE         Type,
   IN CONST EFI_STRING_ID  HiiFormatStringId,
-  IN CONST EFI_HII_HANDLE HiiFormatHandle,
+  IN CONST EFI_HANDLE     HiiFormatHandle,
   IN OUT VOID             **Response
   );
 
@@ -1365,7 +1333,6 @@ ShellFileHandleReturnLine(
 
   @retval EFI_SUCCESS           The operation was successful.  The line is stored in
                                 Buffer.
-  @retval EFI_END_OF_FILE       There are no more lines in the file.
   @retval EFI_INVALID_PARAMETER Handle was NULL.
   @retval EFI_INVALID_PARAMETER Size was NULL.
   @retval EFI_BUFFER_TOO_SMALL  Size was not large enough to store the line.
@@ -1383,9 +1350,9 @@ ShellFileHandleReadLine(
 
 /**
   Function to delete a file by name
-
+  
   @param[in]       FileName       Pointer to file name to delete.
-
+  
   @retval EFI_SUCCESS             the file was deleted sucessfully
   @retval EFI_WARN_DELETE_FAILURE the handle was closed, but the file was not
                                   deleted
@@ -1415,7 +1382,7 @@ ShellDeleteFileByName(
 
   @param[in] CommandToGetHelpOn  Pointer to a string containing the command name of help file to be printed.
   @param[in] SectionToGetHelpOn  Pointer to the section specifier(s).
-  @param[in] PrintCommandText    If TRUE, prints the command followed by the help content, otherwise prints
+  @param[in] PrintCommandText    If TRUE, prints the command followed by the help content, otherwise prints 
                                  the help content only.
   @retval EFI_DEVICE_ERROR       The help data format was incorrect.
   @retval EFI_NOT_FOUND          The help data could not be found.

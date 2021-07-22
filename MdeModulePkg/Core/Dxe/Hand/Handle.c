@@ -1,8 +1,14 @@
 /** @file
   UEFI handle & protocol handling.
 
-Copyright (c) 2006 - 2018, Intel Corporation. All rights reserved.<BR>
-SPDX-License-Identifier: BSD-2-Clause-Patent
+Copyright (c) 2006 - 2013, Intel Corporation. All rights reserved.<BR>
+This program and the accompanying materials
+are licensed and made available under the terms and conditions of the BSD License
+which accompanies this distribution.  The full text of the license may be found at
+http://opensource.org/licenses/bsd-license.php
+
+THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
@@ -66,20 +72,15 @@ CoreValidateHandle (
   )
 {
   IHANDLE             *Handle;
-  LIST_ENTRY          *Link;
 
-  if (UserHandle == NULL) {
+  Handle = (IHANDLE *)UserHandle;
+  if (Handle == NULL) {
     return EFI_INVALID_PARAMETER;
   }
-
-  for (Link = gHandleList.BackLink; Link != &gHandleList; Link = Link->BackLink) {
-    Handle = CR (Link, IHANDLE, AllHandles, EFI_HANDLE_SIGNATURE);
-    if (Handle == (IHANDLE *) UserHandle) {
-      return EFI_SUCCESS;
-    }
+  if (Handle->Signature != EFI_HANDLE_SIGNATURE) {
+    return EFI_INVALID_PARAMETER;
   }
-
-  return EFI_INVALID_PARAMETER;
+  return EFI_SUCCESS;
 }
 
 
@@ -427,12 +428,11 @@ CoreInstallProtocolInterfaceNotify (
     // in the system
     //
     InsertTailList (&gHandleList, &Handle->AllHandles);
-  } else {
-    Status = CoreValidateHandle (Handle);
-    if (EFI_ERROR (Status)) {
-      DEBUG((DEBUG_ERROR, "InstallProtocolInterface: input handle at 0x%x is invalid\n", Handle));
-      goto Done;
-    }
+  }
+
+  Status = CoreValidateHandle (Handle);
+  if (EFI_ERROR (Status)) {
+    goto Done;
   }
 
   //
@@ -491,7 +491,6 @@ Done:
     if (Prot != NULL) {
       CoreFreePool (Prot);
     }
-    DEBUG((DEBUG_ERROR, "InstallProtocolInterface: %g %p failed with %r\n", Protocol, Interface, Status));
   }
 
   return Status;
@@ -598,7 +597,7 @@ CoreInstallMultipleProtocolInterfaces (
       CoreUninstallProtocolInterface (*Handle, Protocol, Interface);
     }
     VA_END (Args);
-
+    
     *Handle = OldHandle;
   }
 
@@ -642,16 +641,19 @@ CoreDisconnectControllersUsingProtocolInterface (
   //
   do {
     ItemFound = FALSE;
-    for (Link = Prot->OpenList.ForwardLink; Link != &Prot->OpenList; Link = Link->ForwardLink) {
+    for ( Link = Prot->OpenList.ForwardLink;
+          (Link != &Prot->OpenList) && !ItemFound;
+          Link = Link->ForwardLink ) {
       OpenData = CR (Link, OPEN_PROTOCOL_DATA, Link, OPEN_PROTOCOL_DATA_SIGNATURE);
       if ((OpenData->Attributes & EFI_OPEN_PROTOCOL_BY_DRIVER) != 0) {
+        ItemFound = TRUE;
         CoreReleaseProtocolLock ();
         Status = CoreDisconnectController (UserHandle, OpenData->AgentHandle, NULL);
         CoreAcquireProtocolLock ();
-        if (!EFI_ERROR (Status)) {
-          ItemFound = TRUE;
+        if (EFI_ERROR (Status)) {
+           ItemFound = FALSE;
+           break;
         }
-        break;
       }
     }
   } while (ItemFound);
@@ -660,17 +662,21 @@ CoreDisconnectControllersUsingProtocolInterface (
     //
     // Attempt to remove BY_HANDLE_PROTOOCL and GET_PROTOCOL and TEST_PROTOCOL Open List items
     //
-    for (Link = Prot->OpenList.ForwardLink; Link != &Prot->OpenList;) {
-      OpenData = CR (Link, OPEN_PROTOCOL_DATA, Link, OPEN_PROTOCOL_DATA_SIGNATURE);
-      if ((OpenData->Attributes &
-          (EFI_OPEN_PROTOCOL_BY_HANDLE_PROTOCOL | EFI_OPEN_PROTOCOL_GET_PROTOCOL | EFI_OPEN_PROTOCOL_TEST_PROTOCOL)) != 0) {
-        Link = RemoveEntryList (&OpenData->Link);
-        Prot->OpenListCount--;
-        CoreFreePool (OpenData);
-      } else {
-        Link = Link->ForwardLink;
+    do {
+      ItemFound = FALSE;
+      for ( Link = Prot->OpenList.ForwardLink;
+            (Link != &Prot->OpenList) && !ItemFound;
+            Link = Link->ForwardLink ) {
+        OpenData = CR (Link, OPEN_PROTOCOL_DATA, Link, OPEN_PROTOCOL_DATA_SIGNATURE);
+        if ((OpenData->Attributes &
+            (EFI_OPEN_PROTOCOL_BY_HANDLE_PROTOCOL | EFI_OPEN_PROTOCOL_GET_PROTOCOL | EFI_OPEN_PROTOCOL_TEST_PROTOCOL)) != 0) {
+          ItemFound = TRUE;
+          RemoveEntryList (&OpenData->Link);
+          Prot->OpenListCount--;
+          CoreFreePool (OpenData);
+        }
       }
-    }
+    } while (ItemFound);
   }
 
   //
@@ -802,27 +808,20 @@ Done:
 
 
 
+
 /**
   Uninstalls a list of protocol interface in the boot services environment.
-  This function calls UninstallProtocolInterface() in a loop. This is
+  This function calls UnisatllProtocolInterface() in a loop. This is
   basically a lib function to save space.
 
-  If any errors are generated while the protocol interfaces are being
-  uninstalled, then the protocol interfaces uninstalled prior to the error will
-  be reinstalled and EFI_INVALID_PARAMETER will be returned.
-
-  @param  Handle                 The handle to uninstall the protocol interfaces
-                                 from.
+  @param  Handle                 The handle to uninstall the protocol
   @param  ...                    EFI_GUID followed by protocol instance. A NULL
-                                 terminates the list. The pairs are the
+                                 terminates the  list. The pairs are the
                                  arguments to UninstallProtocolInterface(). All
                                  the protocols are added to Handle.
 
-  @retval EFI_SUCCESS            if all protocol interfaces where uninstalled.
-  @retval EFI_INVALID_PARAMETER  if any protocol interface could not be
-                                 uninstalled and an attempt was made to
-                                 reinstall previously uninstalled protocol
-                                 interfaces.
+  @return Status code
+
 **/
 EFI_STATUS
 EFIAPI
@@ -871,7 +870,6 @@ CoreUninstallMultipleProtocolInterfaces (
       CoreInstallProtocolInterface (&Handle, Protocol, EFI_NATIVE_INTERFACE, Interface);
     }
     VA_END (Args);
-    Status = EFI_INVALID_PARAMETER;
   }
 
   return Status;
@@ -1006,8 +1004,12 @@ CoreOpenProtocol (
   //
   // Check for invalid Interface
   //
-  if ((Attributes != EFI_OPEN_PROTOCOL_TEST_PROTOCOL) && (Interface == NULL)) {
-    return EFI_INVALID_PARAMETER;
+  if (Attributes != EFI_OPEN_PROTOCOL_TEST_PROTOCOL) {
+    if (Interface == NULL) {
+      return EFI_INVALID_PARAMETER;
+    } else {
+      *Interface = NULL;
+    }
   }
 
   //
@@ -1074,6 +1076,12 @@ CoreOpenProtocol (
     goto Done;
   }
 
+  //
+  // This is the protocol interface entry for this protocol
+  //
+  if (Attributes != EFI_OPEN_PROTOCOL_TEST_PROTOCOL) {
+    *Interface = Prot->Interface;
+  }
   Status = EFI_SUCCESS;
 
   ByDriver        = FALSE;
@@ -1122,7 +1130,7 @@ CoreOpenProtocol (
     if (ByDriver) {
       do {
         Disconnect = FALSE;
-        for (Link = Prot->OpenList.ForwardLink; Link != &Prot->OpenList; Link = Link->ForwardLink) {
+        for ( Link = Prot->OpenList.ForwardLink; (Link != &Prot->OpenList) && (!Disconnect); Link = Link->ForwardLink) {
           OpenData = CR (Link, OPEN_PROTOCOL_DATA, Link, OPEN_PROTOCOL_DATA_SIGNATURE);
           if ((OpenData->Attributes & EFI_OPEN_PROTOCOL_BY_DRIVER) != 0) {
             Disconnect = TRUE;
@@ -1132,8 +1140,6 @@ CoreOpenProtocol (
             if (EFI_ERROR (Status)) {
               Status = EFI_ACCESS_DENIED;
               goto Done;
-            } else {
-              break;
             }
           }
         }
@@ -1169,37 +1175,8 @@ CoreOpenProtocol (
   }
 
 Done:
-
-  if (Attributes != EFI_OPEN_PROTOCOL_TEST_PROTOCOL) {
-    //
-    // Keep Interface unmodified in case of any Error
-    // except EFI_ALREADY_STARTED and EFI_UNSUPPORTED.
-    //
-    if (!EFI_ERROR (Status) || Status == EFI_ALREADY_STARTED) {
-      //
-      // According to above logic, if 'Prot' is NULL, then the 'Status' must be
-      // EFI_UNSUPPORTED. Here the 'Status' is not EFI_UNSUPPORTED, so 'Prot'
-      // must be not NULL.
-      //
-      // The ASSERT here is for addressing a false positive NULL pointer
-      // dereference issue raised from static analysis.
-      //
-      ASSERT (Prot != NULL);
-      //
-      // EFI_ALREADY_STARTED is not an error for bus driver.
-      // Return the corresponding protocol interface.
-      //
-      *Interface = Prot->Interface;
-    } else if (Status == EFI_UNSUPPORTED) {
-      //
-      // Return NULL Interface if Unsupported Protocol.
-      //
-      *Interface = NULL;
-    }
-  }
-
   //
-  // Done. Release the database lock and return
+  // Done. Release the database lock are return
   //
   CoreReleaseProtocolLock ();
   return Status;
@@ -1316,7 +1293,7 @@ Done:
                                  form of EFI_OPEN_PROTOCOL_INFORMATION_ENTRY structures.
   @param  EntryCount             Number of EntryBuffer entries
 
-  @retval EFI_SUCCESS            The open protocol information was returned in EntryBuffer,
+  @retval EFI_SUCCESS            The open protocol information was returned in EntryBuffer, 
                                  and the number of entries was returned EntryCount.
   @retval EFI_NOT_FOUND          Handle does not support the protocol specified by Protocol.
   @retval EFI_OUT_OF_RESOURCES   There are not enough resources available to allocate EntryBuffer.

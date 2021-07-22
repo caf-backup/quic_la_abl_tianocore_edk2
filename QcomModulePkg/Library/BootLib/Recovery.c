@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -236,7 +236,7 @@ GetSnapshotMergeStatus (VOID)
   return MergeStatus;
 }
 
-STATIC EFI_STATUS
+EFI_STATUS
 ReadFromPartition (EFI_GUID *Ptype, VOID **Msg, UINT32 Size)
 {
   return (ReadFromPartitionOffset (Ptype, Msg, Size, 0));
@@ -388,10 +388,10 @@ GetFfbmCommand (CHAR8 *FfbmString, UINT32 Sz)
   if (!AsciiStrnCmp (FfbmData, QmmiCmd, AsciiStrLen (QmmiCmd))||
     !AsciiStrnCmp (FfbmData, Ffbm02Cmd, AsciiStrLen (Ffbm02Cmd))) {
     /* if ffbm-02 or qmmi string is in misc partition,
-       then write qmmi to kernel cmd line */
-    AsciiStrnCpyS (FfbmString, Sz, QmmiCmd, AsciiStrLen (QmmiCmd));
+       then write qmmi to kernel cmd line*/
+    AsciiStrnCpy (FfbmString, QmmiCmd, AsciiStrLen (QmmiCmd));
   } else if (!AsciiStrnCmp (FfbmData, FfbmCmd, AsciiStrLen (FfbmCmd))) {
-    AsciiStrnCpyS (FfbmString, Sz, FfbmData, Sz);
+    AsciiStrnCpy (FfbmString, FfbmData, Sz);
   } else {
     Status = EFI_NOT_FOUND;
   }

@@ -3,7 +3,13 @@
 *
 *  Copyright (c) 2011-2015, ARM Limited. All rights reserved.
 *
-*  SPDX-License-Identifier: BSD-2-Clause-Patent
+*  This program and the accompanying materials
+*  are licensed and made available under the terms and conditions of the BSD License
+*  which accompanies this distribution.  The full text of the license may be found at
+*  http://opensource.org/licenses/bsd-license.php
+*
+*  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+*  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 *
 **/
 
@@ -205,9 +211,7 @@ SataSiI3132DriverBindingStop (
   IN EFI_HANDLE                  *ChildHandleBuffer
   );
 
-EFI_STATUS
-EFIAPI
-SiI3132AtaPassThruCommand (
+EFI_STATUS SiI3132AtaPassThruCommand (
   IN     SATA_SI3132_INSTANCE             *pSataSiI3132Instance,
   IN     SATA_SI3132_PORT                 *pSataPort,
   IN     UINT16                           PortMultiplierPort,
@@ -218,9 +222,7 @@ SiI3132AtaPassThruCommand (
 /**
  * EFI ATA Pass Thru Protocol
  */
-EFI_STATUS
-EFIAPI
-SiI3132AtaPassThru (
+EFI_STATUS SiI3132AtaPassThru (
   IN     EFI_ATA_PASS_THRU_PROTOCOL       *This,
   IN     UINT16                           Port,
   IN     UINT16                           PortMultiplierPort,
@@ -228,49 +230,37 @@ SiI3132AtaPassThru (
   IN     EFI_EVENT                        Event OPTIONAL
   );
 
-EFI_STATUS
-EFIAPI
-SiI3132GetNextPort (
+EFI_STATUS SiI3132GetNextPort (
   IN EFI_ATA_PASS_THRU_PROTOCOL *This,
   IN OUT UINT16                 *Port
   );
 
-EFI_STATUS
-EFIAPI
-SiI3132GetNextDevice (
+EFI_STATUS SiI3132GetNextDevice (
   IN EFI_ATA_PASS_THRU_PROTOCOL *This,
   IN UINT16                     Port,
   IN OUT UINT16                 *PortMultiplierPort
   );
 
-EFI_STATUS
-EFIAPI
-SiI3132BuildDevicePath (
+EFI_STATUS SiI3132BuildDevicePath (
   IN     EFI_ATA_PASS_THRU_PROTOCOL *This,
   IN     UINT16                     Port,
   IN     UINT16                     PortMultiplierPort,
   IN OUT EFI_DEVICE_PATH_PROTOCOL   **DevicePath
   );
 
-EFI_STATUS
-EFIAPI
-SiI3132GetDevice (
+EFI_STATUS SiI3132GetDevice (
   IN  EFI_ATA_PASS_THRU_PROTOCOL *This,
   IN  EFI_DEVICE_PATH_PROTOCOL   *DevicePath,
   OUT UINT16                     *Port,
   OUT UINT16                     *PortMultiplierPort
   );
 
-EFI_STATUS
-EFIAPI
-SiI3132ResetPort (
+EFI_STATUS SiI3132ResetPort (
   IN EFI_ATA_PASS_THRU_PROTOCOL *This,
   IN UINT16                     Port
   );
 
-EFI_STATUS
-EFIAPI
-SiI3132ResetDevice (
+EFI_STATUS SiI3132ResetDevice (
   IN EFI_ATA_PASS_THRU_PROTOCOL *This,
   IN UINT16                     Port,
   IN UINT16                     PortMultiplierPort

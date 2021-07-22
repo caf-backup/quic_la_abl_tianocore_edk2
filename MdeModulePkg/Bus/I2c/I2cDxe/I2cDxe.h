@@ -4,8 +4,14 @@
   This file defines common data structures, macro definitions and some module
   internal function header files.
 
-  Copyright (c) 2013 - 2018, Intel Corporation. All rights reserved.<BR>
-  SPDX-License-Identifier: BSD-2-Clause-Patent
+  Copyright (c) 2013, Intel Corporation. All rights reserved.<BR>
+  This program and the accompanying materials
+  are licensed and made available under the terms and conditions of the BSD License
+  which accompanies this distribution.  The full text of the license may be found at
+  http://opensource.org/licenses/bsd-license.php
+
+  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
@@ -47,7 +53,7 @@ typedef struct {
   EFI_I2C_HOST_PROTOCOL            *I2cHost;
   EFI_HANDLE                       Controller;
   EFI_DEVICE_PATH_PROTOCOL         *ParentDevicePath;
-  EFI_HANDLE                       DriverBindingHandle;
+  EFI_HANDLE                       DriverBindingHandle;  
 } I2C_BUS_CONTEXT;
 
 //
@@ -96,7 +102,7 @@ typedef struct {
   // Signature
   //
   UINT32                            Signature;
-
+  
   //
   // Next request in the pending request list
   //
@@ -212,7 +218,7 @@ extern EFI_DRIVER_BINDING_PROTOCOL    gI2cHostDriverBinding;
   @param[in] RemainingDevicePath      A pointer to the remaining portion of a device path.
 
   @retval EFI_SUCCESS                 Driver API properly initialized
-
+  
 **/
 EFI_STATUS
 RegisterI2cDevice (
@@ -279,7 +285,7 @@ I2cBusDevicePathAppend (
 
   The upper layer driver writer provides the following to the platform
   vendor:
-
+  
   1.  Vendor specific GUID for the I2C part
   2.  Guidance on proper construction of the slave address array when the
       I2C device uses more than one slave address.  The I2C bus protocol
@@ -426,7 +432,7 @@ I2cBusDriverSupported (
   @retval EFI_SUCCESS              The device was started.
   @retval EFI_DEVICE_ERROR         The device could not be started due to a device error.Currently not implemented.
   @retval EFI_OUT_OF_RESOURCES     The request could not be completed due to a lack of resources.
-  @retval Others                   The driver failed to start the device.
+  @retval Others                   The driver failded to start the device.
 
 **/
 EFI_STATUS
@@ -518,7 +524,7 @@ I2cBusComponentNameGetDriverName (
   IN  CHAR8                        *Language,
   OUT CHAR16                       **DriverName
   );
-
+  
 /**
   Retrieves a Unicode string that is the user readable name of the controller
   that is being managed by a driver.
@@ -773,7 +779,7 @@ I2cHostDriverSupported (
   @retval EFI_SUCCESS              The device was started.
   @retval EFI_DEVICE_ERROR         The device could not be started due to a device error.Currently not implemented.
   @retval EFI_OUT_OF_RESOURCES     The request could not be completed due to a lack of resources.
-  @retval Others                   The driver failed to start the device.
+  @retval Others                   The driver failded to start the device.
 
 **/
 EFI_STATUS
@@ -783,7 +789,7 @@ I2cHostDriverStart (
   IN EFI_HANDLE                         Controller,
   IN EFI_DEVICE_PATH_PROTOCOL           *RemainingDevicePath
   );
-
+  
 /**
   Stops a device controller or a bus controller.
 
@@ -865,7 +871,7 @@ I2cHostComponentNameGetDriverName (
   IN  CHAR8                        *Language,
   OUT CHAR16                       **DriverName
   );
-
+  
 /**
   Retrieves a Unicode string that is the user readable name of the controller
   that is being managed by a driver.

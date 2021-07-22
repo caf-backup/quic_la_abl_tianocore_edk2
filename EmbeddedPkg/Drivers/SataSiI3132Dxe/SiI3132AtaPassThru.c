@@ -2,7 +2,13 @@
 *
 *  Copyright (c) 2011-2015, ARM Limited. All rights reserved.
 *
-*  SPDX-License-Identifier: BSD-2-Clause-Patent
+*  This program and the accompanying materials
+*  are licensed and made available under the terms and conditions of the BSD License
+*  which accompanies this distribution.  The full text of the license may be found at
+*  http://opensource.org/licenses/bsd-license.php
+*
+*  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+*  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 *
 **/
 
@@ -39,7 +45,6 @@ GetSataDevice (
 }
 
 EFI_STATUS
-EFIAPI
 SiI3132AtaPassThruCommand (
   IN     SATA_SI3132_INSTANCE             *SataSiI3132Instance,
   IN     SATA_SI3132_PORT                 *SataPort,
@@ -99,7 +104,7 @@ SiI3132AtaPassThruCommand (
     }
 
     Status = PciIo->Map (
-               PciIo, EfiPciIoOperationBusMasterWrite,
+               PciIo, EfiPciIoOperationBusMasterRead,
                Packet->InDataBuffer, &InDataBufferLength, &PhysInDataBuffer, &PciAllocMapping
                );
     if (EFI_ERROR (Status)) {
@@ -134,7 +139,7 @@ SiI3132AtaPassThruCommand (
     OutDataBufferLength = Packet->OutTransferLength * SataDevice->BlockSize;
 
     Status = PciIo->Map (
-               PciIo, EfiPciIoOperationBusMasterRead,
+               PciIo, EfiPciIoOperationBusMasterWrite,
                Packet->OutDataBuffer, &OutDataBufferLength, &PhysOutDataBuffer, &PciAllocMapping
                );
     if (EFI_ERROR (Status)) {
@@ -311,7 +316,6 @@ SiI3132AtaPassThruCommand (
 
 **/
 EFI_STATUS
-EFIAPI
 SiI3132AtaPassThru (
   IN     EFI_ATA_PASS_THRU_PROTOCOL       *This,
   IN     UINT16                           Port,
@@ -373,7 +377,6 @@ SiI3132AtaPassThru (
 
 **/
 EFI_STATUS
-EFIAPI
 SiI3132GetNextPort (
   IN EFI_ATA_PASS_THRU_PROTOCOL *This,
   IN OUT UINT16                 *Port
@@ -445,7 +448,6 @@ SiI3132GetNextPort (
 
 **/
 EFI_STATUS
-EFIAPI
 SiI3132GetNextDevice (
   IN EFI_ATA_PASS_THRU_PROTOCOL *This,
   IN UINT16                     Port,
@@ -527,7 +529,6 @@ SiI3132GetNextDevice (
 
 **/
 EFI_STATUS
-EFIAPI
 SiI3132BuildDevicePath (
   IN     EFI_ATA_PASS_THRU_PROTOCOL *This,
   IN     UINT16                     Port,
@@ -606,7 +607,6 @@ SiI3132BuildDevicePath (
                                   port number does not exist.
 **/
 EFI_STATUS
-EFIAPI
 SiI3132GetDevice (
   IN  EFI_ATA_PASS_THRU_PROTOCOL *This,
   IN  EFI_DEVICE_PATH_PROTOCOL   *DevicePath,
@@ -640,7 +640,7 @@ SiI3132GetDevice (
     return EFI_UNSUPPORTED;
   } else {
     *Port = ((SATA_DEVICE_PATH*)DevicePath)->Lun;
-    // Return the first Sata Device as there should be only one directly connected
+    // Return the first Sata Sevice as there should be only one directly connected
     *PortMultiplierPort = ((SATA_SI3132_DEVICE*)SataSiI3132Instance->Ports[*Port].Devices.ForwardLink)->Index;
     return EFI_SUCCESS;
   }
@@ -723,7 +723,6 @@ SiI3132HwResetPort (
 
 **/
 EFI_STATUS
-EFIAPI
 SiI3132ResetPort (
   IN EFI_ATA_PASS_THRU_PROTOCOL *This,
   IN UINT16                     Port
@@ -779,7 +778,6 @@ SiI3132ResetPort (
 
 **/
 EFI_STATUS
-EFIAPI
 SiI3132ResetDevice (
   IN EFI_ATA_PASS_THRU_PROTOCOL *This,
   IN UINT16                     Port,

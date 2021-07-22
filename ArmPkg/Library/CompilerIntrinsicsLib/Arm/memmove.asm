@@ -2,13 +2,20 @@
 //
 // Copyright (c) 2011-2014, ARM Limited. All rights reserved.
 //
-// SPDX-License-Identifier: BSD-2-Clause-Patent
+// This program and the accompanying materials
+// are licensed and made available under the terms and conditions of the BSD License
+// which accompanies this distribution.  The full text of the license may be found at
+// http://opensource.org/licenses/bsd-license.php
+//
+// THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+// WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 //
 //------------------------------------------------------------------------------
 
 
+    EXPORT  __aeabi_memmove
 
-    INCLUDE AsmMacroExport.inc
+    AREA    Memmove, CODE, READONLY
 
 ;
 ;VOID
@@ -19,7 +26,7 @@
 ; IN  UINT32        Size
 ; );
 ;
- RVCT_ASM_EXPORT __aeabi_memmove
+__aeabi_memmove
   CMP     r2, #0
   BXEQ    lr
   CMP     r0, r1

@@ -1,8 +1,14 @@
 /** @file
   A emptry template implementation of PCD Library.
 
-  Copyright (c) 2006 - 2018, Intel Corporation. All rights reserved.<BR>
-  SPDX-License-Identifier: BSD-2-Clause-Patent
+  Copyright (c) 2006 - 2015, Intel Corporation. All rights reserved.<BR>
+  This program and the accompanying materials
+  are licensed and made available under the terms and conditions of the BSD License
+  which accompanies this distribution.  The full text of the license may be found at
+  http://opensource.org/licenses/bsd-license.php.
+
+  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
@@ -18,8 +24,10 @@
 
   Sets the current SKU in the PCD database to the value specified by SkuId.  SkuId is returned.
 
-  @param[in]  SkuId The SKU value that will be used when the PCD service will retrieve and
+  @param[in]  SkuId The SKU value that will be used when the PCD service will retrieve and 
                     set values associated with a PCD token.
+                    
+  If SkuId >= 0x100, then ASSERT().                  
 
   @return Return the SKU ID that just be set.
 
@@ -37,12 +45,12 @@ LibPcdSetSku (
 
 /**
   This function provides a means by which to retrieve a value for a given PCD token.
-
-  Returns the 8-bit value for the token specified by TokenNumber.
+  
+  Returns the 8-bit value for the token specified by TokenNumber. 
 
   @param[in]  TokenNumber The PCD token number to retrieve a current value for.
 
-  @return Returns the 8-bit value for the token specified by TokenNumber.
+  @return Returns the 8-bit value for the token specified by TokenNumber. 
 
 **/
 UINT8
@@ -60,12 +68,12 @@ LibPcdGet8 (
 
 /**
   This function provides a means by which to retrieve a value for a given PCD token.
-
-  Returns the 16-bit value for the token specified by TokenNumber.
+  
+  Returns the 16-bit value for the token specified by TokenNumber. 
 
   @param[in]  TokenNumber The PCD token number to retrieve a current value for.
 
-  @return Returns the 16-bit value for the token specified by TokenNumber.
+  @return Returns the 16-bit value for the token specified by TokenNumber. 
 
 **/
 UINT16
@@ -83,8 +91,8 @@ LibPcdGet16 (
 
 /**
   This function provides a means by which to retrieve a value for a given PCD token.
-
-  Returns the 32-bit value for the token specified by TokenNumber.
+  
+  Returns the 32-bit value for the token specified by TokenNumber. 
 
   @param[in]  TokenNumber The PCD token number to retrieve a current value for.
 
@@ -106,7 +114,7 @@ LibPcdGet32 (
 
 /**
   This function provides a means by which to retrieve a value for a given PCD token.
-
+  
   Returns the 64-bit value for the token specified by TokenNumber.
 
   @param[in]  TokenNumber The PCD token number to retrieve a current value for.
@@ -129,7 +137,7 @@ LibPcdGet64 (
 
 /**
   This function provides a means by which to retrieve a value for a given PCD token.
-
+  
   Returns the pointer to the buffer of the token specified by TokenNumber.
 
   @param[in]  TokenNumber The PCD token number to retrieve a current value for.
@@ -152,15 +160,15 @@ LibPcdGetPtr (
 
 /**
   This function provides a means by which to retrieve a value for a given PCD token.
-
-  Returns the Boolean value of the token specified by TokenNumber.
+  
+  Returns the Boolean value of the token specified by TokenNumber. 
 
   @param[in]  TokenNumber The PCD token number to retrieve a current value for.
 
-  @return Returns the Boolean value of the token specified by TokenNumber.
+  @return Returns the Boolean value of the token specified by TokenNumber. 
 
 **/
-BOOLEAN
+BOOLEAN 
 EFIAPI
 LibPcdGetBool (
   IN UINTN             TokenNumber
@@ -178,7 +186,7 @@ LibPcdGetBool (
 
   @param[in]  TokenNumber The PCD token number to retrieve a current value for.
 
-  @return Returns the size of the token specified by TokenNumber.
+  @return Returns the size of the token specified by TokenNumber. 
 
 **/
 UINTN
@@ -196,12 +204,12 @@ LibPcdGetSize (
 
 /**
   This function provides a means by which to retrieve a value for a given PCD token.
-
+  
   Returns the 8-bit value for the token specified by TokenNumber and Guid.
+  
+  If Guid is NULL, then ASSERT(). 
 
-  If Guid is NULL, then ASSERT().
-
-  @param[in]  Guid The pointer to a 128-bit unique value that designates
+  @param[in]  Guid The pointer to a 128-bit unique value that designates 
               which namespace to retrieve a value from.
   @param[in]  TokenNumber The PCD token number to retrieve a current value for.
 
@@ -226,10 +234,10 @@ LibPcdGetEx8 (
   This function provides a means by which to retrieve a value for a given PCD token.
 
   Returns the 16-bit value for the token specified by TokenNumber and Guid.
+  
+  If Guid is NULL, then ASSERT(). 
 
-  If Guid is NULL, then ASSERT().
-
-  @param[in]  Guid The pointer to a 128-bit unique value that designates
+  @param[in]  Guid The pointer to a 128-bit unique value that designates 
               which namespace to retrieve a value from.
   @param[in]  TokenNumber The PCD token number to retrieve a current value for.
 
@@ -252,9 +260,9 @@ LibPcdGetEx16 (
 
 /**
   Returns the 32-bit value for the token specified by TokenNumber and Guid.
-  If Guid is NULL, then ASSERT().
+  If Guid is NULL, then ASSERT(). 
 
-  @param[in]  Guid The pointer to a 128-bit unique value that designates
+  @param[in]  Guid The pointer to a 128-bit unique value that designates 
               which namespace to retrieve a value from.
   @param[in]  TokenNumber The PCD token number to retrieve a current value for.
 
@@ -277,12 +285,12 @@ LibPcdGetEx32 (
 
 /**
   This function provides a means by which to retrieve a value for a given PCD token.
-
+  
   Returns the 64-bit value for the token specified by TokenNumber and Guid.
+  
+  If Guid is NULL, then ASSERT(). 
 
-  If Guid is NULL, then ASSERT().
-
-  @param[in]  Guid          The pointer to a 128-bit unique value that designates
+  @param[in]  Guid          The pointer to a 128-bit unique value that designates 
                             which namespace to retrieve a value from.
   @param[in]  TokenNumber   The PCD token number to retrieve a current value for.
 
@@ -305,12 +313,12 @@ LibPcdGetEx64 (
 
 /**
   This function provides a means by which to retrieve a value for a given PCD token.
-
+  
   Returns the pointer to the buffer of token specified by TokenNumber and Guid.
+  
+  If Guid is NULL, then ASSERT(). 
 
-  If Guid is NULL, then ASSERT().
-
-  @param[in]  Guid          The pointer to a 128-bit unique value that designates
+  @param[in]  Guid          The pointer to a 128-bit unique value that designates 
                             which namespace to retrieve a value from.
   @param[in]  TokenNumber   The PCD token number to retrieve a current value for.
 
@@ -333,12 +341,12 @@ LibPcdGetExPtr (
 
 /**
   This function provides a means by which to retrieve a value for a given PCD token.
+  
+  Returns the Boolean value of the token specified by TokenNumber and Guid. 
+  
+  If Guid is NULL, then ASSERT(). 
 
-  Returns the Boolean value of the token specified by TokenNumber and Guid.
-
-  If Guid is NULL, then ASSERT().
-
-  @param[in]  Guid          The pointer to a 128-bit unique value that designates
+  @param[in]  Guid          The pointer to a 128-bit unique value that designates 
                             which namespace to retrieve a value from.
   @param[in]  TokenNumber   The PCD token number to retrieve a current value for.
 
@@ -361,12 +369,12 @@ LibPcdGetExBool (
 
 /**
   This function provides a means by which to retrieve the size of a given PCD token.
+  
+  Returns the size of the token specified by TokenNumber and Guid. 
+  
+  If Guid is NULL, then ASSERT(). 
 
-  Returns the size of the token specified by TokenNumber and Guid.
-
-  If Guid is NULL, then ASSERT().
-
-  @param[in]  Guid          The pointer to a 128-bit unique value that designates
+  @param[in]  Guid          The pointer to a 128-bit unique value that designates 
                             which namespace to retrieve a value from.
   @param[in]  TokenNumber   The PCD token number to retrieve a current value for.
 
@@ -390,8 +398,8 @@ LibPcdGetExSize (
 #ifndef DISABLE_NEW_DEPRECATED_INTERFACES
 /**
   This function provides a means by which to set a value for a given PCD token.
-
-  Sets the 8-bit value for the token specified by TokenNumber
+  
+  Sets the 8-bit value for the token specified by TokenNumber 
   to the value specified by Value.  Value is returned.
 
   @param[in]  TokenNumber   The PCD token number to set a current value for.
@@ -416,8 +424,8 @@ LibPcdSet8 (
 
 /**
   This function provides a means by which to set a value for a given PCD token.
-
-  Sets the 16-bit value for the token specified by TokenNumber
+  
+  Sets the 16-bit value for the token specified by TokenNumber 
   to the value specified by Value.  Value is returned.
 
   @param[in]  TokenNumber   The PCD token number to set a current value for.
@@ -442,8 +450,8 @@ LibPcdSet16 (
 
 /**
   This function provides a means by which to set a value for a given PCD token.
-
-  Sets the 32-bit value for the token specified by TokenNumber
+  
+  Sets the 32-bit value for the token specified by TokenNumber 
   to the value specified by Value.  Value is returned.
 
   @param[in]  TokenNumber   The PCD token number to set a current value for.
@@ -468,8 +476,8 @@ LibPcdSet32 (
 
 /**
   This function provides a means by which to set a value for a given PCD token.
-
-  Sets the 64-bit value for the token specified by TokenNumber
+  
+  Sets the 64-bit value for the token specified by TokenNumber 
   to the value specified by Value.  Value is returned.
 
   @param[in]  TokenNumber   The PCD token number to set a current value for.
@@ -494,19 +502,19 @@ LibPcdSet64 (
 
 /**
   This function provides a means by which to set a value for a given PCD token.
-
-  Sets a buffer for the token specified by TokenNumber to the value
-  specified by Buffer and SizeOfBuffer.  Buffer is returned.
-  If SizeOfBuffer is greater than the maximum size support by TokenNumber,
-  then set SizeOfBuffer to the maximum size supported by TokenNumber and
+  
+  Sets a buffer for the token specified by TokenNumber to the value 
+  specified by Buffer and SizeOfBuffer.  Buffer is returned.  
+  If SizeOfBuffer is greater than the maximum size support by TokenNumber, 
+  then set SizeOfBuffer to the maximum size supported by TokenNumber and 
   return NULL to indicate that the set operation was not actually performed.
 
-  If SizeOfBuffer is set to MAX_ADDRESS, then SizeOfBuffer must be set to the
+  If SizeOfBuffer is set to MAX_ADDRESS, then SizeOfBuffer must be set to the 
   maximum size supported by TokenName and NULL must be returned.
-
+  
   If SizeOfBuffer is NULL, then ASSERT().
   If SizeOfBuffer > 0 and Buffer is NULL, then ASSERT().
-
+  
   @param[in]      TokenNumber   The PCD token number to set a current value for.
   @param[in, out] SizeOfBuffer  The size, in bytes, of Buffer.
   @param[in]      Buffer        A pointer to the buffer to set.
@@ -531,8 +539,8 @@ LibPcdSetPtr (
 
 /**
   This function provides a means by which to set a value for a given PCD token.
-
-  Sets the Boolean value for the token specified by TokenNumber
+  
+  Sets the Boolean value for the token specified by TokenNumber 
   to the value specified by Value.  Value is returned.
 
   @param[in]  TokenNumber   The PCD token number to set a current value for.
@@ -557,13 +565,13 @@ LibPcdSetBool (
 
 /**
   This function provides a means by which to set a value for a given PCD token.
-
-  Sets the 8-bit value for the token specified by TokenNumber and
+  
+  Sets the 8-bit value for the token specified by TokenNumber and 
   Guid to the value specified by Value. Value is returned.
 
   If Guid is NULL, then ASSERT().
 
-  @param[in]  Guid          The pointer to a 128-bit unique value that
+  @param[in]  Guid          The pointer to a 128-bit unique value that 
                             designates which namespace to set a value from.
   @param[in]  TokenNumber   The PCD token number to set a current value for.
   @param[in]  Value         The 8-bit value to set.
@@ -588,13 +596,13 @@ LibPcdSetEx8 (
 
 /**
   This function provides a means by which to set a value for a given PCD token.
-
-  Sets the 16-bit value for the token specified by TokenNumber and
+  
+  Sets the 16-bit value for the token specified by TokenNumber and 
   Guid to the value specified by Value. Value is returned.
 
   If Guid is NULL, then ASSERT().
 
-  @param[in]  Guid          The pointer to a 128-bit unique value that
+  @param[in]  Guid          The pointer to a 128-bit unique value that 
                             designates which namespace to set a value from.
   @param[in]  TokenNumber   The PCD token number to set a current value for.
   @param[in]  Value         The 16-bit value to set.
@@ -619,13 +627,13 @@ LibPcdSetEx16 (
 
 /**
   This function provides a means by which to set a value for a given PCD token.
-
-  Sets the 32-bit value for the token specified by TokenNumber and
+  
+  Sets the 32-bit value for the token specified by TokenNumber and 
   Guid to the value specified by Value. Value is returned.
 
   If Guid is NULL, then ASSERT().
 
-  @param[in]  Guid          The pointer to a 128-bit unique value that
+  @param[in]  Guid          The pointer to a 128-bit unique value that 
                             designates which namespace to set a value from.
   @param[in]  TokenNumber   The PCD token number to set a current value for.
   @param[in]  Value         The 32-bit value to set.
@@ -650,13 +658,13 @@ LibPcdSetEx32 (
 
 /**
   This function provides a means by which to set a value for a given PCD token.
-
-  Sets the 64-bit value for the token specified by TokenNumber and
+  
+  Sets the 64-bit value for the token specified by TokenNumber and 
   Guid to the value specified by Value. Value is returned.
 
   If Guid is NULL, then ASSERT().
 
-  @param[in]  Guid          The pointer to a 128-bit unique value that
+  @param[in]  Guid          The pointer to a 128-bit unique value that 
                             designates which namespace to set a value from.
   @param[in]  TokenNumber   The PCD token number to set a current value for.
   @param[in]  Value         The 64-bit value to set.
@@ -681,18 +689,18 @@ LibPcdSetEx64 (
 
 /**
   This function provides a means by which to set a value for a given PCD token.
-
-  Sets a buffer for the token specified by TokenNumber to the value specified by
-  Buffer and SizeOfBuffer.  Buffer is returned.  If SizeOfBuffer is greater than
-  the maximum size support by TokenNumber, then set SizeOfBuffer to the maximum size
-  supported by TokenNumber and return NULL to indicate that the set operation
+  
+  Sets a buffer for the token specified by TokenNumber to the value specified by 
+  Buffer and SizeOfBuffer.  Buffer is returned.  If SizeOfBuffer is greater than 
+  the maximum size support by TokenNumber, then set SizeOfBuffer to the maximum size 
+  supported by TokenNumber and return NULL to indicate that the set operation 
   was not actually performed.
-
+  
   If Guid is NULL, then ASSERT().
   If SizeOfBuffer is NULL, then ASSERT().
   If SizeOfBuffer > 0 and Buffer is NULL, then ASSERT().
-
-  @param[in]  Guid              The pointer to a 128-bit unique value that
+  
+  @param[in]  Guid              The pointer to a 128-bit unique value that 
                                 designates which namespace to set a value from.
   @param[in]  TokenNumber       The PCD token number to set a current value for.
   @param[in, out] SizeOfBuffer  The size, in bytes, of Buffer.
@@ -719,13 +727,13 @@ LibPcdSetExPtr (
 
 /**
   This function provides a means by which to set a value for a given PCD token.
-
-  Sets the Boolean value for the token specified by TokenNumber and
+  
+  Sets the Boolean value for the token specified by TokenNumber and 
   Guid to the value specified by Value. Value is returned.
 
   If Guid is NULL, then ASSERT().
 
-  @param[in]  Guid          The pointer to a 128-bit unique value that
+  @param[in]  Guid          The pointer to a 128-bit unique value that 
                             designates which namespace to set a value from.
   @param[in]  TokenNumber   The PCD token number to set a current value for.
   @param[in]  Value         The Boolean value to set.
@@ -1085,18 +1093,18 @@ LibPcdSetExBoolS (
 
 /**
   Set up a notification function that is called when a specified token is set.
-
-  When the token specified by TokenNumber and Guid is set,
-  then notification function specified by NotificationFunction is called.
-  If Guid is NULL, then the default token space is used.
-
+  
+  When the token specified by TokenNumber and Guid is set, 
+  then notification function specified by NotificationFunction is called.  
+  If Guid is NULL, then the default token space is used. 
+  
   If NotificationFunction is NULL, then ASSERT().
 
-  @param[in]  Guid      The pointer to a 128-bit unique value that designates which
-                        namespace to set a value from.  If NULL, then the default
+  @param[in]  Guid      The pointer to a 128-bit unique value that designates which 
+                        namespace to set a value from.  If NULL, then the default 
                         token space is used.
   @param[in]  TokenNumber   The PCD token number to monitor.
-  @param[in]  NotificationFunction  The function to call when the token
+  @param[in]  NotificationFunction  The function to call when the token 
                                     specified by Guid and TokenNumber is set.
 
 **/
@@ -1115,13 +1123,13 @@ LibPcdCallbackOnSet (
 
 /**
   Disable a notification function that was established with LibPcdCallbackonSet().
-
-  Disable a notification function that was previously established with LibPcdCallbackOnSet().
-
+  
+  Disable a notification function that was previously established with LibPcdCallbackOnSet(). 
+  
   If NotificationFunction is NULL, then ASSERT().
-  If LibPcdCallbackOnSet() was not previously called with Guid, TokenNumber,
+  If LibPcdCallbackOnSet() was not previously called with Guid, TokenNumber, 
   and NotificationFunction, then ASSERT().
-
+  
   @param[in]  Guid          Specify the GUID token space.
   @param[in]  TokenNumber   Specify the token number.
   @param[in]  NotificationFunction The callback function to be unregistered.
@@ -1142,24 +1150,24 @@ LibPcdCancelCallback (
 
 /**
   Retrieves the next token in a token space.
-
-  Retrieves the next PCD token number from the token space specified by Guid.
-  If Guid is NULL, then the default token space is used.  If TokenNumber is 0,
-  then the first token number is returned.  Otherwise, the token number that
-  follows TokenNumber in the token space is returned.  If TokenNumber is the last
-  token number in the token space, then 0 is returned.
-
+  
+  Retrieves the next PCD token number from the token space specified by Guid.  
+  If Guid is NULL, then the default token space is used.  If TokenNumber is 0, 
+  then the first token number is returned.  Otherwise, the token number that 
+  follows TokenNumber in the token space is returned.  If TokenNumber is the last 
+  token number in the token space, then 0 is returned.  
+  
   If TokenNumber is not 0 and is not in the token space specified by Guid, then ASSERT().
 
-  @param[in]  Guid        The pointer to a 128-bit unique value that designates which namespace
+  @param[in]  Guid        The pointer to a 128-bit unique value that designates which namespace 
                           to set a value from.  If NULL, then the default token space is used.
-  @param[in]  TokenNumber The previous PCD token number.  If 0, then retrieves the first PCD
+  @param[in]  TokenNumber The previous PCD token number.  If 0, then retrieves the first PCD 
                           token number.
 
   @return The next valid token number.
 
 **/
-UINTN
+UINTN           
 EFIAPI
 LibPcdGetNextToken (
   IN CONST GUID               *Guid,       OPTIONAL
@@ -1175,18 +1183,18 @@ LibPcdGetNextToken (
 
 /**
   Used to retrieve the list of available PCD token space GUIDs.
-
+  
   Returns the PCD token space GUID that follows TokenSpaceGuid in the list of token spaces
   in the platform.
   If TokenSpaceGuid is NULL, then a pointer to the first PCD token spaces returned.
   If TokenSpaceGuid is the last PCD token space GUID in the list, then NULL is returned.
-
+  
   @param  TokenSpaceGuid  The pointer to a PCD token space GUID.
 
   @return The next valid token namespace.
 
 **/
-GUID *
+GUID *           
 EFIAPI
 LibPcdGetNextTokenSpace (
   IN CONST GUID  *TokenSpaceGuid
@@ -1200,24 +1208,24 @@ LibPcdGetNextTokenSpace (
 
 /**
   Sets a value of a patchable PCD entry that is type pointer.
-
-  Sets the PCD entry specified by PatchVariable to the value specified by Buffer
-  and SizeOfBuffer.  Buffer is returned.  If SizeOfBuffer is greater than
-  MaximumDatumSize, then set SizeOfBuffer to MaximumDatumSize and return
-  NULL to indicate that the set operation was not actually performed.
-  If SizeOfBuffer is set to MAX_ADDRESS, then SizeOfBuffer must be set to
+  
+  Sets the PCD entry specified by PatchVariable to the value specified by Buffer 
+  and SizeOfBuffer.  Buffer is returned.  If SizeOfBuffer is greater than 
+  MaximumDatumSize, then set SizeOfBuffer to MaximumDatumSize and return 
+  NULL to indicate that the set operation was not actually performed.  
+  If SizeOfBuffer is set to MAX_ADDRESS, then SizeOfBuffer must be set to 
   MaximumDatumSize and NULL must be returned.
-
+  
   If PatchVariable is NULL, then ASSERT().
   If SizeOfBuffer is NULL, then ASSERT().
   If SizeOfBuffer > 0 and Buffer is NULL, then ASSERT().
 
-  @param[out] PatchVariable     A pointer to the global variable in a module that is
+  @param[out] PatchVariable     A pointer to the global variable in a module that is 
                                 the target of the set operation.
   @param[in] MaximumDatumSize   The maximum size allowed for the PCD entry specified by PatchVariable.
   @param[in, out] SizeOfBuffer  A pointer to the size, in bytes, of Buffer.
   @param[in] Buffer             A pointer to the buffer to used to set the target variable.
-
+  
   @return Return the pointer to the buffer that was set.
 
 **/
@@ -1232,7 +1240,7 @@ LibPatchPcdSetPtr (
 {
   ASSERT (PatchVariable != NULL);
   ASSERT (SizeOfBuffer  != NULL);
-
+  
   if (*SizeOfBuffer > 0) {
     ASSERT (Buffer != NULL);
   }
@@ -1242,9 +1250,9 @@ LibPatchPcdSetPtr (
     *SizeOfBuffer = MaximumDatumSize;
     return NULL;
   }
-
+    
   CopyMem (PatchVariable, Buffer, *SizeOfBuffer);
-
+  
   return (VOID *) Buffer;
 }
 
@@ -1267,7 +1275,7 @@ LibPatchPcdSetPtr (
   @param[in] MaximumDatumSize   The maximum size allowed for the PCD entry specified by PatchVariable.
   @param[in, out] SizeOfBuffer  A pointer to the size, in bytes, of Buffer.
   @param[in] Buffer             A pointer to the buffer to used to set the target variable.
-
+  
   @return The status of the set operation.
 
 **/
@@ -1282,7 +1290,7 @@ LibPatchPcdSetPtrS (
 {
   ASSERT (PatchVariable != NULL);
   ASSERT (SizeOfBuffer  != NULL);
-
+  
   if (*SizeOfBuffer > 0) {
     ASSERT (Buffer != NULL);
   }
@@ -1300,26 +1308,26 @@ LibPatchPcdSetPtrS (
 
 /**
   Sets a value and size of a patchable PCD entry that is type pointer.
-
-  Sets the PCD entry specified by PatchVariable to the value specified by Buffer
-  and SizeOfBuffer.  Buffer is returned.  If SizeOfBuffer is greater than
-  MaximumDatumSize, then set SizeOfBuffer to MaximumDatumSize and return
-  NULL to indicate that the set operation was not actually performed.
-  If SizeOfBuffer is set to MAX_ADDRESS, then SizeOfBuffer must be set to
+  
+  Sets the PCD entry specified by PatchVariable to the value specified by Buffer 
+  and SizeOfBuffer.  Buffer is returned.  If SizeOfBuffer is greater than 
+  MaximumDatumSize, then set SizeOfBuffer to MaximumDatumSize and return 
+  NULL to indicate that the set operation was not actually performed.  
+  If SizeOfBuffer is set to MAX_ADDRESS, then SizeOfBuffer must be set to 
   MaximumDatumSize and NULL must be returned.
-
+  
   If PatchVariable is NULL, then ASSERT().
   If SizeOfPatchVariable is NULL, then ASSERT().
   If SizeOfBuffer is NULL, then ASSERT().
   If SizeOfBuffer > 0 and Buffer is NULL, then ASSERT().
 
-  @param[out] PatchVariable     A pointer to the global variable in a module that is
+  @param[out] PatchVariable     A pointer to the global variable in a module that is 
                                 the target of the set operation.
   @param[out] SizeOfPatchVariable A pointer to the size, in bytes, of PatchVariable.
   @param[in] MaximumDatumSize   The maximum size allowed for the PCD entry specified by PatchVariable.
   @param[in, out] SizeOfBuffer  A pointer to the size, in bytes, of Buffer.
   @param[in] Buffer             A pointer to the buffer to used to set the target variable.
-
+  
   @return Return the pointer to the buffer been set.
 
 **/
@@ -1336,7 +1344,7 @@ LibPatchPcdSetPtrAndSize (
   ASSERT (PatchVariable != NULL);
   ASSERT (SizeOfPatchVariable != NULL);
   ASSERT (SizeOfBuffer  != NULL);
-
+  
   if (*SizeOfBuffer > 0) {
     ASSERT (Buffer != NULL);
   }
@@ -1346,10 +1354,10 @@ LibPatchPcdSetPtrAndSize (
     *SizeOfBuffer = MaximumDatumSize;
     return NULL;
   }
-
+    
   CopyMem (PatchVariable, Buffer, *SizeOfBuffer);
   *SizeOfPatchVariable = *SizeOfBuffer;
-
+  
   return (VOID *) Buffer;
 }
 
@@ -1374,7 +1382,7 @@ LibPatchPcdSetPtrAndSize (
   @param[in] MaximumDatumSize   The maximum size allowed for the PCD entry specified by PatchVariable.
   @param[in, out] SizeOfBuffer  A pointer to the size, in bytes, of Buffer.
   @param[in] Buffer             A pointer to the buffer to used to set the target variable.
-
+  
   @return The status of the set operation.
 
 **/
@@ -1391,7 +1399,7 @@ LibPatchPcdSetPtrAndSizeS (
   ASSERT (PatchVariable != NULL);
   ASSERT (SizeOfPatchVariable != NULL);
   ASSERT (SizeOfBuffer  != NULL);
-
+  
   if (*SizeOfBuffer > 0) {
     ASSERT (Buffer != NULL);
   }
@@ -1456,6 +1464,8 @@ LibPcdGetInfoEx (
 
 /**
   Retrieve the currently set SKU Id.
+
+  If the sku id got >= PCD_MAX_SKU_ID, then ASSERT().
 
   @return   The currently set SKU Id. If the platform has not set at a SKU Id, then the
             default SKU Id value of 0 is returned. If the platform has set a SKU Id, then the currently set SKU

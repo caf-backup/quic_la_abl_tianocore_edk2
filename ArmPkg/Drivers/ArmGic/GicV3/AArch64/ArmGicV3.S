@@ -1,7 +1,13 @@
 #
 #  Copyright (c) 2014, ARM Limited. All rights reserved.
 #
-#  SPDX-License-Identifier: BSD-2-Clause-Patent
+#  This program and the accompanying materials are licensed and made available
+#  under the terms and conditions of the BSD License which accompanies this
+#  distribution. The full text of the license may be found at
+#  http://opensource.org/licenses/bsd-license.php
+#
+#  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 #
 #
 
@@ -26,12 +32,24 @@
 
 #endif
 
+.text
+.align 2
+
+GCC_ASM_EXPORT(ArmGicV3GetControlSystemRegisterEnable)
+GCC_ASM_EXPORT(ArmGicV3SetControlSystemRegisterEnable)
+GCC_ASM_EXPORT(ArmGicV3EnableInterruptInterface)
+GCC_ASM_EXPORT(ArmGicV3DisableInterruptInterface)
+GCC_ASM_EXPORT(ArmGicV3EndOfInterrupt)
+GCC_ASM_EXPORT(ArmGicV3AcknowledgeInterrupt)
+GCC_ASM_EXPORT(ArmGicV3SetPriorityMask)
+GCC_ASM_EXPORT(ArmGicV3SetBinaryPointer)
+
 //UINT32
 //EFIAPI
 //ArmGicV3GetControlSystemRegisterEnable (
 //  VOID
 //  );
-ASM_FUNC(ArmGicV3GetControlSystemRegisterEnable)
+ASM_PFX(ArmGicV3GetControlSystemRegisterEnable):
         EL1_OR_EL2_OR_EL3(x1)
 1:  mrs x0, ICC_SRE_EL1
         b       4f
@@ -45,7 +63,7 @@ ASM_FUNC(ArmGicV3GetControlSystemRegisterEnable)
 //ArmGicV3SetControlSystemRegisterEnable (
 //  IN UINT32         ControlSystemRegisterEnable
 //  );
-ASM_FUNC(ArmGicV3SetControlSystemRegisterEnable)
+ASM_PFX(ArmGicV3SetControlSystemRegisterEnable):
         EL1_OR_EL2_OR_EL3(x1)
 1:  msr ICC_SRE_EL1, x0
         b       4f
@@ -59,7 +77,7 @@ ASM_FUNC(ArmGicV3SetControlSystemRegisterEnable)
 //ArmGicV3EnableInterruptInterface (
 //  VOID
 //  );
-ASM_FUNC(ArmGicV3EnableInterruptInterface)
+ASM_PFX(ArmGicV3EnableInterruptInterface):
         mov     x0, #1
         msr     ICC_IGRPEN1_EL1, x0
         ret
@@ -68,7 +86,7 @@ ASM_FUNC(ArmGicV3EnableInterruptInterface)
 //ArmGicV3DisableInterruptInterface (
 //  VOID
 //  );
-ASM_FUNC(ArmGicV3DisableInterruptInterface)
+ASM_PFX(ArmGicV3DisableInterruptInterface):
         mov     x0, #0
         msr     ICC_IGRPEN1_EL1, x0
         ret
@@ -77,7 +95,7 @@ ASM_FUNC(ArmGicV3DisableInterruptInterface)
 //ArmGicV3EndOfInterrupt (
 //  IN UINTN          InterruptId
 //  );
-ASM_FUNC(ArmGicV3EndOfInterrupt)
+ASM_PFX(ArmGicV3EndOfInterrupt):
         msr     ICC_EOIR1_EL1, x0
         ret
 
@@ -85,7 +103,7 @@ ASM_FUNC(ArmGicV3EndOfInterrupt)
 //ArmGicV3AcknowledgeInterrupt (
 //  VOID
 //  );
-ASM_FUNC(ArmGicV3AcknowledgeInterrupt)
+ASM_PFX(ArmGicV3AcknowledgeInterrupt):
         mrs     x0, ICC_IAR1_EL1
         ret
 
@@ -93,7 +111,7 @@ ASM_FUNC(ArmGicV3AcknowledgeInterrupt)
 //ArmGicV3SetPriorityMask (
 //  IN UINTN          Priority
 //  );
-ASM_FUNC(ArmGicV3SetPriorityMask)
+ASM_PFX(ArmGicV3SetPriorityMask):
         msr     ICC_PMR_EL1, x0
         ret
 
@@ -101,6 +119,6 @@ ASM_FUNC(ArmGicV3SetPriorityMask)
 //ArmGicV3SetBinaryPointer (
 //  IN UINTN          BinaryPoint
 //  );
-ASM_FUNC(ArmGicV3SetBinaryPointer)
+ASM_PFX(ArmGicV3SetBinaryPointer):
         msr     ICC_BPR1_EL1, x0
         ret

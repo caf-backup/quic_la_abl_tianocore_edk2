@@ -2,9 +2,16 @@
 PEIM to produce gPeiUsb2HostControllerPpiGuid based on gPeiUsbControllerPpiGuid
 which is used to enable recovery function from USB Drivers.
 
-Copyright (c) 2014 - 2017, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2014 - 2015, Intel Corporation. All rights reserved.<BR>
 
-SPDX-License-Identifier: BSD-2-Clause-Patent
+This program and the accompanying materials
+are licensed and made available under the terms and conditions
+of the BSD License which accompanies this distribution.  The
+full text of the license may be found at
+http://opensource.org/licenses/bsd-license.php
+
+THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
@@ -193,8 +200,6 @@ XhcPeiFreeUrb (
     return;
   }
 
-  IoMmuUnmap (Urb->DataMap);
-
   FreePool (Urb);
 }
 
@@ -222,10 +227,6 @@ XhcPeiCreateTransferTrb (
   UINTN                         TotalLen;
   UINTN                         Len;
   UINTN                         TrbNum;
-  EDKII_IOMMU_OPERATION         MapOp;
-  EFI_PHYSICAL_ADDRESS          PhyAddr;
-  VOID                          *Map;
-  EFI_STATUS                    Status;
 
   SlotId = XhcPeiBusDevAddrToSlotId (Xhc, Urb->Ep.BusAddr);
   if (SlotId == 0) {
@@ -248,27 +249,7 @@ XhcPeiCreateTransferTrb (
     EPType  = (UINT8) ((DEVICE_CONTEXT_64 *)OutputContext)->EP[Dci-1].EPType;
   }
 
-  //
-  // No need to remap.
-  //
-  if ((Urb->Data != NULL) && (Urb->DataMap == NULL)) {
-    if (((UINT8) (Urb->Ep.Direction)) == EfiUsbDataIn) {
-      MapOp = EdkiiIoMmuOperationBusMasterWrite;
-    } else {
-      MapOp = EdkiiIoMmuOperationBusMasterRead;
-    }
-
-    Len = Urb->DataLen;
-    Status = IoMmuMap (MapOp, Urb->Data, &Len, &PhyAddr, &Map);
-
-    if (EFI_ERROR (Status) || (Len != Urb->DataLen)) {
-      DEBUG ((DEBUG_ERROR, "XhcCreateTransferTrb: Fail to map Urb->Data.\n"));
-      return EFI_OUT_OF_RESOURCES;
-    }
-
-    Urb->DataPhy  = (VOID *) ((UINTN) PhyAddr);
-    Urb->DataMap  = Map;
-  }
+  Urb->DataPhy = Urb->Data;
 
   //
   // Construct the TRB
@@ -702,7 +683,7 @@ XhcPeiCheckUrbResult (
       case TRB_COMPLETION_SHORT_PACKET:
       case TRB_COMPLETION_SUCCESS:
         if (EvtTrb->Completecode == TRB_COMPLETION_SHORT_PACKET) {
-          DEBUG ((EFI_D_VERBOSE, "XhcPeiCheckUrbResult: short packet happens!\n"));
+          DEBUG ((EFI_D_ERROR, "XhcPeiCheckUrbResult: short packet happens!\n"));
         }
 
         TRBType = (UINT8) (TRBPtr->Type);
@@ -1214,10 +1195,6 @@ XhcPeiInitializeDeviceSlot (
   // 8) Issue an Address Device Command for the Device Slot, where the command points to the Input
   //    Context data structure described above.
   //
-  // Delay 10ms to meet TRSTRCY delay requirement in usb 2.0 spec chapter 7.1.7.5 before sending SetAddress() request
-  // to device.
-  //
-  MicroSecondDelay (XHC_RESET_RECOVERY_DELAY);
   ZeroMem (&CmdTrbAddr, sizeof (CmdTrbAddr));
   PhyAddr = UsbHcGetPciAddrForHostAddr (Xhc->MemPool, Xhc->UsbDevContext[SlotId].InputContext, sizeof (INPUT_CONTEXT));
   CmdTrbAddr.PtrLo    = XHC_LOW_32BIT (PhyAddr);
@@ -1425,10 +1402,6 @@ XhcPeiInitializeDeviceSlot64 (
   // 8) Issue an Address Device Command for the Device Slot, where the command points to the Input
   //    Context data structure described above.
   //
-  // Delay 10ms to meet TRSTRCY delay requirement in usb 2.0 spec chapter 7.1.7.5 before sending SetAddress() request
-  // to device.
-  //
-  MicroSecondDelay (XHC_RESET_RECOVERY_DELAY);
   ZeroMem (&CmdTrbAddr, sizeof (CmdTrbAddr));
   PhyAddr = UsbHcGetPciAddrForHostAddr (Xhc->MemPool, Xhc->UsbDevContext[SlotId].InputContext, sizeof (INPUT_CONTEXT_64));
   CmdTrbAddr.PtrLo    = XHC_LOW_32BIT (PhyAddr);
@@ -1769,20 +1742,6 @@ XhcPeiSetConfigCmd (
             InputContext->EP[Dci-1].EPType = ED_ISOCH_OUT;
           }
           //
-          // Get the bInterval from descriptor and init the the interval field of endpoint context.
-          // Refer to XHCI 1.1 spec section 6.2.3.6.
-          //
-          if (DeviceSpeed == EFI_USB_SPEED_FULL) {
-            Interval = EpDesc->Interval;
-            ASSERT (Interval >= 1 && Interval <= 16);
-            InputContext->EP[Dci-1].Interval = Interval + 2;
-          } else if ((DeviceSpeed == EFI_USB_SPEED_HIGH) || (DeviceSpeed == EFI_USB_SPEED_SUPER)) {
-            Interval = EpDesc->Interval;
-            ASSERT (Interval >= 1 && Interval <= 16);
-            InputContext->EP[Dci-1].Interval = Interval - 1;
-          }
-
-          //
           // Do not support isochronous transfer now.
           //
           DEBUG ((EFI_D_INFO, "XhcPeiSetConfigCmd: Unsupport ISO EP found, Transfer ring is not allocated.\n"));
@@ -1985,20 +1944,6 @@ XhcPeiSetConfigCmd64 (
             InputContext->EP[Dci-1].CErr   = 0;
             InputContext->EP[Dci-1].EPType = ED_ISOCH_OUT;
           }
-          //
-          // Get the bInterval from descriptor and init the the interval field of endpoint context.
-          // Refer to XHCI 1.1 spec section 6.2.3.6.
-          //
-          if (DeviceSpeed == EFI_USB_SPEED_FULL) {
-            Interval = EpDesc->Interval;
-            ASSERT (Interval >= 1 && Interval <= 16);
-            InputContext->EP[Dci-1].Interval = Interval + 2;
-          } else if ((DeviceSpeed == EFI_USB_SPEED_HIGH) || (DeviceSpeed == EFI_USB_SPEED_SUPER)) {
-            Interval = EpDesc->Interval;
-            ASSERT (Interval >= 1 && Interval <= 16);
-            InputContext->EP[Dci-1].Interval = Interval - 1;
-          }
-
           //
           // Do not support isochronous transfer now.
           //
@@ -2831,7 +2776,6 @@ XhcPeiInitSched (
   UINT64                *ScratchEntry;
   EFI_PHYSICAL_ADDRESS  ScratchEntryPhy;
   UINT32                Index;
-  UINTN                 *ScratchEntryMap;
   EFI_STATUS            Status;
 
   //
@@ -2868,13 +2812,6 @@ XhcPeiInitSched (
   ASSERT (MaxScratchpadBufs <= 1023);
   if (MaxScratchpadBufs != 0) {
     //
-    // Allocate the buffer to record the Mapping for each scratch buffer in order to Unmap them
-    //
-    ScratchEntryMap = AllocateZeroPool (sizeof (UINTN) * MaxScratchpadBufs);
-    ASSERT (ScratchEntryMap != NULL);
-    Xhc->ScratchEntryMap = ScratchEntryMap;
-
-    //
     // Allocate the buffer to record the host address for each entry
     //
     ScratchEntry = AllocateZeroPool (sizeof (UINT64) * MaxScratchpadBufs);
@@ -2886,8 +2823,7 @@ XhcPeiInitSched (
                EFI_SIZE_TO_PAGES (MaxScratchpadBufs * sizeof (UINT64)),
                Xhc->PageSize,
                (VOID **) &ScratchBuf,
-               &ScratchPhy,
-               &Xhc->ScratchMap
+               &ScratchPhy
                );
     ASSERT_EFI_ERROR (Status);
 
@@ -2903,8 +2839,7 @@ XhcPeiInitSched (
                  EFI_SIZE_TO_PAGES (Xhc->PageSize),
                  Xhc->PageSize,
                  (VOID **) &ScratchEntry[Index],
-                 &ScratchEntryPhy,
-                 (VOID **) &ScratchEntryMap[Index]
+                 &ScratchEntryPhy
                  );
       ASSERT_EFI_ERROR (Status);
       ZeroMem ((VOID *) (UINTN) ScratchEntry[Index], Xhc->PageSize);
@@ -2996,13 +2931,12 @@ XhcPeiFreeSched (
       //
       // Free Scratchpad Buffers
       //
-      UsbHcFreeAlignedPages ((VOID*) (UINTN) ScratchEntry[Index], EFI_SIZE_TO_PAGES (Xhc->PageSize), (VOID *) Xhc->ScratchEntryMap[Index]);
+      UsbHcFreeAlignedPages ((VOID*) (UINTN) ScratchEntry[Index], EFI_SIZE_TO_PAGES (Xhc->PageSize));
     }
     //
     // Free Scratchpad Buffer Array
     //
-    UsbHcFreeAlignedPages (Xhc->ScratchBuf, EFI_SIZE_TO_PAGES (Xhc->MaxScratchpadBufs * sizeof (UINT64)), Xhc->ScratchMap);
-    FreePool (Xhc->ScratchEntryMap);
+    UsbHcFreeAlignedPages (Xhc->ScratchBuf, EFI_SIZE_TO_PAGES (Xhc->MaxScratchpadBufs * sizeof (UINT64)));
     FreePool (Xhc->ScratchEntry);
   }
 

@@ -5,7 +5,13 @@
   Copyright (C) 2013, Red Hat, Inc.
   Copyright (c) 2006 - 2014, Intel Corporation. All rights reserved.<BR>
 
-  SPDX-License-Identifier: BSD-2-Clause-Patent
+  This program and the accompanying materials are licensed and made available
+  under the terms and conditions of the BSD License which accompanies this
+  distribution. The full text of the license may be found at
+  http://opensource.org/licenses/bsd-license.php
+
+  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS, WITHOUT
+  WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
@@ -58,7 +64,7 @@ VirtioNetGetFeatures (
 {
   EFI_STATUS Status;
   UINT8      NextDevStat;
-  UINT64     Features;
+  UINT32     Features;
   UINTN      MacIdx;
   UINT16     LinkStatus;
 
@@ -419,7 +425,7 @@ VirtioNetDriverBindingSupported (
                                    device error.Currently not implemented.
   @retval EFI_OUT_OF_RESOURCES     The request could not be completed due to a
                                    lack of resources.
-  @retval Others                   The driver failed to start the device.
+  @retval Others                   The driver failded to start the device.
 
 **/
 

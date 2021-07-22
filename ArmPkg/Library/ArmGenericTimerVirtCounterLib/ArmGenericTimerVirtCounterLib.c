@@ -3,12 +3,18 @@
   Copyright (c) 2011 - 2014, ARM Ltd. All rights reserved.<BR>
   Copyright (c) 2014, Linaro Ltd. All rights reserved.<BR>
 
-  SPDX-License-Identifier: BSD-2-Clause-Patent
+  This program and the accompanying materials
+  are licensed and made available under the terms and conditions of the BSD License
+  which accompanies this distribution.  The full text of the license may be found at
+  http://opensource.org/licenses/bsd-license.php
+
+  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
 #include <Library/ArmGenericTimerCounterLib.h>
-#include <Library/ArmLib.h>
+#include <Library/ArmArchTimer.h>
 
 VOID
 EFIAPI
@@ -18,17 +24,19 @@ ArmGenericTimerEnableTimer (
 {
   UINTN TimerCtrlReg;
 
-  TimerCtrlReg = ArmReadCntvCtl ();
+  ArmArchTimerReadReg (CntvCtl, (VOID *)&TimerCtrlReg);
   TimerCtrlReg |= ARM_ARCH_TIMER_ENABLE;
-  ArmWriteCntvCtl (TimerCtrlReg);
-}
 
-VOID
-EFIAPI
-ArmGenericTimerReenableTimer (
-  VOID
-  )
-{
+  //
+  // When running under KVM, we need to unmask the interrupt on the timer side
+  // as KVM will mask it when servicing the interrupt at the hypervisor level
+  // and delivering the virtual timer interrupt to the guest. Otherwise, the
+  // interrupt will fire again, trapping into the hypervisor again, etc. etc.
+  // This is scheduled to be fixed on the KVM side, but there is no harm in
+  // leaving this in once KVM gets fixed.
+  //
+  TimerCtrlReg &= ~ARM_ARCH_TIMER_IMASK;
+  ArmArchTimerWriteReg (CntvCtl, (VOID *)&TimerCtrlReg);
 }
 
 VOID
@@ -39,9 +47,9 @@ ArmGenericTimerDisableTimer (
 {
   UINTN TimerCtrlReg;
 
-  TimerCtrlReg = ArmReadCntvCtl ();
+  ArmArchTimerReadReg (CntvCtl, (VOID *)&TimerCtrlReg);
   TimerCtrlReg &= ~ARM_ARCH_TIMER_ENABLE;
-  ArmWriteCntvCtl (TimerCtrlReg);
+  ArmArchTimerWriteReg (CntvCtl, (VOID *)&TimerCtrlReg);
 }
 
 VOID
@@ -50,7 +58,7 @@ ArmGenericTimerSetTimerFreq (
   IN   UINTN  FreqInHz
   )
 {
-  ArmWriteCntFrq (FreqInHz);
+  ArmArchTimerWriteReg (CntFrq, (VOID *)&FreqInHz);
 }
 
 UINTN
@@ -59,7 +67,9 @@ ArmGenericTimerGetTimerFreq (
   VOID
   )
 {
-  return ArmReadCntFrq ();
+  UINTN ArchTimerFreq = 0;
+  ArmArchTimerReadReg (CntFrq, (VOID *)&ArchTimerFreq);
+  return ArchTimerFreq;
 }
 
 UINTN
@@ -68,7 +78,10 @@ ArmGenericTimerGetTimerVal (
   VOID
   )
 {
-  return ArmReadCntvTval ();
+  UINTN ArchTimerValue;
+  ArmArchTimerReadReg (CntvTval, (VOID *)&ArchTimerValue);
+
+  return ArchTimerValue;
 }
 
 
@@ -78,7 +91,7 @@ ArmGenericTimerSetTimerVal (
   IN   UINTN   Value
   )
 {
-  ArmWriteCntvTval (Value);
+  ArmArchTimerWriteReg (CntvTval, (VOID *)&Value);
 }
 
 UINT64
@@ -87,7 +100,10 @@ ArmGenericTimerGetSystemCount (
   VOID
   )
 {
-  return ArmReadCntvCt ();
+  UINT64 SystemCount;
+  ArmArchTimerReadReg (CntvCt, (VOID *)&SystemCount);
+
+  return SystemCount;
 }
 
 UINTN
@@ -96,7 +112,10 @@ ArmGenericTimerGetTimerCtrlReg (
   VOID
   )
 {
-  return ArmReadCntvCtl ();
+  UINTN  Value;
+  ArmArchTimerReadReg (CntvCtl, (VOID *)&Value);
+
+  return Value;
 }
 
 VOID
@@ -105,7 +124,7 @@ ArmGenericTimerSetTimerCtrlReg (
   UINTN Value
   )
 {
-  ArmWriteCntvCtl (Value);
+  ArmArchTimerWriteReg (CntvCtl, (VOID *)&Value);
 }
 
 UINT64
@@ -114,7 +133,10 @@ ArmGenericTimerGetCompareVal (
   VOID
   )
 {
-  return ArmReadCntvCval ();
+  UINT64  Value;
+  ArmArchTimerReadReg (CntvCval, (VOID *)&Value);
+
+  return Value;
 }
 
 VOID
@@ -123,5 +145,5 @@ ArmGenericTimerSetCompareVal (
   IN   UINT64   Value
   )
 {
-  ArmWriteCntvCval (Value);
+  ArmArchTimerWriteReg (CntvCval, (VOID *)&Value);
 }

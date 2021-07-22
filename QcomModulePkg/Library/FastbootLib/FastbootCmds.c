@@ -88,8 +88,9 @@ found at
 
 STATIC struct GetVarPartitionInfo part_info[] = {
     {"system", "partition-size:", "partition-type:", "", "ext4"},
-    {"userdata", "partition-size:", "partition-type:", "", "ext4"},
+    {"userdata", "partition-size:", "partition-type:", "", USERDATA_FS_TYPE},
     {"cache", "partition-size:", "partition-type:", "", "ext4"},
+    {"metadata", "partition-size:", "partition-type:", "", "ext4"},
 };
 
 STATIC struct GetVarPartitionInfo PublishedPartInfo[MAX_NUM_PARTITIONS];
@@ -2752,10 +2753,8 @@ CmdGetVar (CONST CHAR8 *Arg, VOID *Data, UINT32 Size)
       if (PartitionHasMultiSlot (PartNameUniStr)) {
         CurrentSlot = GetCurrentSlotSuffix ();
         UnicodeStrToAsciiStr (CurrentSlot.Suffix, CurrentSlotAsc);
-        AsciiStrnCatS ((CHAR8 *)Arg,
-                        MAX_FASTBOOT_COMMAND_SIZE - AsciiStrLen ("getvar:"),
-                        CurrentSlotAsc,
-                        AsciiStrLen (CurrentSlotAsc));
+        AsciiStrnCat ((CHAR8 *)Arg, CurrentSlotAsc,
+                      AsciiStrLen (CurrentSlotAsc));
       }
     }
   }
@@ -3144,6 +3143,19 @@ DisplayGetVariable (CHAR16 *VariableName, VOID *VariableValue, UINTN *DataSize)
 }
 
 STATIC VOID
+CmdOemDisplayCommandLine (CONST CHAR8 *Arg, VOID *Data, UINT32 Size)
+{
+  EFI_STATUS Status;
+
+  Status = StoreDisplayCmdLine (Arg, AsciiStrLen (Arg));
+  if (Status != EFI_SUCCESS) {
+    FastbootFail ("Failed to store display command line");
+  } else {
+    FastbootOkay ("");
+  }
+}
+
+STATIC VOID
 CmdOemSelectDisplayPanel (CONST CHAR8 *arg, VOID *data, UINT32 sz)
 {
   EFI_STATUS Status;
@@ -3457,12 +3469,10 @@ GetPartitionType (IN CHAR16 *PartName, OUT CHAR8 * PartType)
       CheckPartitionFsSignature (PartName, &FsSignature);
       switch (FsSignature) {
         case EXT_FS_SIGNATURE:
-          AsciiStrnCpyS (PartType, MAX_GET_VAR_NAME_SIZE, EXT_FS_STR,
-                          AsciiStrLen (EXT_FS_STR));
+          AsciiStrnCpy (PartType, EXT_FS_STR, AsciiStrLen (EXT_FS_STR));
           break;
         case F2FS_FS_SIGNATURE:
-          AsciiStrnCpyS (PartType, MAX_GET_VAR_NAME_SIZE, F2FS_FS_STR,
-                          AsciiStrLen (F2FS_FS_STR));
+          AsciiStrnCpy (PartType, F2FS_FS_STR, AsciiStrLen (F2FS_FS_STR));
           break;
         case UNKNOWN_FS_SIGNATURE:
           /* Copy default hardcoded type in case unknown partition type */
@@ -3699,6 +3709,7 @@ FastbootCommandSetup (IN VOID *Base, IN UINT64 Size)
       {"reboot-bootloader", CmdRebootBootloader},
       {"getvar:", CmdGetVar},
       {"download:", CmdDownload},
+      {"oem display-cmdline", CmdOemDisplayCommandLine},
   };
 
   /* Register the commands only for non-user builds */

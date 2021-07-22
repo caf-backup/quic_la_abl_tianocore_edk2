@@ -2,7 +2,13 @@
   File System Access for NvVarsFileLib
 
   Copyright (c) 2004 - 2014, Intel Corporation. All rights reserved.<BR>
-  SPDX-License-Identifier: BSD-2-Clause-Patent
+  This program and the accompanying materials
+  are licensed and made available under the terms and conditions of the BSD License
+  which accompanies this distribution.  The full text of the license may be found at
+  http://opensource.org/licenses/bsd-license.php
+
+  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
@@ -71,6 +77,9 @@ GetNvVarsFile (
                      ),
                    0
                    );
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
 
   return Status;
 }
@@ -175,7 +184,7 @@ FileHandleEmpty (
   @param[in]  ReadSize - The size of data to read from the file
 
   @return     Pointer to buffer allocated to hold the file
-              contents.  NULL if an error occurred.
+              contents.  NULL if an error occured.
 
 **/
 VOID*
@@ -323,7 +332,7 @@ LoadNvVarsFromFs (
   // We write a variable to indicate we've already loaded the
   // variable data.  If it is found, we skip the loading.
   //
-  // This is relevant if the non-volatile variable have been
+  // This is relevent if the non-volatile variable have been
   // able to survive a reboot operation.  In that case, we don't
   // want to re-load the file as it would overwrite newer changes
   // made to the variables.

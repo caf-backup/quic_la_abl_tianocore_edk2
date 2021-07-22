@@ -69,22 +69,20 @@ ANTLRTokenPtr::~ANTLRTokenPtr()
 
 //
 //  8-Apr-97	MR1	Make operator -> a const member function
-//			  as well as some other member functions
+//			  as weall as some other member functions
 //
-ANTLRTokenPtr& ANTLRTokenPtr::operator = (const ANTLRTokenPtr & lhs)    // MR1
+void ANTLRTokenPtr::operator = (const ANTLRTokenPtr & lhs)	// MR1
 {
     lhs.ref();	// protect against "xp = xp"; ie same underlying object
     deref();
     ptr_ = lhs.ptr_;
-    return *this;
 }
 
-ANTLRTokenPtr& ANTLRTokenPtr::operator = (ANTLRAbstractToken *addr)
+void ANTLRTokenPtr::operator = (ANTLRAbstractToken *addr)
 {
     if (addr != NULL) {
 	addr->ref();
     }
     deref();
     ptr_ = addr;
-    return *this;
 }

@@ -3,7 +3,13 @@
 
   Copyright (c) 2009 - 2010, Intel Corporation. All rights reserved.<BR>
 
-  SPDX-License-Identifier: BSD-2-Clause-Patent
+  This program and the accompanying materials
+  are licensed and made available under the terms and conditions of the BSD License
+  which accompanies this distribution.  The full text of the license may be found at
+  http://opensource.org/licenses/bsd-license.php.
+
+  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
@@ -149,7 +155,7 @@ TcpConnectTimeout (
   if (!TCP_CONNECTED (Tcb->State)) {
     DEBUG (
       (EFI_D_ERROR,
-      "TcpConnectTimeout: connection closed because connection timer timeout for TCB %p\n",
+      "TcpConnectTimeout: connection closed because conenction timer timeout for TCB %p\n",
       Tcb)
       );
 

@@ -2,14 +2,21 @@
 *
 *  Copyright (c) 2011, ARM Limited. All rights reserved.
 *
-*  SPDX-License-Identifier: BSD-2-Clause-Patent
+*  This program and the accompanying materials
+*  are licensed and made available under the terms and conditions of the BSD License
+*  which accompanies this distribution.  The full text of the license may be found at
+*  http://opensource.org/licenses/bsd-license.php
+*
+*  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+*  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 *
 **/
 
 #include <PiPei.h>
-#include <Library/ArmLib.h>
+#include <Library/ArmPlatformGlobalVariableLib.h>
 #include <Library/PrePiHobListPointerLib.h>
 #include <Library/DebugLib.h>
+#include <Library/PcdLib.h>
 
 /**
   Returns the pointer to the HOB list.
@@ -25,7 +32,11 @@ PrePeiGetHobList (
   VOID
   )
 {
-  return (VOID *)ArmReadTpidrurw();
+  VOID* HobList;
+
+  ArmPlatformGetGlobalVariable (PcdGet32 (PcdHobListPtrGlobalOffset), sizeof(VOID*), &HobList);
+
+  return HobList;
 }
 
 
@@ -42,7 +53,8 @@ PrePeiSetHobList (
   IN  VOID      *HobList
   )
 {
-  ArmWriteTpidrurw((UINTN)HobList);
+  ArmPlatformSetGlobalVariable (PcdGet32 (PcdHobListPtrGlobalOffset), sizeof(VOID*), &HobList);
 
   return EFI_SUCCESS;
 }
+

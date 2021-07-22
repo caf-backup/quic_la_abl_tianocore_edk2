@@ -1,8 +1,14 @@
 /** @file
 Header file for compression routine
 
-Copyright (c) 2006 - 2018, Intel Corporation. All rights reserved.<BR>
-SPDX-License-Identifier: BSD-2-Clause-Patent
+Copyright (c) 2006 - 2014, Intel Corporation. All rights reserved.<BR>
+This program and the accompanying materials                          
+are licensed and made available under the terms and conditions of the BSD License         
+which accompanies this distribution.  The full text of the license may be found at        
+http://opensource.org/licenses/bsd-license.php                                            
+                                                                                          
+THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,                     
+WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.             
 
 **/
 
@@ -33,7 +39,7 @@ Arguments:
 
 Returns:
 
-  EFI_SUCCESS           - The size of destination buffer and the size of scratch buffer are successfully retrieved.
+  EFI_SUCCESS           - The size of destination buffer and the size of scratch buffer are successull retrieved.
   EFI_INVALID_PARAMETER - The source data is corrupted
 
 **/
@@ -64,7 +70,7 @@ Arguments:
 
 Returns:
 
-  EFI_SUCCESS           - Decompression is successful
+  EFI_SUCCESS           - Decompression is successfull
   EFI_INVALID_PARAMETER - The source data is corrupted
 
 **/
@@ -91,7 +97,7 @@ Arguments:
 
 Returns:
 
-  EFI_SUCCESS           - The size of destination buffer and the size of scratch buffer are successfully retrieved.
+  EFI_SUCCESS           - The size of destination buffer and the size of scratch buffer are successull retrieved.
   EFI_INVALID_PARAMETER - The source data is corrupted
 
 **/
@@ -122,7 +128,7 @@ Arguments:
 
 Returns:
 
-  EFI_SUCCESS           - Decompression is successful
+  EFI_SUCCESS           - Decompression is successfull
   EFI_INVALID_PARAMETER - The source data is corrupted
 
 **/

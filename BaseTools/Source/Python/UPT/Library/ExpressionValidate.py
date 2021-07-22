@@ -1,14 +1,19 @@
 ## @file
 # This file is used to check PCD logical expression
 #
-# Copyright (c) 2011 - 2018, Intel Corporation. All rights reserved.<BR>
+# Copyright (c) 2011 - 2014, Intel Corporation. All rights reserved.<BR>
 #
-# SPDX-License-Identifier: BSD-2-Clause-Patent
+# This program and the accompanying materials are licensed and made available 
+# under the terms and conditions of the BSD License which accompanies this 
+# distribution. The full text of the license may be found at 
+# http://opensource.org/licenses/bsd-license.php
+#
+# THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+# WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 '''
 ExpressionValidate
 '''
-from __future__ import print_function
 
 ##
 # Import Modules
@@ -41,7 +46,7 @@ def IsValidBareCString(String):
                 and (IntChar < 0x23 or IntChar > 0x7e):
                 return False
         PreChar = Char
-
+    
     # Last char cannot be \ if PreChar is not \
     if LastChar == '\\' and PreChar == LastChar:
         return False
@@ -77,7 +82,7 @@ class _ExprBase:
         self.Token = Token
         self.Index = 0
         self.Len = len(Token)
-
+    
     ## SkipWhitespace
     #
     def SkipWhitespace(self):
@@ -85,14 +90,14 @@ class _ExprBase:
             if Char not in ' \t':
                 break
             self.Index += 1
-
+    
     ## IsCurrentOp
     #
-    # @param      OpList:   option list
-    #
+    # @param      OpList:   option list 
+    #    
     def IsCurrentOp(self, OpList):
         self.SkipWhitespace()
-        LetterOp = ["EQ", "NE", "GE", "LE", "GT", "LT", "NOT", "and", "AND",
+        LetterOp = ["EQ", "NE", "GE", "LE", "GT", "LT", "NOT", "and", "AND", 
                     "or", "OR", "XOR"]
         OpMap = {
             '|' : '|',
@@ -101,11 +106,11 @@ class _ExprBase:
             '>' : '=',
             '<' : '='
         }
-
+        
         for Operator in OpList:
             if not self.Token[self.Index:].startswith(Operator):
                 continue
-
+            
             self.Index += len(Operator)
             Char = self.Token[self.Index : self.Index + 1]
 
@@ -113,36 +118,36 @@ class _ExprBase:
                 or (Operator in OpMap and OpMap[Operator] == Char):
                 self.Index -= len(Operator)
                 break
-
+            
             return True
-
+        
         return False
 
 ## _LogicalExpressionParser
 #
 # @param      _ExprBase:   _ExprBase object
-#
+#    
 class _LogicalExpressionParser(_ExprBase):
     #
     # STRINGITEM can only be logical field according to spec
     #
     STRINGITEM = -1
-
+    
     #
     # Evaluate to True or False
     #
     LOGICAL = 0
     REALLOGICAL = 2
-
+    
     #
     # Just arithmetic expression
     #
     ARITH = 1
-
+    
     def __init__(self, Token):
         _ExprBase.__init__(self, Token)
         self.Parens = 0
-
+    
     def _CheckToken(self, MatchList):
         for Match in MatchList:
             if Match and Match.start() == 0:
@@ -150,7 +155,7 @@ class _LogicalExpressionParser(_ExprBase):
                             self.Token[self.Index:self.Index+Match.end()]
                         ):
                     return False
-
+                
                 self.Index += Match.end()
                 if self.Token[self.Index - 1] == '"':
                     return True
@@ -158,61 +163,61 @@ class _LogicalExpressionParser(_ExprBase):
                     self.Token[self.Index:self.Index+1].isalnum():
                     self.Index -= Match.end()
                     return False
-
+                
                 Token = self.Token[self.Index - Match.end():self.Index]
                 if Token.strip() in ["EQ", "NE", "GE", "LE", "GT", "LT",
                     "NOT", "and", "AND", "or", "OR", "XOR"]:
                     self.Index -= Match.end()
                     return False
-
+                
                 return True
-
+        
         return False
-
+    
     def IsAtomicNumVal(self):
         #
         # Hex number
         #
         Match1 = re.compile(self.HEX_PATTERN).match(self.Token[self.Index:])
-
+        
         #
         # Number
         #
         Match2 = re.compile(self.INT_PATTERN).match(self.Token[self.Index:])
-
+        
         #
         # Macro
         #
         Match3 = re.compile(self.MACRO_PATTERN).match(self.Token[self.Index:])
-
+        
         #
         # PcdName
         #
         Match4 = re.compile(self.PCD_PATTERN).match(self.Token[self.Index:])
-
+        
         return self._CheckToken([Match1, Match2, Match3, Match4])
-
+    
 
     def IsAtomicItem(self):
         #
         # Macro
         #
         Match1 = re.compile(self.MACRO_PATTERN).match(self.Token[self.Index:])
-
+        
         #
         # PcdName
         #
         Match2 = re.compile(self.PCD_PATTERN).match(self.Token[self.Index:])
-
+        
         #
         # Quoted string
         #
         Match3 = re.compile(self.QUOTED_PATTERN).\
             match(self.Token[self.Index:].replace('\\\\', '//').\
                   replace('\\\"', '\\\''))
-
+        
         return self._CheckToken([Match1, Match2, Match3])
-
+    
     ## A || B
     #
     def LogicalExpression(self):
@@ -227,12 +232,12 @@ class _LogicalExpressionParser(_ExprBase):
                 raise _ExprError(ST.ERR_EXPR_LOGICAL % self.Token)
             Ret = self.REALLOGICAL
         return Ret
-
+    
     def SpecNot(self):
         if self.IsCurrentOp(["NOT", "!", "not"]):
             return self.SpecNot()
         return self.Rel()
-
+    
     ## A < B, A > B, A <= B, A >= B
     #
     def Rel(self):
@@ -246,7 +251,7 @@ class _LogicalExpressionParser(_ExprBase):
                 raise _ExprError(ST.ERR_EXPR_LOGICAL % self.Token)
             Ret = self.REALLOGICAL
         return Ret
-
+    
     ## A + B, A - B
     #
     def Expr(self):
@@ -263,7 +268,7 @@ class _LogicalExpressionParser(_ExprBase):
         return Ret
 
     ## Factor
-    #
+    #    
     def Factor(self):
         if self.IsCurrentOp(["("]):
             self.Parens += 1
@@ -273,7 +278,7 @@ class _LogicalExpressionParser(_ExprBase):
                                  (self.Token, self.Token[self.Index:]))
             self.Parens -= 1
             return Ret
-
+        
         if self.IsAtomicItem():
             if self.Token[self.Index - 1] == '"':
                 return self.STRINGITEM
@@ -283,7 +288,7 @@ class _LogicalExpressionParser(_ExprBase):
         else:
             raise _ExprError(ST.ERR_EXPR_FACTOR % \
                              (self.Token[self.Index:], self.Token))
-
+            
     ## IsValidLogicalExpression
     #
     def IsValidLogicalExpression(self):
@@ -292,7 +297,7 @@ class _LogicalExpressionParser(_ExprBase):
         try:
             if self.LogicalExpression() not in [self.ARITH, self.LOGICAL, self.REALLOGICAL, self.STRINGITEM]:
                 return False, ST.ERR_EXPR_LOGICAL % self.Token
-        except _ExprError as XExcept:
+        except _ExprError, XExcept:
             return False, XExcept.Error
         self.SkipWhitespace()
         if self.Index != self.Len:
@@ -313,7 +318,7 @@ class _ValidRangeExpressionParser(_ExprBase):
         self.INT = 2
         self.IsParenHappen = False
         self.IsLogicalOpHappen = False
-
+    
     ## IsValidRangeExpression
     #
     def IsValidRangeExpression(self):
@@ -322,14 +327,14 @@ class _ValidRangeExpressionParser(_ExprBase):
         try:
             if self.RangeExpression() not in [self.HEX, self.INT]:
                 return False, ST.ERR_EXPR_RANGE % self.Token
-        except _ExprError as XExcept:
+        except _ExprError, XExcept:
             return False, XExcept.Error
-
+        
         self.SkipWhitespace()
         if self.Index != self.Len:
             return False, (ST.ERR_EXPR_RANGE % self.Token)
         return True, ''
-
+    
     ## RangeExpression
     #
     def RangeExpression(self):
@@ -340,22 +345,22 @@ class _ValidRangeExpressionParser(_ExprBase):
                 raise _ExprError(ST.ERR_PAREN_NOT_USED % self.Token)
             self.IsParenHappen = False
             Ret = self.Unary()
-
+        
         if self.IsCurrentOp(['XOR']):
             Ret = self.Unary()
-
+        
         return Ret
-
+    
     ## Unary
     #
     def Unary(self):
         if self.IsCurrentOp(["NOT"]):
             return self.Unary()
-
+        
         return self.ValidRange()
-
+    
     ## ValidRange
-    #
+    #    
     def ValidRange(self):
         Ret = -1
         if self.IsCurrentOp(["("]):
@@ -369,10 +374,10 @@ class _ValidRangeExpressionParser(_ExprBase):
                 raise _ExprError(ST.ERR_EXPR_RIGHT_PAREN % self.Token)
             self.Parens -= 1
             return Ret
-
+        
         if self.IsLogicalOpHappen:
             raise _ExprError(ST.ERR_PAREN_NOT_USED % self.Token)
-
+        
         if self.IsCurrentOp(["LT", "GT", "LE", "GE", "EQ", "XOR"]):
             IntMatch = \
                 re.compile(self.INT_PATTERN).match(self.Token[self.Index:])
@@ -411,14 +416,14 @@ class _ValidListExpressionParser(_ExprBase):
     def __init__(self, Token):
         _ExprBase.__init__(self, Token)
         self.NUM = 1
-
+        
     def IsValidListExpression(self):
         if self.Len == 0:
             return False, ST.ERR_EXPR_LIST_EMPTY
         try:
             if self.ListExpression() not in [self.NUM]:
                 return False, ST.ERR_EXPR_LIST % self.Token
-        except _ExprError as XExcept:
+        except _ExprError, XExcept:
             return False, XExcept.Error
 
         self.SkipWhitespace()
@@ -426,7 +431,7 @@ class _ValidListExpressionParser(_ExprBase):
             return False, (ST.ERR_EXPR_LIST % self.Token)
 
         return True, ''
-
+        
     def ListExpression(self):
         Ret = -1
         self.SkipWhitespace()
@@ -438,7 +443,7 @@ class _ValidListExpressionParser(_ExprBase):
             raise _ExprError(ST.ERR_EXPR_LIST % self.Token)
 
         return Ret
-
+    
 ## _StringTestParser
 #
 class _StringTestParser(_ExprBase):
@@ -446,18 +451,18 @@ class _StringTestParser(_ExprBase):
         _ExprBase.__init__(self, Token)
 
     ## IsValidStringTest
-    #
+    #        
     def IsValidStringTest(self):
         if self.Len == 0:
             return False, ST.ERR_EXPR_EMPTY
         try:
             self.StringTest()
-        except _ExprError as XExcept:
+        except _ExprError, XExcept:
             return False, XExcept.Error
         return True, ''
 
     ## StringItem
-    #
+    #        
     def StringItem(self):
         Match1 = re.compile(self.QUOTED_PATTERN)\
             .match(self.Token[self.Index:].replace('\\\\', '//')\
@@ -483,7 +488,7 @@ class _StringTestParser(_ExprBase):
                              (self.Token, self.Token[self.Index:]))
 
     ## StringTest
-    #
+    #        
     def StringTest(self):
         self.StringItem()
         if not self.IsCurrentOp(["==", "EQ", "!=", "NE"]):
@@ -532,7 +537,7 @@ def IsValidRangeExpr(Token):
 ##
 # Check syntax of value list expression token
 #
-# @param Token: value list expression token
+# @param Token: value list expression token 
 #
 def IsValidListExpr(Token):
     return _ValidListExpressionParser(Token).IsValidListExpression()
@@ -556,12 +561,12 @@ def IsValidFeatureFlagExp(Token, Flag=False):
         if not Valid:
             Valid, Cause = IsValidLogicalExpr(Token, Flag)
         if not Valid:
-            return False, Cause
+            return False, Cause   
         return True, ""
 
 if __name__ == '__main__':
 #    print IsValidRangeExpr('LT 9')
-    print(_LogicalExpressionParser('gCrownBayTokenSpaceGuid.PcdPciDevice1BridgeAddressLE0').IsValidLogicalExpression())
+    print _LogicalExpressionParser('gCrownBayTokenSpaceGuid.PcdPciDevice1BridgeAddressLE0').IsValidLogicalExpression()
 
 
-
+    

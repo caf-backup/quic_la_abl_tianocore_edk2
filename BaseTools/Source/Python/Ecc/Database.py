@@ -2,13 +2,18 @@
 # This file is used to create a database used by ECC tool
 #
 # Copyright (c) 2007 - 2014, Intel Corporation. All rights reserved.<BR>
-# SPDX-License-Identifier: BSD-2-Clause-Patent
+# This program and the accompanying materials
+# are licensed and made available under the terms and conditions of the BSD License
+# which accompanies this distribution.  The full text of the license may be found at
+# http://opensource.org/licenses/bsd-license.php
+#
+# THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+# WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 #
 
 ##
 # Import Modules
 #
-from __future__ import absolute_import
 import sqlite3
 import Common.LongFilePathOs as os, time
 
@@ -21,9 +26,9 @@ from Table.TableFunction import TableFunction
 from Table.TablePcd import TablePcd
 from Table.TableIdentifier import TableIdentifier
 from Table.TableReport import TableReport
-from Ecc.MetaFileWorkspace.MetaFileTable import ModuleTable
-from Ecc.MetaFileWorkspace.MetaFileTable import PackageTable
-from Ecc.MetaFileWorkspace.MetaFileTable import PlatformTable
+from MetaFileWorkspace.MetaFileTable import ModuleTable
+from MetaFileWorkspace.MetaFileTable import PackageTable
+from MetaFileWorkspace.MetaFileTable import PlatformTable
 from Table.TableFdf import TableFdf
 
 ##
@@ -33,7 +38,7 @@ DATABASE_PATH = "Ecc.db"
 
 ## Database
 #
-# This class defined the ECC database
+# This class defined the ECC databse
 # During the phase of initialization, the database will create all tables and
 # insert all records of table DataModel
 #
@@ -77,7 +82,7 @@ class Database(object):
         self.Conn = sqlite3.connect(self.DbPath, isolation_level = 'DEFERRED')
         self.Conn.execute("PRAGMA page_size=4096")
         self.Conn.execute("PRAGMA synchronous=OFF")
-        # to avoid non-ascii character conversion error
+        # to avoid non-ascii charater conversion error
         self.Conn.text_factory = str
         self.Cur = self.Conn.cursor()
 
@@ -208,7 +213,7 @@ class Database(object):
 
     ## UpdateIdentifierBelongsToFunction
     #
-    # Update the field "BelongsToFunction" for each Identifier
+    # Update the field "BelongsToFunction" for each Indentifier
     #
     #
     def UpdateIdentifierBelongsToFunction_disabled(self):
@@ -261,7 +266,7 @@ class Database(object):
 
     ## UpdateIdentifierBelongsToFunction
     #
-    # Update the field "BelongsToFunction" for each Identifier
+    # Update the field "BelongsToFunction" for each Indentifier
     #
     #
     def UpdateIdentifierBelongsToFunction(self):

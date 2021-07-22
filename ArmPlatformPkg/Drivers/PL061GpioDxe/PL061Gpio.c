@@ -1,9 +1,14 @@
 /** @file
 *
 *  Copyright (c) 2011, ARM Limited. All rights reserved.
-*  Copyright (c) 2016, Linaro Limited. All rights reserved.
 *
-*  SPDX-License-Identifier: BSD-2-Clause-Patent
+*  This program and the accompanying materials
+*  are licensed and made available under the terms and conditions of the BSD License
+*  which accompanies this distribution.  The full text of the license may be found at
+*  http://opensource.org/licenses/bsd-license.php
+*
+*  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+*  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 *
 **/
 
@@ -14,93 +19,15 @@
 #include <Library/BaseMemoryLib.h>
 #include <Library/DebugLib.h>
 #include <Library/IoLib.h>
-#include <Library/MemoryAllocationLib.h>
 #include <Library/PcdLib.h>
 #include <Library/UefiBootServicesTableLib.h>
 #include <Library/UefiLib.h>
 #include <Library/UefiRuntimeServicesTableLib.h>
 
 #include <Protocol/EmbeddedGpio.h>
+#include <Drivers/PL061Gpio.h>
 
-#include "PL061Gpio.h"
-
-PLATFORM_GPIO_CONTROLLER *mPL061PlatformGpio;
-
-EFI_STATUS
-EFIAPI
-PL061Locate (
-  IN  EMBEDDED_GPIO_PIN Gpio,
-  OUT UINTN             *ControllerIndex,
-  OUT UINTN             *ControllerOffset,
-  OUT UINTN             *RegisterBase
-  )
-{
-  UINT32    Index;
-
-  for (Index = 0; Index < mPL061PlatformGpio->GpioControllerCount; Index++) {
-    if (    (Gpio >= mPL061PlatformGpio->GpioController[Index].GpioIndex)
-        &&  (Gpio < mPL061PlatformGpio->GpioController[Index].GpioIndex
-             + mPL061PlatformGpio->GpioController[Index].InternalGpioCount)) {
-      *ControllerIndex = Index;
-      *ControllerOffset = Gpio % mPL061PlatformGpio->GpioController[Index].InternalGpioCount;
-      *RegisterBase = mPL061PlatformGpio->GpioController[Index].RegisterBase;
-      return EFI_SUCCESS;
-    }
-  }
-  DEBUG ((EFI_D_ERROR, "%a, failed to locate gpio %d\n", __func__, Gpio));
-  return EFI_INVALID_PARAMETER;
-}
-
-//
-// The PL061 is a strange beast. The 8-bit data register is aliased across a
-// region 0x400 bytes in size, with bits [9:2] of the address operating as a
-// mask for both read and write operations:
-// For reads:
-//   - All bits where their corresponding mask bit is 1 return the current
-//     value of that bit in the GPIO_DATA register.
-//   - All bits where their corresponding mask bit is 0 return 0.
-// For writes:
-//   - All bits where their corresponding mask bit is 1 set the bit in the
-//     GPIO_DATA register to the written value.
-//   - All bits where their corresponding mask bit is 0 are left untouched
-//     in the GPIO_DATA register.
-//
-// To keep this driver intelligible, PL061EffectiveAddress, PL061GetPins and
-// Pl061SetPins provide an internal abstraction from this interface.
-
-STATIC
-UINTN
-EFIAPI
-PL061EffectiveAddress (
-  IN UINTN Address,
-  IN UINTN Mask
-  )
-{
-  return ((Address + PL061_GPIO_DATA_REG_OFFSET) + (Mask << 2));
-}
-
-STATIC
-UINTN
-EFIAPI
-PL061GetPins (
-  IN UINTN Address,
-  IN UINTN Mask
-  )
-{
-  return MmioRead8 (PL061EffectiveAddress (Address, Mask));
-}
-
-STATIC
-VOID
-EFIAPI
-PL061SetPins (
-  IN UINTN Address,
-  IN UINTN Mask,
-  IN UINTN Value
-  )
-{
-  MmioWrite8 (PL061EffectiveAddress (Address, Mask), Value);
-}
+BOOLEAN     mPL061Initialized = FALSE;
 
 /**
   Function implementations
@@ -111,39 +38,50 @@ PL061Identify (
   VOID
   )
 {
-  UINTN    Index;
-  UINTN    RegisterBase;
-
-  if (   (mPL061PlatformGpio->GpioCount == 0)
-      || (mPL061PlatformGpio->GpioControllerCount == 0)) {
-     return EFI_NOT_FOUND;
+  // Check if this is a PrimeCell Peripheral
+  if (    (MmioRead8 (PL061_GPIO_PCELL_ID0) != 0x0D)
+      ||  (MmioRead8 (PL061_GPIO_PCELL_ID1) != 0xF0)
+      ||  (MmioRead8 (PL061_GPIO_PCELL_ID2) != 0x05)
+      ||  (MmioRead8 (PL061_GPIO_PCELL_ID3) != 0xB1)) {
+    return EFI_NOT_FOUND;
   }
 
-  for (Index = 0; Index < mPL061PlatformGpio->GpioControllerCount; Index++) {
-    if (mPL061PlatformGpio->GpioController[Index].InternalGpioCount != PL061_GPIO_PINS) {
-      return EFI_INVALID_PARAMETER;
-    }
-
-    RegisterBase = mPL061PlatformGpio->GpioController[Index].RegisterBase;
-
-    // Check if this is a PrimeCell Peripheral
-    if (    (MmioRead8 (RegisterBase + PL061_GPIO_PCELL_ID0) != 0x0D)
-        ||  (MmioRead8 (RegisterBase + PL061_GPIO_PCELL_ID1) != 0xF0)
-        ||  (MmioRead8 (RegisterBase + PL061_GPIO_PCELL_ID2) != 0x05)
-        ||  (MmioRead8 (RegisterBase + PL061_GPIO_PCELL_ID3) != 0xB1)) {
-      return EFI_NOT_FOUND;
-    }
-
-    // Check if this PrimeCell Peripheral is the PL061 GPIO
-    if (    (MmioRead8 (RegisterBase + PL061_GPIO_PERIPH_ID0) != 0x61)
-        ||  (MmioRead8 (RegisterBase + PL061_GPIO_PERIPH_ID1) != 0x10)
-        ||  ((MmioRead8 (RegisterBase + PL061_GPIO_PERIPH_ID2) & 0xF) != 0x04)
-        ||  (MmioRead8 (RegisterBase + PL061_GPIO_PERIPH_ID3) != 0x00)) {
-      return EFI_NOT_FOUND;
-    }
+  // Check if this PrimeCell Peripheral is the PL061 GPIO
+  if (    (MmioRead8 (PL061_GPIO_PERIPH_ID0) != 0x61)
+      ||  (MmioRead8 (PL061_GPIO_PERIPH_ID1) != 0x10)
+      ||  ((MmioRead8 (PL061_GPIO_PERIPH_ID2) & 0xF) != 0x04)
+      ||  (MmioRead8 (PL061_GPIO_PERIPH_ID3) != 0x00)) {
+    return EFI_NOT_FOUND;
   }
 
   return EFI_SUCCESS;
+}
+
+EFI_STATUS
+PL061Initialize (
+  VOID
+  )
+{
+  EFI_STATUS  Status;
+
+  // Check if the PL061 GPIO module exists on board
+  Status = PL061Identify();
+  if (EFI_ERROR (Status)) {
+    Status = EFI_DEVICE_ERROR;
+    goto EXIT;
+  }
+
+  // Do other hardware initialisation things here as required
+
+  // Disable Interrupts
+  //if (MmioRead8 (PL061_GPIO_IE_REG) != 0) {
+  //   // Ensure interrupts are disabled
+  //}
+
+  mPL061Initialized = TRUE;
+
+  EXIT:
+  return Status;
 }
 
 /**
@@ -172,22 +110,29 @@ Get (
   )
 {
   EFI_STATUS    Status = EFI_SUCCESS;
-  UINTN         Index, Offset, RegisterBase;
 
-  Status = PL061Locate (Gpio, &Index, &Offset, &RegisterBase);
-  ASSERT_EFI_ERROR (Status);
-
-  if (Value == NULL) {
+  if (    (Value == NULL)
+      ||  (Gpio > LAST_GPIO_PIN))
+  {
     return EFI_INVALID_PARAMETER;
   }
 
-  if (PL061GetPins (RegisterBase, GPIO_PIN_MASK(Offset))) {
+  // Initialize the hardware if not already done
+  if (!mPL061Initialized) {
+    Status = PL061Initialize();
+    if (EFI_ERROR(Status)) {
+      goto EXIT;
+    }
+  }
+
+  if (MmioRead8 (PL061_GPIO_DATA_REG) & GPIO_PIN_MASK_HIGH_8BIT(Gpio)) {
     *Value = 1;
   } else {
     *Value = 0;
   }
 
-  return EFI_SUCCESS;
+  EXIT:
+  return Status;
 }
 
 /**
@@ -217,31 +162,40 @@ Set (
   )
 {
   EFI_STATUS    Status = EFI_SUCCESS;
-  UINTN         Index, Offset, RegisterBase;
 
-  Status = PL061Locate (Gpio, &Index, &Offset, &RegisterBase);
-  ASSERT_EFI_ERROR (Status);
+  // Check for errors
+  if (Gpio > LAST_GPIO_PIN) {
+    Status = EFI_INVALID_PARAMETER;
+    goto EXIT;
+  }
+
+  // Initialize the hardware if not already done
+  if (!mPL061Initialized) {
+    Status = PL061Initialize();
+    if (EFI_ERROR(Status)) {
+      goto EXIT;
+    }
+  }
 
   switch (Mode)
   {
     case GPIO_MODE_INPUT:
       // Set the corresponding direction bit to LOW for input
-      MmioAnd8 (RegisterBase + PL061_GPIO_DIR_REG,
-                ~GPIO_PIN_MASK(Offset) & 0xFF);
+      MmioAnd8 (PL061_GPIO_DIR_REG, GPIO_PIN_MASK_LOW_8BIT(Gpio));
       break;
 
     case GPIO_MODE_OUTPUT_0:
-      // Set the corresponding direction bit to HIGH for output
-      MmioOr8 (RegisterBase + PL061_GPIO_DIR_REG, GPIO_PIN_MASK(Offset));
       // Set the corresponding data bit to LOW for 0
-      PL061SetPins (RegisterBase, GPIO_PIN_MASK(Offset), 0);
+      MmioAnd8 (PL061_GPIO_DATA_REG, GPIO_PIN_MASK_LOW_8BIT(Gpio));
+      // Set the corresponding direction bit to HIGH for output
+      MmioOr8 (PL061_GPIO_DIR_REG, GPIO_PIN_MASK_HIGH_8BIT(Gpio));
       break;
 
     case GPIO_MODE_OUTPUT_1:
-      // Set the corresponding direction bit to HIGH for output
-      MmioOr8 (RegisterBase + PL061_GPIO_DIR_REG, GPIO_PIN_MASK(Offset));
       // Set the corresponding data bit to HIGH for 1
-      PL061SetPins (RegisterBase, GPIO_PIN_MASK(Offset), 0xff);
+      MmioOr8 (PL061_GPIO_DATA_REG, GPIO_PIN_MASK_HIGH_8BIT(Gpio));
+      // Set the corresponding direction bit to HIGH for output
+      MmioOr8 (PL061_GPIO_DIR_REG, GPIO_PIN_MASK_HIGH_8BIT(Gpio));
       break;
 
     default:
@@ -249,7 +203,8 @@ Set (
       return EFI_UNSUPPORTED;
   }
 
-  return EFI_SUCCESS;
+EXIT:
+  return Status;
 }
 
 /**
@@ -278,21 +233,26 @@ GetMode (
   OUT EMBEDDED_GPIO_MODE  *Mode
   )
 {
-  EFI_STATUS    Status = EFI_SUCCESS;
-  UINTN         Index, Offset, RegisterBase;
-
-  Status = PL061Locate (Gpio, &Index, &Offset, &RegisterBase);
-  ASSERT_EFI_ERROR (Status);
+  EFI_STATUS Status;
 
   // Check for errors
-  if (Mode == NULL) {
+  if (    (Mode == NULL)
+      ||  (Gpio > LAST_GPIO_PIN)) {
     return EFI_INVALID_PARAMETER;
   }
 
+  // Initialize the hardware if not already done
+  if (!mPL061Initialized) {
+    Status = PL061Initialize();
+    if (EFI_ERROR(Status)) {
+      return Status;
+    }
+  }
+
   // Check if it is input or output
-  if (MmioRead8 (RegisterBase + PL061_GPIO_DIR_REG) & GPIO_PIN_MASK(Offset)) {
+  if (MmioRead8 (PL061_GPIO_DIR_REG) & GPIO_PIN_MASK_HIGH_8BIT(Gpio)) {
     // Pin set to output
-    if (PL061GetPins (RegisterBase, GPIO_PIN_MASK(Offset))) {
+    if (MmioRead8 (PL061_GPIO_DATA_REG) & GPIO_PIN_MASK_HIGH_8BIT(Gpio)) {
       *Mode = GPIO_MODE_OUTPUT_1;
     } else {
       *Mode = GPIO_MODE_OUTPUT_0;
@@ -361,38 +321,13 @@ PL061InstallProtocol (
   IN EFI_SYSTEM_TABLE   *SystemTable
   )
 {
-  EFI_STATUS            Status;
-  EFI_HANDLE            Handle;
-  GPIO_CONTROLLER       *GpioController;
+  EFI_STATUS  Status;
+  EFI_HANDLE  Handle;
 
   //
   // Make sure the Gpio protocol has not been installed in the system yet.
   //
   ASSERT_PROTOCOL_ALREADY_INSTALLED (NULL, &gEmbeddedGpioProtocolGuid);
-
-  Status = gBS->LocateProtocol (&gPlatformGpioProtocolGuid, NULL, (VOID **)&mPL061PlatformGpio);
-  if (EFI_ERROR (Status) && (Status == EFI_NOT_FOUND)) {
-    // Create the mPL061PlatformGpio
-    mPL061PlatformGpio = (PLATFORM_GPIO_CONTROLLER *)AllocateZeroPool (sizeof (PLATFORM_GPIO_CONTROLLER) + sizeof (GPIO_CONTROLLER));
-    if (mPL061PlatformGpio == NULL) {
-      DEBUG ((EFI_D_ERROR, "%a: failed to allocate PLATFORM_GPIO_CONTROLLER\n", __func__));
-      return EFI_BAD_BUFFER_SIZE;
-    }
-
-    mPL061PlatformGpio->GpioCount = PL061_GPIO_PINS;
-    mPL061PlatformGpio->GpioControllerCount = 1;
-    mPL061PlatformGpio->GpioController = (GPIO_CONTROLLER *)((UINTN) mPL061PlatformGpio + sizeof (PLATFORM_GPIO_CONTROLLER));
-
-    GpioController = mPL061PlatformGpio->GpioController;
-    GpioController->RegisterBase = (UINTN) PcdGet32 (PcdPL061GpioBase);
-    GpioController->GpioIndex = 0;
-    GpioController->InternalGpioCount = PL061_GPIO_PINS;
-  }
-
-  Status = PL061Identify();
-  if (EFI_ERROR(Status)) {
-    return EFI_DEVICE_ERROR;
-  }
 
   // Install the Embedded GPIO Protocol onto a new handle
   Handle = NULL;

@@ -1,9 +1,15 @@
 /** @file
   Interface function of the Socket.
 
-  Copyright (c) 2009 - 2018, Intel Corporation. All rights reserved.<BR>
+  Copyright (c) 2009 - 2012, Intel Corporation. All rights reserved.<BR>
 
-  SPDX-License-Identifier: BSD-2-Clause-Patent
+  This program and the accompanying materials
+  are licensed and made available under the terms and conditions of the BSD License
+  which accompanies this distribution.  The full text of the license may be found at
+  http://opensource.org/licenses/bsd-license.php.
+
+  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
@@ -136,12 +142,7 @@ SockDestroyChild (
   IN OUT SOCKET *Sock
   )
 {
-  EFI_STATUS       Status;
-  TCP_PROTO_DATA   *ProtoData;
-  TCP_CB           *Tcb;
-  EFI_GUID         *IpProtocolGuid;
-  EFI_GUID         *TcpProtocolGuid;
-  VOID             *SockProtocol;
+  EFI_STATUS  Status;
 
   ASSERT ((Sock != NULL) && (Sock->ProtoHandler != NULL));
 
@@ -150,64 +151,6 @@ SockDestroyChild (
   }
 
   Sock->InDestroy = TRUE;
-
-  if (Sock->IpVersion == IP_VERSION_4) {
-    IpProtocolGuid = &gEfiIp4ProtocolGuid;
-    TcpProtocolGuid = &gEfiTcp4ProtocolGuid;
-  } else {
-    IpProtocolGuid = &gEfiIp6ProtocolGuid;
-    TcpProtocolGuid = &gEfiTcp6ProtocolGuid;
-  }
-  ProtoData = (TCP_PROTO_DATA *) Sock->ProtoReserved;
-  Tcb       = ProtoData->TcpPcb;
-
-  ASSERT (Tcb != NULL);
-
-  //
-  // Close the IP protocol.
-  //
-  gBS->CloseProtocol (
-         Tcb->IpInfo->ChildHandle,
-         IpProtocolGuid,
-         ProtoData->TcpService->IpIo->Image,
-         Sock->SockHandle
-         );
-
-  if (Sock->DestroyCallback != NULL) {
-    Sock->DestroyCallback (Sock, Sock->Context);
-  }
-
-  //
-  // Retrieve the protocol installed on this sock
-  //
-  Status = gBS->OpenProtocol (
-                  Sock->SockHandle,
-                  TcpProtocolGuid,
-                  &SockProtocol,
-                  Sock->DriverBinding,
-                  Sock->SockHandle,
-                  EFI_OPEN_PROTOCOL_GET_PROTOCOL
-                  );
-
-  if (EFI_ERROR (Status)) {
-
-    DEBUG (
-      (EFI_D_ERROR,
-      "SockDestroyChild: Open protocol installed on socket failed with %r\n",
-      Status)
-      );
-  }
-
-  //
-  // Uninstall the protocol installed on this sock
-  //
-  gBS->UninstallMultipleProtocolInterfaces (
-        Sock->SockHandle,
-        TcpProtocolGuid,
-        SockProtocol,
-        NULL
-        );
-
 
   Status            = EfiAcquireLockOrFail (&(Sock->Lock));
   if (EFI_ERROR (Status)) {
@@ -255,12 +198,12 @@ SockDestroyChild (
 
 /**
   Create a socket and its associated protocol control block
-  with the initial data SockInitData and protocol specific
+  with the intial data SockInitData and protocol specific
   data ProtoData.
 
-  @param[in]  SockInitData         Initial data to setting the socket.
+  @param[in]  SockInitData         Inital data to setting the socket.
 
-  @return Pointer to the newly created socket. If NULL, an error condition occurred.
+  @return Pointer to the newly created socket. If NULL, an error condition occured.
 
 **/
 SOCKET *
@@ -270,8 +213,6 @@ SockCreateChild (
 {
   SOCKET      *Sock;
   EFI_STATUS  Status;
-  VOID        *SockProtocol;
-  EFI_GUID    *TcpProtocolGuid;
 
   //
   // create a new socket
@@ -295,7 +236,9 @@ SockCreateChild (
       "SockCreateChild: Get the lock to access socket failed with %r\n",
       Status)
       );
-    goto ERROR;
+
+    SockDestroy (Sock);
+    return NULL;
   }
   //
   // inform the protocol layer to attach the socket
@@ -310,42 +253,12 @@ SockCreateChild (
       "SockCreateChild: Protocol failed to attach a socket with %r\n",
       Status)
       );
-    goto ERROR;
+
+    SockDestroy (Sock);
+    Sock = NULL;
   }
 
   return Sock;
-
-ERROR:
-
-  if (Sock->DestroyCallback != NULL) {
-    Sock->DestroyCallback (Sock, Sock->Context);
-  }
-
-  if (Sock->IpVersion == IP_VERSION_4) {
-    TcpProtocolGuid = &gEfiTcp4ProtocolGuid;
-  } else {
-    TcpProtocolGuid = &gEfiTcp6ProtocolGuid;
-  }
-
-  gBS->OpenProtocol (
-         Sock->SockHandle,
-         TcpProtocolGuid,
-         &SockProtocol,
-         Sock->DriverBinding,
-         Sock->SockHandle,
-         EFI_OPEN_PROTOCOL_GET_PROTOCOL
-         );
-  //
-  // Uninstall the protocol installed on this sock
-  //
-  gBS->UninstallMultipleProtocolInterfaces (
-        Sock->SockHandle,
-        TcpProtocolGuid,
-        SockProtocol,
-        NULL
-        );
-   SockDestroy (Sock);
-   return NULL;
 }
 
 /**
@@ -397,7 +310,7 @@ OnExit:
 /**
   Initiate a connection establishment process.
 
-  @param[in]  Sock             Pointer to the socket to initiate the
+  @param[in]  Sock             Pointer to the socket to initiate the initate the
                                connection.
   @param[in]  Token            Pointer to the token used for the connection
                                operation.
@@ -474,7 +387,7 @@ OnExit:
   @param[in]  Sock             Pointer to the socket to accept connections.
   @param[in]  Token            The token to accept a connection.
 
-  @retval EFI_SUCCESS          Either a connection is accepted or the Token is
+  @retval EFI_SUCCESS          Either a connection is accpeted or the Token is
                                buffered for further acception.
   @retval EFI_ACCESS_DENIED    Failed to get the lock to access the socket, or the
                                socket is closed, or the socket is not configured to
@@ -557,7 +470,7 @@ SockAccept (
       Socket->Parent->ConnCnt--;
 
       DEBUG (
-        (EFI_D_NET,
+        (EFI_D_INFO,
         "SockAccept: Accept a socket, now conncount is %d",
         Socket->Parent->ConnCnt)
         );
@@ -811,7 +724,11 @@ SockRcv (
   }
 
   if (RcvdBytes != 0) {
-    SockProcessRcvToken (Sock, RcvToken);
+    Status = SockProcessRcvToken (Sock, RcvToken);
+
+    if (EFI_ERROR (Status)) {
+      goto Exit;
+    }
 
     Status = Sock->ProtoHandler (Sock, SOCK_CONSUMED, NULL);
   } else {
@@ -964,96 +881,6 @@ Exit:
 }
 
 /**
-  Abort the socket associated connection, listen, transmission or receive request.
-
-  @param[in, out]  Sock        Pointer to the socket to abort.
-  @param[in]       Token       Pointer to a token that has been issued by
-                               Connect(), Accept(), Transmit() or Receive(). If
-                               NULL, all pending tokens issued by the four
-                               functions listed above will be aborted.
-
-  @retval EFI_UNSUPPORTED      The operation is not supported in the current
-                               implementation.
-**/
-EFI_STATUS
-SockCancel (
-  IN OUT SOCKET  *Sock,
-  IN     VOID    *Token
-  )
-{
-  EFI_STATUS     Status;
-
-  Status    = EFI_SUCCESS;
-
-  ASSERT (SockStream == Sock->Type);
-
-  Status = EfiAcquireLockOrFail (&(Sock->Lock));
-  if (EFI_ERROR (Status)) {
-    DEBUG (
-      (EFI_D_ERROR,
-      "SockCancel: Get the access for socket failed with %r",
-      Status)
-      );
-
-    return EFI_ACCESS_DENIED;
-  }
-
-  if (SOCK_IS_UNCONFIGURED (Sock)) {
-    Status = EFI_NOT_STARTED;
-    goto Exit;
-  }
-
-  //
-  // 1. Check ConnectionToken.
-  //
-  if (Token == NULL || (SOCK_COMPLETION_TOKEN *) Token == Sock->ConnectionToken) {
-    if (Sock->ConnectionToken != NULL) {
-      SIGNAL_TOKEN (Sock->ConnectionToken, EFI_ABORTED);
-      Sock->ConnectionToken = NULL;
-    }
-
-    if (Token != NULL) {
-      Status = EFI_SUCCESS;
-      goto Exit;
-    }
-  }
-
-  //
-  // 2. Check ListenTokenList.
-  //
-  Status = SockCancelToken (Token, &Sock->ListenTokenList);
-  if (Token != NULL && !EFI_ERROR (Status)) {
-    goto Exit;
-  }
-
-  //
-  // 3. Check RcvTokenList.
-  //
-  Status = SockCancelToken (Token, &Sock->RcvTokenList);
-  if (Token != NULL && !EFI_ERROR (Status)) {
-    goto Exit;
-  }
-
-  //
-  // 4. Check SndTokenList.
-  //
-  Status = SockCancelToken (Token, &Sock->SndTokenList);
-  if (Token != NULL && !EFI_ERROR (Status)) {
-    goto Exit;
-  }
-
-  //
-  // 5. Check ProcessingSndTokenList.
-  //
-  Status = SockCancelToken (Token, &Sock->ProcessingSndTokenList);
-
-Exit:
-  EfiReleaseLock (&(Sock->Lock));
-  return Status;
-}
-
-
-/**
   Get the mode data of the low layer protocol.
 
   @param[in]       Sock        Pointer to the socket to get mode data from.
@@ -1071,6 +898,52 @@ SockGetMode (
   )
 {
   return Sock->ProtoHandler (Sock, SOCK_MODE, Mode);
+}
+
+/**
+  Configure the low level protocol to join a multicast group for
+  this socket's connection.
+
+  @param[in]  Sock             Pointer to the socket of the connection to join the
+                               specific multicast group.
+  @param[in]  GroupInfo        Pointer to the multicast group info.
+
+  @retval EFI_SUCCESS          The configuration completed successfully.
+  @retval EFI_ACCESS_DENIED    Failed to get the lock to access the socket.
+  @retval EFI_NOT_STARTED      The socket is not configured.
+
+**/
+EFI_STATUS
+SockGroup (
+  IN SOCKET *Sock,
+  IN VOID   *GroupInfo
+  )
+{
+  EFI_STATUS  Status;
+
+  Status = EfiAcquireLockOrFail (&(Sock->Lock));
+
+  if (EFI_ERROR (Status)) {
+
+    DEBUG (
+      (EFI_D_ERROR,
+      "SockGroup: Get the access for socket failed with %r",
+      Status)
+      );
+
+    return EFI_ACCESS_DENIED;
+  }
+
+  if (SOCK_IS_UNCONFIGURED (Sock)) {
+    Status = EFI_NOT_STARTED;
+    goto Exit;
+  }
+
+  Status = Sock->ProtoHandler (Sock, SOCK_GROUP, GroupInfo);
+
+Exit:
+  EfiReleaseLock (&(Sock->Lock));
+  return Status;
 }
 
 /**

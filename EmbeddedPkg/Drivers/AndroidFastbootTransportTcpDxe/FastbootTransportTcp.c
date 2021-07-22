@@ -2,7 +2,12 @@
 #
 #  Copyright (c) 2014, ARM Ltd. All rights reserved.<BR>
 #
-#  SPDX-License-Identifier: BSD-2-Clause-Patent
+#  This program and the accompanying materials
+#  are licensed and made available under the terms and conditions of the BSD License
+#  which accompanies this distribution. The full text of the license may be found at
+#  http://opensource.org/licenses/bsd-license.php
+#  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 #
 #
 #**/
@@ -21,6 +26,8 @@
 #include <Library/UefiBootServicesTableLib.h>
 #include <Library/UefiDriverEntryPoint.h>
 #include <Library/UefiRuntimeServicesTableLib.h>
+
+#include <Guid/Hostname.h>
 
 #define IP4_ADDR_TO_STRING(IpAddr, IpAddrString) UnicodeSPrint (       \
                                                    IpAddrString,       \
@@ -300,6 +307,9 @@ TcpFastbootTransportStart (
   EFI_HANDLE                   *HandleBuffer;
   EFI_IP4_MODE_DATA             Ip4ModeData;
   UINTN                         NumHandles;
+  UINTN                         HostnameSize = 256;
+  CHAR8                         Hostname[256];
+  CHAR16                        HostnameUnicode[256] = L"<no hostname>";
   CHAR16                        IpAddrString[16];
   UINTN                         Index;
 
@@ -432,9 +442,27 @@ TcpFastbootTransportStart (
   //
   IP4_ADDR_TO_STRING (Ip4ModeData.ConfigData.StationAddress, IpAddrString);
 
+  // Look up hostname
+  Status = gRT->GetVariable (
+                  L"Hostname",
+                  &gEfiHostnameVariableGuid,
+                  NULL,
+                  &HostnameSize,
+                  &Hostname
+                  );
+  if (!EFI_ERROR (Status) && HostnameSize != 0) {
+    AsciiStrToUnicodeStr (Hostname, HostnameUnicode);
+  }
+
+  // Hostname variable is not null-terminated.
+  Hostname[HostnameSize] = L'\0';
+
   mTextOut->OutputString (mTextOut, L"TCP Fastboot transport configured.");
   mTextOut->OutputString (mTextOut, L"\r\nIP address: ");
   mTextOut->OutputString (mTextOut ,IpAddrString);
+  mTextOut->OutputString (mTextOut, L"\r\n");
+  mTextOut->OutputString (mTextOut, L"\r\nhostname: ");
+  mTextOut->OutputString (mTextOut, HostnameUnicode);
   mTextOut->OutputString (mTextOut, L"\r\n");
 
   //
@@ -503,7 +531,7 @@ TcpFastbootTransportStop (
   Status = mTcpListener->Configure (mTcpListener, NULL);
   ASSERT_EFI_ERROR (Status);
 
-  Status = mTcpServiceBinding->DestroyChild (mTcpServiceBinding, mTcpHandle);
+  Status = mTcpServiceBinding->DestroyChild (mTcpServiceBinding, &mTcpHandle);
 
   // Free any data the user didn't pick up
   Entry = (FASTBOOT_TCP_PACKET_LIST *) GetFirstNode (&mPacketListHead);

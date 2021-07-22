@@ -2,8 +2,14 @@
 
     Usb bus enumeration support.
 
-Copyright (c) 2007 - 2018, Intel Corporation. All rights reserved.<BR>
-SPDX-License-Identifier: BSD-2-Clause-Patent
+Copyright (c) 2007 - 2014, Intel Corporation. All rights reserved.<BR>
+This program and the accompanying materials
+are licensed and made available under the terms and conditions of the BSD License
+which accompanies this distribution.  The full text of the license may be found at
+http://opensource.org/licenses/bsd-license.php
+
+THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
@@ -27,9 +33,9 @@ UsbGetEndpointDesc (
   USB_ENDPOINT_DESC       *EpDesc;
   UINT8                   Index;
   UINT8                   NumEndpoints;
-
+  
   NumEndpoints = UsbIf->IfSetting->Desc.NumEndpoints;
-
+  
   for (Index = 0; Index < NumEndpoints; Index++) {
     EpDesc = UsbIf->IfSetting->Endpoints[Index];
 
@@ -47,33 +53,28 @@ UsbGetEndpointDesc (
 
   @param  UsbIf                 The USB interface to free.
 
-  @retval EFI_ACCESS_DENIED     The interface is still occupied.
-  @retval EFI_SUCCESS           The interface is freed.
 **/
-EFI_STATUS
+VOID
 UsbFreeInterface (
   IN USB_INTERFACE        *UsbIf
   )
 {
-  EFI_STATUS              Status;
-
   UsbCloseHostProtoByChild (UsbIf->Device->Bus, UsbIf->Handle);
 
-  Status = gBS->UninstallMultipleProtocolInterfaces (
-                  UsbIf->Handle,
-                  &gEfiDevicePathProtocolGuid, UsbIf->DevicePath,
-                  &gEfiUsbIoProtocolGuid,      &UsbIf->UsbIo,
-                  NULL
-                  );
-  if (!EFI_ERROR (Status)) {
-    if (UsbIf->DevicePath != NULL) {
-      FreePool (UsbIf->DevicePath);
-    }
-    FreePool (UsbIf);
-  } else {
-    UsbOpenHostProtoByChild (UsbIf->Device->Bus, UsbIf->Handle);
+  gBS->UninstallMultipleProtocolInterfaces (
+         UsbIf->Handle,
+         &gEfiDevicePathProtocolGuid,
+         UsbIf->DevicePath,
+         &gEfiUsbIoProtocolGuid,
+         &UsbIf->UsbIo,
+         NULL
+         );
+
+  if (UsbIf->DevicePath != NULL) {
+    FreePool (UsbIf->DevicePath);
   }
-  return Status;
+
+  FreePool (UsbIf);
 }
 
 
@@ -159,7 +160,7 @@ UsbCreateInterface (
 
   if (EFI_ERROR (Status)) {
     gBS->UninstallMultipleProtocolInterfaces (
-           UsbIf->Handle,
+           &UsbIf->Handle,
            &gEfiDevicePathProtocolGuid,
            UsbIf->DevicePath,
            &gEfiUsbIoProtocolGuid,
@@ -273,7 +274,7 @@ UsbConnectDriver (
     // twisted TPL used. It should be no problem for us to connect
     // or disconnect at CALLBACK.
     //
-
+    
     //
     // Only recursively wanted usb child device
     //
@@ -434,11 +435,7 @@ UsbSelectConfig (
     Status = UsbConnectDriver (UsbIf);
 
     if (EFI_ERROR (Status)) {
-      DEBUG ((
-        DEBUG_WARN,
-        "UsbSelectConfig: failed to connect driver %r, ignored\n",
-        Status
-        ));
+      DEBUG ((EFI_D_ERROR, "UsbSelectConfig: failed to connect driver %r, ignored\n", Status));
     }
   }
 
@@ -487,13 +484,13 @@ UsbDisconnectDriver (
     if (!EFI_ERROR (Status)) {
       UsbIf->IsManaged = FALSE;
     }
-
+    
     DEBUG (( EFI_D_INFO, "UsbDisconnectDriver: TPL after disconnect is %d, %d\n", (UINT32)UsbGetCurrentTpl(), Status));
     ASSERT (UsbGetCurrentTpl () == TPL_CALLBACK);
 
     gBS->RaiseTPL (OldTpl);
   }
-
+  
   return Status;
 }
 
@@ -518,7 +515,7 @@ UsbRemoveConfig (
   // Remove each interface of the device
   //
   ReturnStatus = EFI_SUCCESS;
-  for (Index = 0; Index < Device->NumOfInterface; Index++) {
+  for (Index = 0; Index < Device->NumOfInterface; Index++) {    
     ASSERT (Index < USB_MAX_INTERFACE);
     UsbIf = Device->Interfaces[Index];
 
@@ -528,13 +525,7 @@ UsbRemoveConfig (
 
     Status = UsbDisconnectDriver (UsbIf);
     if (!EFI_ERROR (Status)) {
-      Status = UsbFreeInterface (UsbIf);
-      if (EFI_ERROR (Status)) {
-        UsbConnectDriver (UsbIf);
-      }
-    }
-
-    if (!EFI_ERROR (Status)) {
+      UsbFreeInterface (UsbIf);
       Device->Interfaces[Index] = NULL;
     } else {
       ReturnStatus = Status;
@@ -652,7 +643,6 @@ UsbFindChild (
 
   @param  HubIf                 The HUB that has the device connected.
   @param  Port                  The port index of the hub (started with zero).
-  @param  ResetIsNeeded         The boolean to control whether skip the reset of the port.
 
   @retval EFI_SUCCESS           The device is enumerated (added or removed).
   @retval EFI_OUT_OF_RESOURCES  Failed to allocate resource for the device.
@@ -662,8 +652,7 @@ UsbFindChild (
 EFI_STATUS
 UsbEnumerateNewDev (
   IN USB_INTERFACE        *HubIf,
-  IN UINT8                Port,
-  IN BOOLEAN              ResetIsNeeded
+  IN UINT8                Port
   )
 {
   USB_BUS                 *Bus;
@@ -677,28 +666,26 @@ UsbEnumerateNewDev (
 
   Parent  = HubIf->Device;
   Bus     = Parent->Bus;
-  HubApi  = HubIf->HubApi;
+  HubApi  = HubIf->HubApi;  
   Address = Bus->MaxDevices;
 
   gBS->Stall (USB_WAIT_PORT_STABLE_STALL);
-
+  
   //
   // Hub resets the device for at least 10 milliseconds.
   // Host learns device speed. If device is of low/full speed
   // and the hub is a EHCI root hub, ResetPort will release
   // the device to its companion UHCI and return an error.
   //
-  if (ResetIsNeeded) {
-    Status = HubApi->ResetPort (HubIf, Port);
-    if (EFI_ERROR (Status)) {
-      DEBUG ((EFI_D_ERROR, "UsbEnumerateNewDev: failed to reset port %d - %r\n", Port, Status));
+  Status = HubApi->ResetPort (HubIf, Port);
 
-      return Status;
-    }
-    DEBUG (( EFI_D_INFO, "UsbEnumerateNewDev: hub port %d is reset\n", Port));
-  } else {
-    DEBUG (( EFI_D_INFO, "UsbEnumerateNewDev: hub port %d reset is skipped\n", Port));
+  if (EFI_ERROR (Status)) {
+    DEBUG ((EFI_D_ERROR, "UsbEnumerateNewDev: failed to reset port %d - %r\n", Port, Status));
+
+    return Status;
   }
+
+  DEBUG (( EFI_D_INFO, "UsbEnumerateNewDev: hub port %d is reset\n", Port));
 
   Child = UsbCreateDevice (HubIf, Port);
 
@@ -719,7 +706,6 @@ UsbEnumerateNewDev (
 
   if (!USB_BIT_IS_SET (PortState.PortStatus, USB_PORT_STAT_CONNECTION)) {
     DEBUG ((EFI_D_ERROR, "UsbEnumerateNewDev: No device present at port %d\n", Port));
-    Status = EFI_NOT_FOUND;
     goto ON_ERROR;
   } else if (USB_BIT_IS_SET (PortState.PortStatus, USB_PORT_STAT_SUPER_SPEED)){
     Child->Speed      = EFI_USB_SPEED_SUPER;
@@ -757,7 +743,7 @@ UsbEnumerateNewDev (
 
   //
   // After port is reset, hub establishes a signal path between
-  // the device and host (DEFAULT state). Device's registers are
+  // the device and host (DEFALUT state). Device's registers are
   // reset, use default address 0 (host enumerates one device at
   // a time) , and ready to respond to control transfer at EP 0.
   //
@@ -922,72 +908,68 @@ UsbEnumeratePort (
   // connect/disconnect. Other three events are: ENABLE, SUSPEND, RESET.
   // ENABLE/RESET is used to reset port. SUSPEND isn't supported.
   //
-
-  if (USB_BIT_IS_SET (PortState.PortChangeStatus, USB_PORT_STAT_C_OVERCURRENT)) {
+  
+  if (USB_BIT_IS_SET (PortState.PortChangeStatus, USB_PORT_STAT_C_OVERCURRENT)) {     
 
     if (USB_BIT_IS_SET (PortState.PortStatus, USB_PORT_STAT_OVERCURRENT)) {
       //
       // Case1:
-      //   Both OverCurrent and OverCurrentChange set, means over current occurs,
+      //   Both OverCurrent and OverCurrentChange set, means over current occurs, 
       //   which probably is caused by short circuit. It has to wait system hardware
       //   to perform recovery.
       //
       DEBUG (( EFI_D_ERROR, "UsbEnumeratePort: Critical Over Current\n", Port));
       return EFI_DEVICE_ERROR;
-
-    }
+      
+    } 
     //
     // Case2:
-    //   Only OverCurrentChange set, means system has been recoveried from
+    //   Only OverCurrentChange set, means system has been recoveried from 
     //   over current. As a result, all ports are nearly power-off, so
-    //   it's necessary to detach and enumerate all ports again.
+    //   it's necessary to detach and enumerate all ports again. 
     //
-    DEBUG (( EFI_D_ERROR, "UsbEnumeratePort: 2.0 device Recovery Over Current\n", Port));
+    DEBUG (( EFI_D_ERROR, "UsbEnumeratePort: 2.0 device Recovery Over Current\n", Port)); 
   }
 
-  if (USB_BIT_IS_SET (PortState.PortChangeStatus, USB_PORT_STAT_C_ENABLE)) {
+  if (USB_BIT_IS_SET (PortState.PortChangeStatus, USB_PORT_STAT_C_ENABLE)) {  
     //
     // Case3:
     //   1.1 roothub port reg doesn't reflect over-current state, while its counterpart
-    //   on 2.0 roothub does. When over-current has influence on 1.1 device, the port
+    //   on 2.0 roothub does. When over-current has influence on 1.1 device, the port 
     //   would be disabled, so it's also necessary to detach and enumerate again.
     //
     DEBUG (( EFI_D_ERROR, "UsbEnumeratePort: 1.1 device Recovery Over Current\n", Port));
   }
-
+  
   if (USB_BIT_IS_SET (PortState.PortChangeStatus, USB_PORT_STAT_C_CONNECTION)) {
     //
     // Case4:
-    //   Device connected or disconnected normally.
+    //   Device connected or disconnected normally. 
     //
     DEBUG ((EFI_D_INFO, "UsbEnumeratePort: Device Connect/Disconnect Normally\n", Port));
   }
 
-  //
+  // 
   // Following as the above cases, it's safety to remove and create again.
   //
   Child = UsbFindChild (HubIf, Port);
-
+  
   if (Child != NULL) {
     DEBUG (( EFI_D_INFO, "UsbEnumeratePort: device at port %d removed from root hub %p\n", Port, HubIf));
     UsbRemoveDevice (Child);
   }
-
+  
   if (USB_BIT_IS_SET (PortState.PortStatus, USB_PORT_STAT_CONNECTION)) {
     //
-    // Now, new device connected, enumerate and configure the device
+    // Now, new device connected, enumerate and configure the device 
     //
     DEBUG (( EFI_D_INFO, "UsbEnumeratePort: new device connected at port %d\n", Port));
-    if (USB_BIT_IS_SET (PortState.PortChangeStatus, USB_PORT_STAT_C_RESET)) {
-      Status = UsbEnumerateNewDev (HubIf, Port, FALSE);
-    } else {
-      Status = UsbEnumerateNewDev (HubIf, Port, TRUE);
-    }
-
+    Status = UsbEnumerateNewDev (HubIf, Port);
+  
   } else {
     DEBUG (( EFI_D_INFO, "UsbEnumeratePort: device disconnected event on port %d\n", Port));
   }
-
+  
   HubApi->ClearPortChange (HubIf, Port);
   return Status;
 }
@@ -1012,7 +994,7 @@ UsbHubEnumeration (
   UINT8                   Bit;
   UINT8                   Index;
   USB_DEVICE              *Child;
-
+  
   ASSERT (Context != NULL);
 
   HubIf = (USB_INTERFACE *) Context;
@@ -1077,7 +1059,7 @@ UsbRootHubEnumeration (
       DEBUG (( EFI_D_INFO, "UsbEnumeratePort: The device disconnect fails at port %d from root hub %p, try again\n", Index, RootHub));
       UsbRemoveDevice (Child);
     }
-
+    
     UsbEnumeratePort (RootHub, Index);
   }
 }

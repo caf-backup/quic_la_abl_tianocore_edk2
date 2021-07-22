@@ -1,11 +1,32 @@
 //
 //  Copyright (c) 2012-2013, ARM Limited. All rights reserved.
 //
-//  SPDX-License-Identifier: BSD-2-Clause-Patent
+//  This program and the accompanying materials
+//  are licensed and made available under the terms and conditions of the BSD License
+//  which accompanies this distribution.  The full text of the license may be found at
+//  http://opensource.org/licenses/bsd-license.php
+//
+//  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+//  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 //
 //
 
 #include <AsmMacroIoLib.h>
+#include <Base.h>
+#include <AutoGen.h>
+
+.text
+.align 3
+
+GCC_ASM_EXPORT(ArmPlatformStackSet)
+GCC_ASM_EXPORT(ArmPlatformStackSetPrimary)
+GCC_ASM_EXPORT(ArmPlatformStackSetSecondary)
+
+GCC_ASM_IMPORT(ArmPlatformIsPrimaryCore)
+GCC_ASM_IMPORT(ArmPlatformGetCorePosition)
+GCC_ASM_IMPORT(ArmPlatformGetPrimaryCoreMpId)
+
+GCC_ASM_IMPORT(gPcd_FixedAtBuild_PcdCoreCount)
 
 //VOID
 //ArmPlatformStackSet (
@@ -14,7 +35,7 @@
 //  IN UINTN PrimaryStackSize,
 //  IN UINTN SecondaryStackSize
 //  );
-ASM_FUNC(ArmPlatformStackSet)
+ASM_PFX(ArmPlatformStackSet):
   // Save parameters
   mov   r6, r3
   mov   r5, r2
@@ -48,14 +69,16 @@ ASM_FUNC(ArmPlatformStackSet)
 //  IN UINTN PrimaryStackSize,
 //  IN UINTN SecondaryStackSize
 //  );
-ASM_FUNC(ArmPlatformStackSetPrimary)
+ASM_PFX(ArmPlatformStackSetPrimary):
   mov   r4, lr
 
   // Add stack of primary stack to StackBase
   add   r0, r0, r2
 
   // Compute SecondaryCoresCount * SecondaryCoreStackSize
-  MOV32 (r1, FixedPcdGet32(PcdCoreCount) - 1)
+  LoadConstantToReg (_gPcd_FixedAtBuild_PcdCoreCount, r1)
+  ldr   r1, [r1]
+  sub   r1, #1
   mul   r3, r3, r1
 
   // Set Primary Stack ((StackBase + PrimaryStackSize) + (SecondaryCoresCount * SecondaryCoreStackSize))
@@ -70,7 +93,7 @@ ASM_FUNC(ArmPlatformStackSetPrimary)
 //  IN UINTN PrimaryStackSize,
 //  IN UINTN SecondaryStackSize
 //  );
-ASM_FUNC(ArmPlatformStackSetSecondary)
+ASM_PFX(ArmPlatformStackSetSecondary):
   mov   r4, lr
   mov   sp, r0
 

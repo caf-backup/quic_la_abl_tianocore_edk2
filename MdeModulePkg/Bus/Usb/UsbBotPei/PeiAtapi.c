@@ -1,9 +1,16 @@
 /** @file
-Pei USB ATAPI command implementations.
+Pei USB ATATPI command implementations.
 
-Copyright (c) 1999 - 2018, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 1999 - 2015, Intel Corporation. All rights reserved.<BR>
+  
+This program and the accompanying materials
+are licensed and made available under the terms and conditions
+of the BSD License which accompanies this distribution.  The
+full text of the license may be found at
+http://opensource.org/licenses/bsd-license.php
 
-SPDX-License-Identifier: BSD-2-Clause-Patent
+THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
@@ -267,7 +274,7 @@ PeiUsbReadCapacity (
   if (EFI_ERROR (Status)) {
     return EFI_DEVICE_ERROR;
   }
-  LastBlock = ((UINT32) Data.LastLba3 << 24) | (Data.LastLba2 << 16) | (Data.LastLba1 << 8) | Data.LastLba0;
+  LastBlock = (Data.LastLba3 << 24) | (Data.LastLba2 << 16) | (Data.LastLba1 << 8) | Data.LastLba0;
 
   if (LastBlock == 0xFFFFFFFF) {
     DEBUG ((EFI_D_INFO, "The usb device LBA count is larger than 0xFFFFFFFF!\n"));
@@ -339,7 +346,7 @@ PeiUsbReadFormattedCapacity (
     PeiBotDevice->Media2.LastBlock     = 0;
 
   } else {
-    LastBlock = ((UINT32) FormatData.LastLba3 << 24) | (FormatData.LastLba2 << 16) | (FormatData.LastLba1 << 8) | FormatData.LastLba0;
+    LastBlock = (FormatData.LastLba3 << 24) | (FormatData.LastLba2 << 16) | (FormatData.LastLba1 << 8) | FormatData.LastLba0;
     if (LastBlock == 0xFFFFFFFF) {
       DEBUG ((EFI_D_INFO, "The usb device LBA count is larger than 0xFFFFFFFF!\n"));
     }
@@ -468,7 +475,7 @@ PeiUsbRead10 (
   return Status;
 }
 
-/**
+/**  
   Check if there is media according to sense data.
 
   @param  SenseData   Pointer to sense data.
@@ -519,7 +526,7 @@ IsNoMedia (
   return NoMedia;
 }
 
-/**
+/**  
   Check if there is media error according to sense data.
 
   @param  SenseData   Pointer to sense data.
@@ -596,7 +603,7 @@ IsMediaError (
   return Error;
 }
 
-/**
+/**  
   Check if media is changed according to sense data.
 
   @param  SenseData   Pointer to sense data.

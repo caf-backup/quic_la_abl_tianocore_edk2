@@ -1,8 +1,14 @@
 /** @file
-  PCI enumeration support functions declaration for PCI Bus module.
+  PCI emumeration support functions declaration for PCI Bus module.
 
-Copyright (c) 2006 - 2019, Intel Corporation. All rights reserved.<BR>
-SPDX-License-Identifier: BSD-2-Clause-Patent
+Copyright (c) 2006 - 2010, Intel Corporation. All rights reserved.<BR>
+This program and the accompanying materials
+are licensed and made available under the terms and conditions of the BSD License
+which accompanies this distribution.  The full text of the license may be found at
+http://opensource.org/licenses/bsd-license.php
+
+THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
@@ -38,7 +44,7 @@ PciDevicePresent (
   root bridge will then be created.
 
   @param Bridge         Parent bridge instance.
-  @param StartBusNumber Bus number of beginning.
+  @param StartBusNumber Bus number of begining.
 
   @retval EFI_SUCCESS   PCI device is found.
   @retval other         Some error occurred when reading PCI bridge information.
@@ -51,7 +57,7 @@ PciPciDeviceInfoCollector (
   );
 
 /**
-  Search required device and create PCI device instance.
+  Seach required device and create PCI device instance.
 
   @param Bridge     Parent bridge instance.
   @param Pci        Input PCI device information block.
@@ -138,12 +144,12 @@ GatherP2CInfo (
   );
 
 /**
-  Create device path for pci device.
+  Create device path for pci deivce.
 
   @param ParentDevicePath  Parent bridge's path.
   @param PciIoDevice       Pci device instance.
 
-  @return Device path protocol instance for specific pci device.
+  @return device path protocol instance for specific pci device.
 
 **/
 EFI_DEVICE_PATH_PROTOCOL *
@@ -198,7 +204,7 @@ BarExisted (
   @param PciIoDevice      Pci device instance.
   @param Command          Input command register value, and
                           returned supported register value.
-  @param BridgeControl    Input bridge control value for PPB or P2C, and
+  @param BridgeControl    Inout bridge control value for PPB or P2C, and
                           returned supported bridge control value.
   @param OldCommand       Returned and stored old command register offset.
   @param OldBridgeControl Returned and stored old Bridge control value for PPB or P2C.
@@ -355,7 +361,7 @@ InitializeP2C (
   );
 
 /**
-  Create and initialize general PCI I/O device instance for
+  Create and initiliaze general PCI I/O device instance for
   PCI device/bridge device/hotplug bridge device.
 
   @param Bridge            Parent bridge instance.

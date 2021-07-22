@@ -1,14 +1,18 @@
 /** @file
   HII Config Access protocol implementation of SecureBoot configuration module.
 
-Copyright (c) 2011 - 2018, Intel Corporation. All rights reserved.<BR>
-(C) Copyright 2018 Hewlett Packard Enterprise Development LP<BR>
-SPDX-License-Identifier: BSD-2-Clause-Patent
+Copyright (c) 2011 - 2015, Intel Corporation. All rights reserved.<BR>
+This program and the accompanying materials
+are licensed and made available under the terms and conditions of the BSD License
+which accompanies this distribution.  The full text of the license may be found at
+http://opensource.org/licenses/bsd-license.php
+
+THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
 #include "SecureBootConfigImpl.h"
-#include <Library/BaseCryptLib.h>
 
 CHAR16              mSecureBootStorageName[] = L"SECUREBOOT_CONFIGURATION";
 
@@ -59,6 +63,7 @@ UINT8 mHashOidValue[] = {
   };
 
 HASH_TABLE mHash[] = {
+  { L"SHA1",   20, &mHashOidValue[8],  5, Sha1GetContextSize,   Sha1Init,   Sha1Update,   Sha1Final  },
   { L"SHA224", 28, &mHashOidValue[13], 9, NULL,                 NULL,       NULL,         NULL       },
   { L"SHA256", 32, &mHashOidValue[22], 9, Sha256GetContextSize, Sha256Init, Sha256Update, Sha256Final},
   { L"SHA384", 48, &mHashOidValue[31], 9, Sha384GetContextSize, Sha384Init, Sha384Update, Sha384Final},
@@ -90,33 +95,6 @@ CHAR16* mDerEncodedSuffix[] = {
 };
 CHAR16* mSupportX509Suffix = L"*.cer/der/crt";
 
-SECUREBOOT_CONFIG_PRIVATE_DATA  *gSecureBootPrivateData = NULL;
-
-/**
-  This code cleans up enrolled file by closing file & free related resources attached to
-  enrolled file.
-
-  @param[in] FileContext            FileContext cached in SecureBootConfig driver
-
-**/
-VOID
-CloseEnrolledFile(
-  IN SECUREBOOT_FILE_CONTEXT *FileContext
-)
-{
-  if (FileContext->FHandle != NULL) {
-    CloseFile (FileContext->FHandle);
-    FileContext->FHandle = NULL;
-  }
-
-  if (FileContext->FileName != NULL){
-    FreePool(FileContext->FileName);
-    FileContext->FileName = NULL;
-  }
-  FileContext->FileType = UNKNOWN_FILE_TYPE;
-
-}
-
 /**
   This code checks if the FileSuffix is one of the possible DER-encoded certificate suffix.
 
@@ -138,61 +116,6 @@ IsDerEncodeCertificate (
     }
   }
   return FALSE;
-}
-
-/**
-  This code checks if the file content complies with EFI_VARIABLE_AUTHENTICATION_2 format
-The function reads file content but won't open/close given FileHandle.
-
-  @param[in] FileHandle            The FileHandle to be checked
-
-  @retval    TRUE            The content is EFI_VARIABLE_AUTHENTICATION_2 format.
-  @retval    FALSE          The content is NOT a EFI_VARIABLE_AUTHENTICATION_2 format.
-
-**/
-BOOLEAN
-IsAuthentication2Format (
-  IN   EFI_FILE_HANDLE    FileHandle
-)
-{
-  EFI_STATUS                     Status;
-  EFI_VARIABLE_AUTHENTICATION_2  *Auth2;
-  BOOLEAN                        IsAuth2Format;
-
-  IsAuth2Format = FALSE;
-
-  //
-  // Read the whole file content
-  //
-  Status = ReadFileContent(
-             FileHandle,
-             (VOID **) &mImageBase,
-             &mImageSize,
-             0
-             );
-  if (EFI_ERROR (Status)) {
-    goto ON_EXIT;
-  }
-
-  Auth2 = (EFI_VARIABLE_AUTHENTICATION_2 *)mImageBase;
-  if (Auth2->AuthInfo.Hdr.wCertificateType != WIN_CERT_TYPE_EFI_GUID) {
-    goto ON_EXIT;
-  }
-
-  if (CompareGuid(&gEfiCertPkcs7Guid, &Auth2->AuthInfo.CertType)) {
-    IsAuth2Format = TRUE;
-  }
-
-ON_EXIT:
-  //
-  // Do not close File. simply check file content
-  //
-  if (mImageBase != NULL) {
-    FreePool (mImageBase);
-    mImageBase = NULL;
-  }
-
-  return IsAuth2Format;
 }
 
 /**
@@ -234,7 +157,7 @@ SaveSecureBootVariable (
                                    it's caller's responsibility to free the memory when finish using it.
 
   @retval EFI_SUCCESS              Create time based payload successfully.
-  @retval EFI_OUT_OF_RESOURCES     There are not enough memory resources to create time based payload.
+  @retval EFI_OUT_OF_RESOURCES     There are not enough memory resourses to create time based payload.
   @retval EFI_INVALID_PARAMETER    The parameter is invalid.
   @retval Others                   Unexpected error happens.
 
@@ -390,7 +313,7 @@ SetSecureBootMode (
   @param[out]  PkCert                Point to the data buffer to store the signature list.
 
   @return EFI_UNSUPPORTED            Unsupported Key Length.
-  @return EFI_OUT_OF_RESOURCES       There are not enough memory resources to form the signature list.
+  @return EFI_OUT_OF_RESOURCES       There are not enough memory resourses to form the signature list.
 
 **/
 EFI_STATUS
@@ -507,7 +430,7 @@ EnrollPlatformKey (
   DEBUG ((EFI_D_INFO, "FilePostFix = %s\n", FilePostFix));
 
   //
-  // Prase the selected PK file and generate PK certificate list.
+  // Prase the selected PK file and generature PK certificate list.
   //
   Status = CreatePkX509SignatureList (
             Private->FileContext->FHandle,
@@ -550,7 +473,10 @@ ON_EXIT:
     FreePool(PkCert);
   }
 
-  CloseEnrolledFile(Private->FileContext);
+  if (Private->FileContext->FHandle != NULL) {
+    CloseFile (Private->FileContext->FHandle);
+    Private->FileContext->FHandle = NULL;
+  }
 
   return Status;
 }
@@ -727,7 +653,9 @@ EnrollRsa2048ToKek (
 
 ON_EXIT:
 
-  CloseEnrolledFile(Private->FileContext);
+  CloseFile (Private->FileContext->FHandle);
+  Private->FileContext->FHandle = NULL;
+  Private->FileContext->FileName = NULL;
 
   if (Private->SignatureGUID != NULL) {
     FreePool (Private->SignatureGUID);
@@ -848,7 +776,9 @@ EnrollX509ToKek (
 
 ON_EXIT:
 
-  CloseEnrolledFile(Private->FileContext);
+  CloseFile (Private->FileContext->FHandle);
+  Private->FileContext->FileName = NULL;
+  Private->FileContext->FHandle = NULL;
 
   if (Private->SignatureGUID != NULL) {
     FreePool (Private->SignatureGUID);
@@ -882,7 +812,7 @@ EnrollKeyExchangeKey (
   EFI_STATUS  Status;
   UINTN       NameLength;
 
-  if ((Private->FileContext->FHandle == NULL) || (Private->FileContext->FileName == NULL) || (Private->SignatureGUID == NULL)) {
+  if ((Private->FileContext->FileName == NULL) || (Private->SignatureGUID == NULL)) {
     return EFI_INVALID_PARAMETER;
   }
 
@@ -905,11 +835,6 @@ EnrollKeyExchangeKey (
   } else if (CompareMem (FilePostFix, L".pbk",4) == 0) {
     return EnrollRsa2048ToKek (Private);
   } else {
-    //
-    // File type is wrong, simply close it
-    //
-    CloseEnrolledFile(Private->FileContext);
-
     return EFI_INVALID_PARAMETER;
   }
 }
@@ -1021,7 +946,9 @@ EnrollX509toSigDB (
 
 ON_EXIT:
 
-  CloseEnrolledFile(Private->FileContext);
+  CloseFile (Private->FileContext->FHandle);
+  Private->FileContext->FileName = NULL;
+  Private->FileContext->FHandle = NULL;
 
   if (Private->SignatureGUID != NULL) {
     FreePool (Private->SignatureGUID);
@@ -1088,7 +1015,7 @@ IsSignatureFoundInDatabase (
   }
 
   //
-  // Enumerate all signature data in SigDB to check if signature exists for executable.
+  // Enumerate all signature data in SigDB to check if executable's signature exists.
   //
   CertList = (EFI_SIGNATURE_LIST *) Data;
   while ((DataSize > 0) && (DataSize >= CertList->SignatureListSize)) {
@@ -1312,7 +1239,7 @@ Done:
 /**
   Check whether the signature list exists in given variable data.
 
-  It searches the signature list for the certificate hash by CertType.
+  It searches the signature list for the ceritificate hash by CertType.
   If the signature list is found, get the offset of Database for the
   next hash of a certificate.
 
@@ -1579,8 +1506,9 @@ EnrollX509HashtoSigDB (
   }
 
 ON_EXIT:
-
-  CloseEnrolledFile(Private->FileContext);
+  CloseFile (Private->FileContext->FHandle);
+  Private->FileContext->FileName = NULL;
+  Private->FileContext->FHandle = NULL;
 
   if (Private->SignatureGUID != NULL) {
     FreePool (Private->SignatureGUID);
@@ -1664,54 +1592,6 @@ ON_EXIT:
 }
 
 /**
-  Reads contents of a PE/COFF image in memory buffer.
-
-  Caution: This function may receive untrusted input.
-  PE/COFF image is external input, so this function will make sure the PE/COFF image content
-  read is within the image buffer.
-
-  @param  FileHandle      Pointer to the file handle to read the PE/COFF image.
-  @param  FileOffset      Offset into the PE/COFF image to begin the read operation.
-  @param  ReadSize        On input, the size in bytes of the requested read operation.
-                          On output, the number of bytes actually read.
-  @param  Buffer          Output buffer that contains the data read from the PE/COFF image.
-
-  @retval EFI_SUCCESS     The specified portion of the PE/COFF image was read and the size
-**/
-EFI_STATUS
-EFIAPI
-SecureBootConfigImageRead (
-  IN     VOID    *FileHandle,
-  IN     UINTN   FileOffset,
-  IN OUT UINTN   *ReadSize,
-  OUT    VOID    *Buffer
-  )
-{
-  UINTN               EndPosition;
-
-  if (FileHandle == NULL || ReadSize == NULL || Buffer == NULL) {
-    return EFI_INVALID_PARAMETER;
-  }
-
-  if (MAX_ADDRESS - FileOffset < *ReadSize) {
-    return EFI_INVALID_PARAMETER;
-  }
-
-  EndPosition = FileOffset + *ReadSize;
-  if (EndPosition > mImageSize) {
-    *ReadSize = (UINT32)(mImageSize - FileOffset);
-  }
-
-  if (FileOffset >= mImageSize) {
-    *ReadSize = 0;
-  }
-
-  CopyMem (Buffer, (UINT8 *)((UINTN) FileHandle + FileOffset), *ReadSize);
-
-  return EFI_SUCCESS;
-}
-
-/**
   Load PE/COFF image information into internal buffer and check its validity.
 
   @retval   EFI_SUCCESS         Successful
@@ -1727,28 +1607,9 @@ LoadPeImage (
   EFI_IMAGE_DOS_HEADER                  *DosHdr;
   EFI_IMAGE_NT_HEADERS32                *NtHeader32;
   EFI_IMAGE_NT_HEADERS64                *NtHeader64;
-  PE_COFF_LOADER_IMAGE_CONTEXT          ImageContext;
-  EFI_STATUS                            Status;
 
   NtHeader32 = NULL;
   NtHeader64 = NULL;
-
-  ZeroMem (&ImageContext, sizeof (ImageContext));
-  ImageContext.Handle    = (VOID *) mImageBase;
-  ImageContext.ImageRead = (PE_COFF_LOADER_READ_FILE) SecureBootConfigImageRead;
-
-  //
-  // Get information about the image being loaded
-  //
-  Status = PeCoffLoaderGetImageInfo (&ImageContext);
-  if (EFI_ERROR (Status)) {
-    //
-    // The information can't be got from the invalid PeImage
-    //
-    DEBUG ((DEBUG_INFO, "SecureBootConfigDxe: PeImage invalid. \n"));
-    return Status;
-  }
-
   //
   // Read the Dos header
   //
@@ -1810,9 +1671,6 @@ LoadPeImage (
   Calculate hash of Pe/Coff image based on the authenticode image hashing in
   PE/COFF Specification 8.0 Appendix A
 
-  Notes: PE/COFF image has been checked by BasePeCoffLib PeCoffLoaderGetImageInfo() in
-  the function LoadPeImage ().
-
   @param[in]    HashAlg   Hash algorithm type.
 
   @retval TRUE            Successfully hash image.
@@ -1825,6 +1683,7 @@ HashPeImage (
   )
 {
   BOOLEAN                   Status;
+  UINT16                    Magic;
   EFI_IMAGE_SECTION_HEADER  *Section;
   VOID                      *HashCtx;
   UINTN                     CtxSize;
@@ -1839,7 +1698,7 @@ HashPeImage (
   SectionHeader = NULL;
   Status        = FALSE;
 
-  if (HashAlg != HASHALG_SHA256) {
+  if ((HashAlg != HASHALG_SHA1) && (HashAlg != HASHALG_SHA256)) {
     return FALSE;
   }
 
@@ -1848,8 +1707,13 @@ HashPeImage (
   //
   ZeroMem (mImageDigest, MAX_DIGEST_SIZE);
 
-  mImageDigestSize  = SHA256_DIGEST_SIZE;
-  mCertType         = gEfiCertSha256Guid;
+  if (HashAlg == HASHALG_SHA1) {
+    mImageDigestSize  = SHA1_DIGEST_SIZE;
+    mCertType         = gEfiCertSha1Guid;
+  } else if (HashAlg == HASHALG_SHA256) {
+    mImageDigestSize  = SHA256_DIGEST_SIZE;
+    mCertType         = gEfiCertSha256Guid;
+  }
 
   CtxSize   = mHash[HashAlg].GetContextSize();
 
@@ -1867,22 +1731,36 @@ HashPeImage (
   // Measuring PE/COFF Image Header;
   // But CheckSum field and SECURITY data directory (certificate) are excluded
   //
+  if (mNtHeader.Pe32->FileHeader.Machine == IMAGE_FILE_MACHINE_IA64 && mNtHeader.Pe32->OptionalHeader.Magic == EFI_IMAGE_NT_OPTIONAL_HDR32_MAGIC) {
+    //
+    // NOTE: Some versions of Linux ELILO for Itanium have an incorrect magic value
+    //       in the PE/COFF Header. If the MachineType is Itanium(IA64) and the
+    //       Magic value in the OptionalHeader is EFI_IMAGE_NT_OPTIONAL_HDR32_MAGIC
+    //       then override the magic value to EFI_IMAGE_NT_OPTIONAL_HDR64_MAGIC
+    //
+    Magic = EFI_IMAGE_NT_OPTIONAL_HDR64_MAGIC;
+  } else {
+    //
+    // Get the magic value from the PE/COFF Optional Header
+    //
+    Magic = mNtHeader.Pe32->OptionalHeader.Magic;
+  }
 
   //
   // 3.  Calculate the distance from the base of the image header to the image checksum address.
   // 4.  Hash the image header from its base to beginning of the image checksum.
   //
   HashBase = mImageBase;
-  if (mNtHeader.Pe32->OptionalHeader.Magic == EFI_IMAGE_NT_OPTIONAL_HDR32_MAGIC) {
+  if (Magic == EFI_IMAGE_NT_OPTIONAL_HDR32_MAGIC) {
     //
     // Use PE32 offset.
     //
-    HashSize = (UINTN) (&mNtHeader.Pe32->OptionalHeader.CheckSum) - (UINTN) HashBase;
+    HashSize = (UINTN) ((UINT8 *) (&mNtHeader.Pe32->OptionalHeader.CheckSum) - HashBase);
   } else {
     //
     // Use PE32+ offset.
     //
-    HashSize = (UINTN) (&mNtHeader.Pe32Plus->OptionalHeader.CheckSum) - (UINTN) HashBase;
+    HashSize = (UINTN) ((UINT8 *) (&mNtHeader.Pe32Plus->OptionalHeader.CheckSum) - HashBase);
   }
 
   Status  = mHash[HashAlg].HashUpdate(HashCtx, HashBase, HashSize);
@@ -1894,18 +1772,18 @@ HashPeImage (
   // 6.  Get the address of the beginning of the Cert Directory.
   // 7.  Hash everything from the end of the checksum to the start of the Cert Directory.
   //
-  if (mNtHeader.Pe32->OptionalHeader.Magic == EFI_IMAGE_NT_OPTIONAL_HDR32_MAGIC) {
+  if (Magic == EFI_IMAGE_NT_OPTIONAL_HDR32_MAGIC) {
     //
     // Use PE32 offset.
     //
     HashBase = (UINT8 *) &mNtHeader.Pe32->OptionalHeader.CheckSum + sizeof (UINT32);
-    HashSize = (UINTN) (&mNtHeader.Pe32->OptionalHeader.DataDirectory[EFI_IMAGE_DIRECTORY_ENTRY_SECURITY]) - (UINTN) HashBase;
+    HashSize = (UINTN) ((UINT8 *) (&mNtHeader.Pe32->OptionalHeader.DataDirectory[EFI_IMAGE_DIRECTORY_ENTRY_SECURITY]) - HashBase);
   } else {
     //
     // Use PE32+ offset.
     //
     HashBase = (UINT8 *) &mNtHeader.Pe32Plus->OptionalHeader.CheckSum + sizeof (UINT32);
-    HashSize = (UINTN) (&mNtHeader.Pe32Plus->OptionalHeader.DataDirectory[EFI_IMAGE_DIRECTORY_ENTRY_SECURITY]) - (UINTN) HashBase;
+    HashSize = (UINTN) ((UINT8 *) (&mNtHeader.Pe32Plus->OptionalHeader.DataDirectory[EFI_IMAGE_DIRECTORY_ENTRY_SECURITY]) - HashBase);
   }
 
   Status  = mHash[HashAlg].HashUpdate(HashCtx, HashBase, HashSize);
@@ -1916,18 +1794,18 @@ HashPeImage (
   // 8.  Skip over the Cert Directory. (It is sizeof(IMAGE_DATA_DIRECTORY) bytes.)
   // 9.  Hash everything from the end of the Cert Directory to the end of image header.
   //
-  if (mNtHeader.Pe32->OptionalHeader.Magic == EFI_IMAGE_NT_OPTIONAL_HDR32_MAGIC) {
+  if (Magic == EFI_IMAGE_NT_OPTIONAL_HDR32_MAGIC) {
     //
     // Use PE32 offset
     //
     HashBase = (UINT8 *) &mNtHeader.Pe32->OptionalHeader.DataDirectory[EFI_IMAGE_DIRECTORY_ENTRY_SECURITY + 1];
-    HashSize = mNtHeader.Pe32->OptionalHeader.SizeOfHeaders - ((UINTN) (&mNtHeader.Pe32->OptionalHeader.DataDirectory[EFI_IMAGE_DIRECTORY_ENTRY_SECURITY + 1]) - (UINTN) mImageBase);
+    HashSize = mNtHeader.Pe32->OptionalHeader.SizeOfHeaders - (UINTN) ((UINT8 *) (&mNtHeader.Pe32->OptionalHeader.DataDirectory[EFI_IMAGE_DIRECTORY_ENTRY_SECURITY + 1]) - mImageBase);
   } else {
     //
     // Use PE32+ offset.
     //
     HashBase = (UINT8 *) &mNtHeader.Pe32Plus->OptionalHeader.DataDirectory[EFI_IMAGE_DIRECTORY_ENTRY_SECURITY + 1];
-    HashSize = mNtHeader.Pe32Plus->OptionalHeader.SizeOfHeaders - ((UINTN) (&mNtHeader.Pe32Plus->OptionalHeader.DataDirectory[EFI_IMAGE_DIRECTORY_ENTRY_SECURITY + 1]) - (UINTN) mImageBase);
+    HashSize = mNtHeader.Pe32Plus->OptionalHeader.SizeOfHeaders - (UINTN) ((UINT8 *) (&mNtHeader.Pe32Plus->OptionalHeader.DataDirectory[EFI_IMAGE_DIRECTORY_ENTRY_SECURITY + 1]) - mImageBase);
   }
 
   Status  = mHash[HashAlg].HashUpdate(HashCtx, HashBase, HashSize);
@@ -1937,7 +1815,7 @@ HashPeImage (
   //
   // 10. Set the SUM_OF_BYTES_HASHED to the size of the header.
   //
-  if (mNtHeader.Pe32->OptionalHeader.Magic == EFI_IMAGE_NT_OPTIONAL_HDR32_MAGIC) {
+  if (Magic == EFI_IMAGE_NT_OPTIONAL_HDR32_MAGIC) {
     //
     // Use PE32 offset.
     //
@@ -2011,7 +1889,7 @@ HashPeImage (
   //
   if (mImageSize > SumOfBytesHashed) {
     HashBase = mImageBase + SumOfBytesHashed;
-    if (mNtHeader.Pe32->OptionalHeader.Magic == EFI_IMAGE_NT_OPTIONAL_HDR32_MAGIC) {
+    if (Magic == EFI_IMAGE_NT_OPTIONAL_HDR32_MAGIC) {
       //
       // Use PE32 offset.
       //
@@ -2107,108 +1985,7 @@ HashPeImageByType (
 }
 
 /**
-  Enroll a new signature of executable into Signature Database.
-
-  @param[in] PrivateData     The module's private data.
-  @param[in] VariableName    Variable name of signature database, must be
-                             EFI_IMAGE_SECURITY_DATABASE, EFI_IMAGE_SECURITY_DATABASE1
-                             or EFI_IMAGE_SECURITY_DATABASE2.
-
-  @retval   EFI_SUCCESS            New signature is enrolled successfully.
-  @retval   EFI_INVALID_PARAMETER  The parameter is invalid.
-  @retval   EFI_UNSUPPORTED        Unsupported command.
-  @retval   EFI_OUT_OF_RESOURCES   Could not allocate needed resources.
-
-**/
-EFI_STATUS
-EnrollAuthentication2Descriptor (
-  IN SECUREBOOT_CONFIG_PRIVATE_DATA *Private,
-  IN CHAR16                         *VariableName
-  )
-{
-  EFI_STATUS                        Status;
-  VOID                              *Data;
-  UINTN                             DataSize;
-  UINT32                            Attr;
-
-  Data = NULL;
-
-  //
-  // DBT only support DER-X509 Cert Enrollment
-  //
-  if (StrCmp (VariableName, EFI_IMAGE_SECURITY_DATABASE2) == 0) {
-    return EFI_UNSUPPORTED;
-  }
-
-  //
-  // Read the whole file content
-  //
-  Status = ReadFileContent(
-             Private->FileContext->FHandle,
-             (VOID **) &mImageBase,
-             &mImageSize,
-             0
-             );
-  if (EFI_ERROR (Status)) {
-    goto ON_EXIT;
-  }
-  ASSERT (mImageBase != NULL);
-
-  Attr = EFI_VARIABLE_NON_VOLATILE | EFI_VARIABLE_RUNTIME_ACCESS
-         | EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_TIME_BASED_AUTHENTICATED_WRITE_ACCESS;
-
-  //
-  // Check if SigDB variable has been already existed.
-  // If true, use EFI_VARIABLE_APPEND_WRITE attribute to append the
-  // new signature data to original variable
-  //
-  DataSize = 0;
-  Status = gRT->GetVariable(
-                  VariableName,
-                  &gEfiImageSecurityDatabaseGuid,
-                  NULL,
-                  &DataSize,
-                  NULL
-                  );
-  if (Status == EFI_BUFFER_TOO_SMALL) {
-    Attr |= EFI_VARIABLE_APPEND_WRITE;
-  } else if (Status != EFI_NOT_FOUND) {
-    goto ON_EXIT;
-  }
-
-  //
-  // Directly set AUTHENTICATION_2 data to SetVariable
-  //
-  Status = gRT->SetVariable(
-                  VariableName,
-                  &gEfiImageSecurityDatabaseGuid,
-                  Attr,
-                  mImageSize,
-                  mImageBase
-                  );
-
-  DEBUG((DEBUG_INFO, "Enroll AUTH_2 data to Var:%s Status: %x\n", VariableName, Status));
-
-ON_EXIT:
-
-  CloseEnrolledFile(Private->FileContext);
-
-  if (Data != NULL) {
-    FreePool (Data);
-  }
-
-  if (mImageBase != NULL) {
-    FreePool (mImageBase);
-    mImageBase = NULL;
-  }
-
-  return Status;
-
-}
-
-
-/**
-  Enroll a new signature of executable into Signature Database.
+  Enroll a new executable's signature into Signature Database.
 
   @param[in] PrivateData     The module's private data.
   @param[in] VariableName    Variable name of signature database, must be
@@ -2247,7 +2024,7 @@ EnrollImageSignatureToSigDB (
   // Form the SigDB certificate list.
   // Format the data item into EFI_SIGNATURE_LIST type.
   //
-  // We need to parse signature data of executable from specified signed executable file.
+  // We need to parse executable's signature data from specified signed executable file.
   // In current implementation, we simply trust the pass-in signed executable file.
   // In reality, it's OS's responsibility to verify the signed executable file.
   //
@@ -2376,7 +2153,9 @@ EnrollImageSignatureToSigDB (
 
 ON_EXIT:
 
-  CloseEnrolledFile(Private->FileContext);
+  CloseFile (Private->FileContext->FHandle);
+  Private->FileContext->FHandle = NULL;
+  Private->FileContext->FileName = NULL;
 
   if (Private->SignatureGUID != NULL) {
     FreePool (Private->SignatureGUID);
@@ -2440,11 +2219,9 @@ EnrollSignatureDatabase (
     // Supports DER-encoded X509 certificate.
     //
     return EnrollX509toSigDB (Private, VariableName);
-  } else if (IsAuthentication2Format(Private->FileContext->FHandle)){
-    return EnrollAuthentication2Descriptor(Private, VariableName);
-  } else {
-    return EnrollImageSignatureToSigDB (Private, VariableName);
   }
+
+  return EnrollImageSignatureToSigDB (Private, VariableName);
 }
 
 /**
@@ -2831,7 +2608,7 @@ ON_EXIT:
 }
 
 /**
-  Delete a signature entry from signature database.
+  Delete a signature entry from siganture database.
 
   @param[in]    PrivateData         Module's private data.
   @param[in]    VariableName        The variable name of the vendor's signature database.
@@ -2841,7 +2618,7 @@ ON_EXIT:
   @param[in]    QuestionIdBase      Base question id of the signature list.
   @param[in]    DeleteIndex         Signature index to delete.
 
-  @retval   EFI_SUCCESS             Delete signature successfully.
+  @retval   EFI_SUCCESS             Delete siganture successfully.
   @retval   EFI_NOT_FOUND           Can't find the signature item,
   @retval   EFI_OUT_OF_RESOURCES    Could not allocate needed resources.
 **/
@@ -3032,230 +2809,13 @@ ON_EXIT:
 }
 
 /**
-  This function to delete signature list or data, according by DelType.
-
-  @param[in]  PrivateData           Module's private data.
-  @param[in]  DelType               Indicate delete signature list or data.
-  @param[in]  CheckedCount          Indicate how many signature data have
-                                    been checked in current signature list.
-
-  @retval   EFI_SUCCESS             Success to update the signature list page
-  @retval   EFI_OUT_OF_RESOURCES    Unable to allocate required resources.
-**/
-EFI_STATUS
-DeleteSignatureEx (
-  IN SECUREBOOT_CONFIG_PRIVATE_DATA   *PrivateData,
-  IN SIGNATURE_DELETE_TYPE            DelType,
-  IN UINT32                           CheckedCount
-  )
-{
-  EFI_STATUS          Status;
-  EFI_SIGNATURE_LIST  *ListWalker;
-  EFI_SIGNATURE_LIST  *NewCertList;
-  EFI_SIGNATURE_DATA  *DataWalker;
-  CHAR16              VariableName[BUFFER_MAX_SIZE];
-  UINT32              VariableAttr;
-  UINTN               VariableDataSize;
-  UINTN               RemainingSize;
-  UINTN               ListIndex;
-  UINTN               Index;
-  UINTN               Offset;
-  UINT8               *VariableData;
-  UINT8               *NewVariableData;
-
-  Status              = EFI_SUCCESS;
-  VariableAttr        = 0;
-  VariableDataSize    = 0;
-  ListIndex           = 0;
-  Offset              = 0;
-  VariableData        = NULL;
-  NewVariableData     = NULL;
-
-  if (PrivateData->VariableName == Variable_DB) {
-    UnicodeSPrint (VariableName, sizeof (VariableName), EFI_IMAGE_SECURITY_DATABASE);
-  } else if (PrivateData->VariableName == Variable_DBX) {
-    UnicodeSPrint (VariableName, sizeof (VariableName), EFI_IMAGE_SECURITY_DATABASE1);
-  } else if (PrivateData->VariableName == Variable_DBT) {
-    UnicodeSPrint (VariableName, sizeof (VariableName), EFI_IMAGE_SECURITY_DATABASE2);
-  } else {
-    goto ON_EXIT;
-  }
-
-  Status = gRT->GetVariable (
-                  VariableName,
-                  &gEfiImageSecurityDatabaseGuid,
-                  &VariableAttr,
-                  &VariableDataSize,
-                  VariableData
-                );
-  if (EFI_ERROR (Status) && Status != EFI_BUFFER_TOO_SMALL) {
-    goto ON_EXIT;
-  }
-
-  VariableData = AllocateZeroPool (VariableDataSize);
-  if (VariableData == NULL) {
-    Status = EFI_OUT_OF_RESOURCES;
-    goto ON_EXIT;
-  }
-
-  Status = gRT->GetVariable (
-                  VariableName,
-                  &gEfiImageSecurityDatabaseGuid,
-                  &VariableAttr,
-                  &VariableDataSize,
-                  VariableData
-                );
-  if (EFI_ERROR (Status)) {
-    goto ON_EXIT;
-  }
-
-  Status = SetSecureBootMode (CUSTOM_SECURE_BOOT_MODE);
-  if (EFI_ERROR (Status)) {
-    goto ON_EXIT;
-  }
-
-  NewVariableData = AllocateZeroPool (VariableDataSize);
-  if (NewVariableData == NULL) {
-    Status = EFI_OUT_OF_RESOURCES;
-    goto ON_EXIT;
-  }
-
-  RemainingSize = VariableDataSize;
-  ListWalker = (EFI_SIGNATURE_LIST *)(VariableData);
-  if (DelType == Delete_Signature_List_All) {
-    VariableDataSize = 0;
-  } else {
-    //
-    //  Traverse to target EFI_SIGNATURE_LIST but others will be skipped.
-    //
-    while ((RemainingSize > 0) && (RemainingSize >= ListWalker->SignatureListSize) && ListIndex < PrivateData->ListIndex) {
-      CopyMem ((UINT8 *)NewVariableData + Offset, ListWalker, ListWalker->SignatureListSize);
-      Offset += ListWalker->SignatureListSize;
-
-      RemainingSize -= ListWalker->SignatureListSize;
-      ListWalker = (EFI_SIGNATURE_LIST *)((UINT8 *)ListWalker + ListWalker->SignatureListSize);
-      ListIndex++;
-    }
-
-    //
-    //  Handle the target EFI_SIGNATURE_LIST.
-    //  If CheckedCount == SIGNATURE_DATA_COUNTS (ListWalker) or DelType == Delete_Signature_List_One
-    //  it means delete the whole EFI_SIGNATURE_LIST, So we just skip this EFI_SIGNATURE_LIST.
-    //
-    if (CheckedCount < SIGNATURE_DATA_COUNTS (ListWalker) && DelType == Delete_Signature_Data) {
-      NewCertList = (EFI_SIGNATURE_LIST *)(NewVariableData + Offset);
-      //
-      // Copy header.
-      //
-      CopyMem ((UINT8 *)NewVariableData + Offset, ListWalker, sizeof (EFI_SIGNATURE_LIST) + ListWalker->SignatureHeaderSize);
-      Offset += sizeof (EFI_SIGNATURE_LIST) + ListWalker->SignatureHeaderSize;
-
-      DataWalker = (EFI_SIGNATURE_DATA *)((UINT8 *)ListWalker + sizeof(EFI_SIGNATURE_LIST) + ListWalker->SignatureHeaderSize);
-      for (Index = 0; Index < SIGNATURE_DATA_COUNTS(ListWalker); Index = Index + 1) {
-        if (PrivateData->CheckArray[Index]) {
-          //
-          // Delete checked signature data, and update the size of whole signature list.
-          //
-          NewCertList->SignatureListSize -= NewCertList->SignatureSize;
-        } else {
-          //
-          // Remain the unchecked signature data.
-          //
-          CopyMem ((UINT8 *)NewVariableData + Offset, DataWalker, ListWalker->SignatureSize);
-          Offset += ListWalker->SignatureSize;
-        }
-        DataWalker = (EFI_SIGNATURE_DATA *)((UINT8 *)DataWalker + ListWalker->SignatureSize);
-      }
-    }
-
-    RemainingSize -= ListWalker->SignatureListSize;
-    ListWalker = (EFI_SIGNATURE_LIST *)((UINT8 *)ListWalker + ListWalker->SignatureListSize);
-
-    //
-    // Copy remaining data, maybe 0.
-    //
-    CopyMem((UINT8 *)NewVariableData + Offset, ListWalker, RemainingSize);
-    Offset += RemainingSize;
-
-    VariableDataSize = Offset;
-  }
-
-  if ((VariableAttr & EFI_VARIABLE_TIME_BASED_AUTHENTICATED_WRITE_ACCESS) != 0) {
-    Status = CreateTimeBasedPayload (&VariableDataSize, &NewVariableData);
-    if (EFI_ERROR (Status)) {
-      DEBUG ((DEBUG_ERROR, "Fail to create time-based data payload: %r", Status));
-      goto ON_EXIT;
-    }
-  }
-
-  Status = gRT->SetVariable (
-                  VariableName,
-                  &gEfiImageSecurityDatabaseGuid,
-                  VariableAttr,
-                  VariableDataSize,
-                  NewVariableData
-                );
-  if (EFI_ERROR (Status)) {
-    DEBUG ((DEBUG_ERROR, "Failed to set variable, Status = %r", Status));
-    goto ON_EXIT;
-  }
-
-ON_EXIT:
-  SECUREBOOT_FREE_NON_NULL (VariableData);
-  SECUREBOOT_FREE_NON_NULL (NewVariableData);
-
-  return Status;
-}
-
-/**
-
-  Update SecureBoot strings based on new Secure Boot Mode State. String includes STR_SECURE_BOOT_STATE_CONTENT
- and STR_CUR_SECURE_BOOT_MODE_CONTENT.
-
-  @param[in]    PrivateData         Module's private data.
-
-  @return EFI_SUCCESS              Update secure boot strings successfully.
-  @return other                          Fail to update secure boot strings.
-
-**/
-EFI_STATUS
-UpdateSecureBootString(
-  IN SECUREBOOT_CONFIG_PRIVATE_DATA  *Private
-  )
-{
-  UINT8       *SecureBoot;
-
-  SecureBoot = NULL;
-
-  //
-  // Get current secure boot state.
-  //
-  GetVariable2 (EFI_SECURE_BOOT_MODE_NAME, &gEfiGlobalVariableGuid, (VOID**)&SecureBoot, NULL);
-  if (SecureBoot == NULL) {
-    return EFI_NOT_FOUND;
-  }
-
-  if (*SecureBoot == SECURE_BOOT_MODE_ENABLE) {
-    HiiSetString (Private->HiiHandle, STRING_TOKEN (STR_SECURE_BOOT_STATE_CONTENT), L"Enabled", NULL);
-  } else {
-    HiiSetString (Private->HiiHandle, STRING_TOKEN (STR_SECURE_BOOT_STATE_CONTENT), L"Disabled", NULL);
-  }
-
-  FreePool(SecureBoot);
-
-  return EFI_SUCCESS;
-}
-
-/**
   This function extracts configuration from variable.
 
-  @param[in]       Private      Point to SecureBoot configuration driver private data.
   @param[in, out]  ConfigData   Point to SecureBoot configuration private data.
 
 **/
 VOID
 SecureBootExtractConfigFromVariable (
-  IN SECUREBOOT_CONFIG_PRIVATE_DATA  *Private,
   IN OUT SECUREBOOT_CONFIGURATION    *ConfigData
   )
 {
@@ -3269,7 +2829,7 @@ SecureBootExtractConfigFromVariable (
   SecureBootMode   = NULL;
 
   //
-  // Initialize the Date and Time using system time.
+  // Initilize the Date and Time using system time.
   //
   ConfigData->CertificateFormat = HASHALG_RAW;
   ConfigData->AlwaysRevocation = TRUE;
@@ -3280,10 +2840,20 @@ SecureBootExtractConfigFromVariable (
   ConfigData->RevocationTime.Hour   = CurrTime.Hour;
   ConfigData->RevocationTime.Minute = CurrTime.Minute;
   ConfigData->RevocationTime.Second = 0;
-  if (Private->FileContext->FHandle != NULL) {
-    ConfigData->FileEnrollType = Private->FileContext->FileType;
+
+  //
+  // If the SecureBootEnable Variable doesn't exist, hide the SecureBoot Enable/Disable
+  // Checkbox.
+  //
+  ConfigData->AttemptSecureBoot = FALSE;
+  GetVariable2 (EFI_SECURE_BOOT_ENABLE_NAME, &gEfiSecureBootEnableDisableGuid, (VOID**)&SecureBootEnable, NULL);
+  if (SecureBootEnable == NULL) {
+    ConfigData->HideSecureBoot = TRUE;
   } else {
-    ConfigData->FileEnrollType = UNKNOWN_FILE_TYPE;
+    ConfigData->HideSecureBoot = FALSE;
+    if ((*SecureBootEnable) == SECURE_BOOT_ENABLE) {
+      ConfigData->AttemptSecureBoot = TRUE;
+    }
   }
 
   //
@@ -3303,26 +2873,6 @@ SecureBootExtractConfigFromVariable (
     ConfigData->HasPk = FALSE;
   } else  {
     ConfigData->HasPk = TRUE;
-  }
-
-  //
-  // Check SecureBootEnable & Pk status, fix the inconsistency.
-  // If the SecureBootEnable Variable doesn't exist, hide the SecureBoot Enable/Disable
-  // Checkbox.
-  //
-  ConfigData->AttemptSecureBoot = FALSE;
-  GetVariable2 (EFI_SECURE_BOOT_ENABLE_NAME, &gEfiSecureBootEnableDisableGuid, (VOID**)&SecureBootEnable, NULL);
-
-  //
-  // Fix Pk and SecureBootEnable inconsistency
-  //
-  if ((SetupMode != NULL) && (*SetupMode) == USER_MODE) {
-    ConfigData->HideSecureBoot = FALSE;
-    if ((SecureBootEnable != NULL) && (*SecureBootEnable == SECURE_BOOT_ENABLE)) {
-      ConfigData->AttemptSecureBoot = TRUE;
-    }
-  } else {
-    ConfigData->HideSecureBoot = TRUE;
   }
 
   //
@@ -3389,6 +2939,7 @@ SecureBootExtractConfig (
   EFI_STRING                        ConfigRequestHdr;
   SECUREBOOT_CONFIG_PRIVATE_DATA    *PrivateData;
   BOOLEAN                           AllocatedRequest;
+  UINT8                             *SecureBoot;
 
   if (Progress == NULL || Results == NULL) {
     return EFI_INVALID_PARAMETER;
@@ -3398,6 +2949,7 @@ SecureBootExtractConfig (
   ConfigRequestHdr = NULL;
   ConfigRequest    = NULL;
   Size             = 0;
+  SecureBoot       = NULL;
 
   ZeroMem (&Configuration, sizeof (Configuration));
   PrivateData      = SECUREBOOT_CONFIG_PRIVATE_FROM_THIS (This);
@@ -3407,12 +2959,23 @@ SecureBootExtractConfig (
     return EFI_NOT_FOUND;
   }
 
-  ZeroMem(&Configuration, sizeof(SECUREBOOT_CONFIGURATION));
-
   //
   // Get Configuration from Variable.
   //
-  SecureBootExtractConfigFromVariable (PrivateData, &Configuration);
+  SecureBootExtractConfigFromVariable (&Configuration);
+
+  //
+  // Update current secure boot state.
+  //
+  GetVariable2 (EFI_SECURE_BOOT_MODE_NAME, &gEfiGlobalVariableGuid, (VOID**)&SecureBoot, NULL);
+  if (SecureBoot != NULL && *SecureBoot == SECURE_BOOT_MODE_ENABLE) {
+    HiiSetString (PrivateData->HiiHandle, STRING_TOKEN (STR_SECURE_BOOT_STATE_CONTENT), L"Enabled", NULL);
+  } else {
+    HiiSetString (PrivateData->HiiHandle, STRING_TOKEN (STR_SECURE_BOOT_STATE_CONTENT), L"Disabled", NULL);
+  }
+  if (SecureBoot != NULL) {
+    FreePool (SecureBoot);
+  }
 
   BufferSize = sizeof (SECUREBOOT_CONFIGURATION);
   ConfigRequest = Request;
@@ -3487,10 +3050,10 @@ SecureBootRouteConfig (
        OUT EFI_STRING                          *Progress
   )
 {
-  SECUREBOOT_CONFIGURATION          IfrNvData;
-  UINTN                             BufferSize;
-  SECUREBOOT_CONFIG_PRIVATE_DATA    *PrivateData;
-  EFI_STATUS                        Status;
+  UINT8                      *SecureBootEnable;
+  SECUREBOOT_CONFIGURATION   IfrNvData;
+  UINTN                      BufferSize;
+  EFI_STATUS                 Status;
 
   if (Configuration == NULL || Progress == NULL) {
     return EFI_INVALID_PARAMETER;
@@ -3501,12 +3064,10 @@ SecureBootRouteConfig (
     return EFI_NOT_FOUND;
   }
 
-  PrivateData = SECUREBOOT_CONFIG_PRIVATE_FROM_THIS (This);
-
   //
   // Get Configuration from Variable.
   //
-  SecureBootExtractConfigFromVariable (PrivateData, &IfrNvData);
+  SecureBootExtractConfigFromVariable (&IfrNvData);
 
   //
   // Map the Configuration to the configuration block.
@@ -3526,7 +3087,10 @@ SecureBootRouteConfig (
   //
   // Store Buffer Storage back to EFI variable if needed
   //
-  if (!IfrNvData.HideSecureBoot) {
+  SecureBootEnable = NULL;
+  GetVariable2 (EFI_SECURE_BOOT_ENABLE_NAME, &gEfiSecureBootEnableDisableGuid, (VOID**)&SecureBootEnable, NULL);
+  if (NULL != SecureBootEnable) {
+    FreePool (SecureBootEnable);
     Status = SaveSecureBootVariable (IfrNvData.AttemptSecureBoot);
     if (EFI_ERROR (Status)) {
       return Status;
@@ -3535,719 +3099,6 @@ SecureBootRouteConfig (
 
   *Progress = Configuration + StrLen (Configuration);
   return EFI_SUCCESS;
-}
-
-/**
-  This function to load signature list, the update the menu page.
-
-  @param[in]  PrivateData         Module's private data.
-  @param[in]  LabelId             Label number to insert opcodes.
-  @param[in]  FormId              Form ID of current page.
-  @param[in]  QuestionIdBase      Base question id of the signature list.
-
-  @retval   EFI_SUCCESS           Success to update the signature list page
-  @retval   EFI_OUT_OF_RESOURCES  Unable to allocate required resources.
-**/
-EFI_STATUS
-LoadSignatureList (
-  IN SECUREBOOT_CONFIG_PRIVATE_DATA *PrivateData,
-  IN UINT16                         LabelId,
-  IN EFI_FORM_ID                    FormId,
-  IN EFI_QUESTION_ID                QuestionIdBase
-  )
-{
-  EFI_STATUS            Status;
-  EFI_STRING_ID         ListType;
-  EFI_STRING            FormatNameString;
-  EFI_STRING            FormatHelpString;
-  EFI_STRING            FormatTypeString;
-  EFI_SIGNATURE_LIST    *ListWalker;
-  EFI_IFR_GUID_LABEL    *StartLabel;
-  EFI_IFR_GUID_LABEL    *EndLabel;
-  EFI_IFR_GUID_LABEL    *StartGoto;
-  EFI_IFR_GUID_LABEL    *EndGoto;
-  EFI_FORM_ID           DstFormId;
-  VOID                  *StartOpCodeHandle;
-  VOID                  *EndOpCodeHandle;
-  VOID                  *StartGotoHandle;
-  VOID                  *EndGotoHandle;
-  UINTN                 DataSize;
-  UINTN                 RemainingSize;
-  UINT16                Index;
-  UINT8                 *VariableData;
-  CHAR16                VariableName[BUFFER_MAX_SIZE];
-  CHAR16                NameBuffer[BUFFER_MAX_SIZE];
-  CHAR16                HelpBuffer[BUFFER_MAX_SIZE];
-
-  Status                = EFI_SUCCESS;
-  FormatNameString      = NULL;
-  FormatHelpString      = NULL;
-  StartOpCodeHandle     = NULL;
-  EndOpCodeHandle       = NULL;
-  StartGotoHandle       = NULL;
-  EndGotoHandle         = NULL;
-  Index                 = 0;
-  VariableData          = NULL;
-
-  //
-  // Initialize the container for dynamic opcodes.
-  //
-  StartOpCodeHandle = HiiAllocateOpCodeHandle ();
-  if (StartOpCodeHandle == NULL) {
-    Status = EFI_OUT_OF_RESOURCES;
-    goto ON_EXIT;
-  }
-
-  EndOpCodeHandle = HiiAllocateOpCodeHandle ();
-  if (EndOpCodeHandle == NULL) {
-    Status = EFI_OUT_OF_RESOURCES;
-    goto ON_EXIT;
-  }
-
-  StartGotoHandle = HiiAllocateOpCodeHandle ();
-  if (StartGotoHandle == NULL) {
-    Status = EFI_OUT_OF_RESOURCES;
-    goto ON_EXIT;
-  }
-
-  EndGotoHandle = HiiAllocateOpCodeHandle ();
-  if (EndGotoHandle == NULL) {
-    Status = EFI_OUT_OF_RESOURCES;
-    goto ON_EXIT;
-  }
-
-  //
-  // Create Hii Extend Label OpCode.
-  //
-  StartLabel = (EFI_IFR_GUID_LABEL *)HiiCreateGuidOpCode (
-                                       StartOpCodeHandle,
-                                       &gEfiIfrTianoGuid,
-                                       NULL,
-                                       sizeof (EFI_IFR_GUID_LABEL)
-                                     );
-  StartLabel->ExtendOpCode  = EFI_IFR_EXTEND_OP_LABEL;
-  StartLabel->Number        = LabelId;
-
-  EndLabel = (EFI_IFR_GUID_LABEL *)HiiCreateGuidOpCode (
-                                     EndOpCodeHandle,
-                                     &gEfiIfrTianoGuid,
-                                     NULL,
-                                     sizeof (EFI_IFR_GUID_LABEL)
-                                   );
-  EndLabel->ExtendOpCode  = EFI_IFR_EXTEND_OP_LABEL;
-  EndLabel->Number        = LABEL_END;
-
-  StartGoto = (EFI_IFR_GUID_LABEL *)HiiCreateGuidOpCode(
-                                      StartGotoHandle,
-                                      &gEfiIfrTianoGuid,
-                                      NULL,
-                                      sizeof(EFI_IFR_GUID_LABEL)
-                                    );
-  StartGoto->ExtendOpCode  = EFI_IFR_EXTEND_OP_LABEL;
-  StartGoto->Number        = LABEL_DELETE_ALL_LIST_BUTTON;
-
-  EndGoto = (EFI_IFR_GUID_LABEL *)HiiCreateGuidOpCode(
-                                    EndGotoHandle,
-                                    &gEfiIfrTianoGuid,
-                                    NULL,
-                                    sizeof(EFI_IFR_GUID_LABEL)
-                                  );
-  EndGoto->ExtendOpCode = EFI_IFR_EXTEND_OP_LABEL;
-  EndGoto->Number = LABEL_END;
-
-  if (PrivateData->VariableName == Variable_DB) {
-    UnicodeSPrint (VariableName, sizeof (VariableName), EFI_IMAGE_SECURITY_DATABASE);
-    DstFormId = FORMID_SECURE_BOOT_DB_OPTION_FORM;
-  } else if (PrivateData->VariableName == Variable_DBX) {
-    UnicodeSPrint (VariableName, sizeof (VariableName), EFI_IMAGE_SECURITY_DATABASE1);
-    DstFormId = FORMID_SECURE_BOOT_DBX_OPTION_FORM;
-  } else if (PrivateData->VariableName == Variable_DBT) {
-    UnicodeSPrint (VariableName, sizeof (VariableName), EFI_IMAGE_SECURITY_DATABASE2);
-    DstFormId = FORMID_SECURE_BOOT_DBT_OPTION_FORM;
-  } else {
-    goto ON_EXIT;
-  }
-
-  HiiCreateGotoOpCode (
-    StartGotoHandle,
-    DstFormId,
-    STRING_TOKEN (STR_SECURE_BOOT_DELETE_ALL_LIST),
-    STRING_TOKEN (STR_SECURE_BOOT_DELETE_ALL_LIST),
-    EFI_IFR_FLAG_CALLBACK,
-    KEY_SECURE_BOOT_DELETE_ALL_LIST
-  );
-
-  //
-  // Read Variable, the variable name save in the PrivateData->VariableName.
-  //
-  DataSize = 0;
-  Status = gRT->GetVariable (VariableName, &gEfiImageSecurityDatabaseGuid, NULL, &DataSize, VariableData);
-  if (EFI_ERROR (Status) && Status != EFI_BUFFER_TOO_SMALL) {
-    goto ON_EXIT;
-  }
-
-  VariableData = AllocateZeroPool (DataSize);
-  if (VariableData == NULL) {
-    Status = EFI_OUT_OF_RESOURCES;
-    goto ON_EXIT;
-  }
-  Status = gRT->GetVariable (VariableName, &gEfiImageSecurityDatabaseGuid, NULL, &DataSize, VariableData);
-  if (EFI_ERROR (Status)) {
-    goto ON_EXIT;
-  }
-
-  FormatNameString = HiiGetString (PrivateData->HiiHandle, STRING_TOKEN (STR_SIGNATURE_LIST_NAME_FORMAT), NULL);
-  FormatHelpString = HiiGetString (PrivateData->HiiHandle, STRING_TOKEN (STR_SIGNATURE_LIST_HELP_FORMAT), NULL);
-  if (FormatNameString == NULL || FormatHelpString == NULL) {
-    goto ON_EXIT;
-  }
-
-  RemainingSize = DataSize;
-  ListWalker    = (EFI_SIGNATURE_LIST *)VariableData;
-  while ((RemainingSize > 0) && (RemainingSize >= ListWalker->SignatureListSize)) {
-    if (CompareGuid (&ListWalker->SignatureType, &gEfiCertRsa2048Guid)) {
-      ListType = STRING_TOKEN (STR_LIST_TYPE_RSA2048_SHA256);
-    } else if (CompareGuid (&ListWalker->SignatureType, &gEfiCertX509Guid)) {
-      ListType = STRING_TOKEN (STR_LIST_TYPE_X509);
-    } else if (CompareGuid (&ListWalker->SignatureType, &gEfiCertSha1Guid)) {
-      ListType = STRING_TOKEN (STR_LIST_TYPE_SHA1);
-    } else if (CompareGuid (&ListWalker->SignatureType, &gEfiCertSha256Guid)) {
-      ListType = STRING_TOKEN (STR_LIST_TYPE_SHA256);
-    } else if (CompareGuid (&ListWalker->SignatureType, &gEfiCertX509Sha256Guid)) {
-      ListType = STRING_TOKEN (STR_LIST_TYPE_X509_SHA256);
-    } else if (CompareGuid (&ListWalker->SignatureType, &gEfiCertX509Sha384Guid)) {
-      ListType = STRING_TOKEN (STR_LIST_TYPE_X509_SHA384);
-    } else if (CompareGuid (&ListWalker->SignatureType, &gEfiCertX509Sha512Guid)) {
-      ListType = STRING_TOKEN (STR_LIST_TYPE_X509_SHA512);
-    } else {
-      ListType = STRING_TOKEN (STR_LIST_TYPE_UNKNOWN);
-    }
-    FormatTypeString = HiiGetString (PrivateData->HiiHandle, ListType, NULL);
-    if (FormatTypeString == NULL) {
-      goto ON_EXIT;
-    }
-
-    ZeroMem (NameBuffer, sizeof (NameBuffer));
-    UnicodeSPrint (NameBuffer, sizeof (NameBuffer), FormatNameString, Index + 1);
-
-    ZeroMem (HelpBuffer, sizeof (HelpBuffer));
-    UnicodeSPrint (HelpBuffer,
-      sizeof (HelpBuffer),
-      FormatHelpString,
-      FormatTypeString,
-      SIGNATURE_DATA_COUNTS (ListWalker)
-    );
-    SECUREBOOT_FREE_NON_NULL (FormatTypeString);
-    FormatTypeString = NULL;
-
-    HiiCreateGotoOpCode (
-      StartOpCodeHandle,
-      SECUREBOOT_DELETE_SIGNATURE_DATA_FORM,
-      HiiSetString (PrivateData->HiiHandle, 0, NameBuffer, NULL),
-      HiiSetString (PrivateData->HiiHandle, 0, HelpBuffer, NULL),
-      EFI_IFR_FLAG_CALLBACK,
-      QuestionIdBase + Index++
-    );
-
-    RemainingSize -= ListWalker->SignatureListSize;
-    ListWalker = (EFI_SIGNATURE_LIST *)((UINT8 *)ListWalker + ListWalker->SignatureListSize);
-  }
-
-ON_EXIT:
-  HiiUpdateForm (
-    PrivateData->HiiHandle,
-    &gSecureBootConfigFormSetGuid,
-    FormId,
-    StartOpCodeHandle,
-    EndOpCodeHandle
-  );
-
-  HiiUpdateForm (
-    PrivateData->HiiHandle,
-    &gSecureBootConfigFormSetGuid,
-    FormId,
-    StartGotoHandle,
-    EndGotoHandle
-  );
-
-  SECUREBOOT_FREE_NON_OPCODE (StartOpCodeHandle);
-  SECUREBOOT_FREE_NON_OPCODE (EndOpCodeHandle);
-  SECUREBOOT_FREE_NON_OPCODE (StartGotoHandle);
-  SECUREBOOT_FREE_NON_OPCODE (EndGotoHandle);
-
-  SECUREBOOT_FREE_NON_NULL (VariableData);
-  SECUREBOOT_FREE_NON_NULL (FormatNameString);
-  SECUREBOOT_FREE_NON_NULL (FormatHelpString);
-
-  PrivateData->ListCount = Index;
-
-  return Status;
-}
-
-/**
-  Parse hash value from EFI_SIGNATURE_DATA, and save in the CHAR16 type array.
-  The buffer is callee allocated and should be freed by the caller.
-
-  @param[in]    ListEntry                 The pointer point to the signature list.
-  @param[in]    DataEntry                 The signature data we are processing.
-  @param[out]   BufferToReturn            Buffer to save the hash value.
-
-  @retval       EFI_INVALID_PARAMETER     Invalid List or Data or Buffer.
-  @retval       EFI_OUT_OF_RESOURCES      A memory allocation failed.
-  @retval       EFI_SUCCESS               Operation success.
-**/
-EFI_STATUS
-ParseHashValue (
-  IN     EFI_SIGNATURE_LIST    *ListEntry,
-  IN     EFI_SIGNATURE_DATA    *DataEntry,
-     OUT CHAR16                **BufferToReturn
-  )
-{
-  UINTN       Index;
-  UINTN       BufferIndex;
-  UINTN       TotalSize;
-  UINTN       DataSize;
-  UINTN       Line;
-  UINTN       OneLineBytes;
-
-  //
-  //  Assume that, display 8 bytes in one line.
-  //
-  OneLineBytes = 8;
-
-  if (ListEntry == NULL || DataEntry == NULL || BufferToReturn == NULL) {
-    return EFI_INVALID_PARAMETER;
-  }
-
-  DataSize = ListEntry->SignatureSize - sizeof(EFI_GUID);
-  Line = (DataSize + OneLineBytes - 1) / OneLineBytes;
-
-  //
-  // Each byte will split two Hex-number, and each line need additional memory to save '\r\n'.
-  //
-  TotalSize = ((DataSize + Line) * 2 * sizeof(CHAR16));
-
-  *BufferToReturn = AllocateZeroPool(TotalSize);
-  if (*BufferToReturn == NULL) {
-    return EFI_OUT_OF_RESOURCES;
-  }
-
-  for (Index = 0, BufferIndex = 0; Index < DataSize; Index = Index + 1) {
-    if ((Index > 0) && (Index % OneLineBytes == 0)) {
-      BufferIndex += UnicodeSPrint(&(*BufferToReturn)[BufferIndex], TotalSize - sizeof(CHAR16) * BufferIndex, L"\n");
-    }
-    BufferIndex += UnicodeSPrint(&(*BufferToReturn)[BufferIndex], TotalSize - sizeof(CHAR16) * BufferIndex, L"%02x", DataEntry->SignatureData[Index]);
-  }
-  BufferIndex += UnicodeSPrint(&(*BufferToReturn)[BufferIndex], TotalSize - sizeof(CHAR16) * BufferIndex, L"\n");
-
-  return EFI_SUCCESS;
-}
-
-/**
-  Function to get the common name from the X509 format certificate.
-  The buffer is callee allocated and should be freed by the caller.
-
-  @param[in]    ListEntry                 The pointer point to the signature list.
-  @param[in]    DataEntry                 The signature data we are processing.
-  @param[out]   BufferToReturn            Buffer to save the CN of X509 certificate.
-
-  @retval       EFI_INVALID_PARAMETER     Invalid List or Data or Buffer.
-  @retval       EFI_OUT_OF_RESOURCES      A memory allocation failed.
-  @retval       EFI_SUCCESS               Operation success.
-  @retval       EFI_NOT_FOUND             Not found CN field in the X509 certificate.
-**/
-EFI_STATUS
-GetCommonNameFromX509 (
-  IN     EFI_SIGNATURE_LIST    *ListEntry,
-  IN     EFI_SIGNATURE_DATA    *DataEntry,
-     OUT CHAR16                **BufferToReturn
-  )
-{
-  EFI_STATUS      Status;
-  CHAR8           *CNBuffer;
-  UINTN           CNBufferSize;
-
-  Status        = EFI_SUCCESS;
-  CNBuffer      = NULL;
-
-  CNBuffer = AllocateZeroPool(256);
-  if (CNBuffer == NULL) {
-    Status = EFI_OUT_OF_RESOURCES;
-    goto ON_EXIT;
-  }
-
-  CNBufferSize = 256;
-  X509GetCommonName (
-    (UINT8 *)DataEntry + sizeof(EFI_GUID),
-    ListEntry->SignatureSize - sizeof(EFI_GUID),
-    CNBuffer,
-    &CNBufferSize
-  );
-
-  *BufferToReturn = AllocateZeroPool(256 * sizeof(CHAR16));
-  if (*BufferToReturn == NULL) {
-    Status = EFI_OUT_OF_RESOURCES;
-    goto ON_EXIT;
-  }
-
-  AsciiStrToUnicodeStrS (CNBuffer, *BufferToReturn, 256);
-
-ON_EXIT:
-  SECUREBOOT_FREE_NON_NULL (CNBuffer);
-
-  return Status;
-}
-
-/**
-  Format the help info for the signature data, each help info contain 3 parts.
-  1. Onwer Guid.
-  2. Content, depends on the type of the signature list.
-  3. Revocation time.
-
-  @param[in]      PrivateData             Module's private data.
-  @param[in]      ListEntry               Point to the signature list.
-  @param[in]      DataEntry               Point to the signature data we are processing.
-  @param[out]     StringId                Save the string id of help info.
-
-  @retval         EFI_SUCCESS             Operation success.
-  @retval         EFI_OUT_OF_RESOURCES    Unable to allocate required resources.
-**/
-EFI_STATUS
-FormatHelpInfo (
-  IN     SECUREBOOT_CONFIG_PRIVATE_DATA   *PrivateData,
-  IN     EFI_SIGNATURE_LIST               *ListEntry,
-  IN     EFI_SIGNATURE_DATA               *DataEntry,
-     OUT EFI_STRING_ID                    *StringId
-  )
-{
-  EFI_STATUS      Status;
-  EFI_TIME        *Time;
-  EFI_STRING_ID   ListTypeId;
-  EFI_STRING      FormatHelpString;
-  EFI_STRING      FormatTypeString;
-  UINTN           DataSize;
-  UINTN           HelpInfoIndex;
-  UINTN           TotalSize;
-  CHAR16          GuidString[BUFFER_MAX_SIZE];
-  CHAR16          TimeString[BUFFER_MAX_SIZE];
-  CHAR16          *DataString;
-  CHAR16          *HelpInfoString;
-  BOOLEAN         IsCert;
-
-  Status            = EFI_SUCCESS;
-  Time              = NULL;
-  FormatTypeString  = NULL;
-  HelpInfoIndex     = 0;
-  DataString        = NULL;
-  HelpInfoString    = NULL;
-  IsCert            = FALSE;
-
-  if (CompareGuid(&ListEntry->SignatureType, &gEfiCertRsa2048Guid)) {
-    ListTypeId = STRING_TOKEN(STR_LIST_TYPE_RSA2048_SHA256);
-    DataSize = ListEntry->SignatureSize - sizeof(EFI_GUID);
-    IsCert = TRUE;
-  } else if (CompareGuid(&ListEntry->SignatureType, &gEfiCertX509Guid)) {
-    ListTypeId = STRING_TOKEN(STR_LIST_TYPE_X509);
-    DataSize = ListEntry->SignatureSize - sizeof(EFI_GUID);
-    IsCert = TRUE;
-  } else if (CompareGuid(&ListEntry->SignatureType, &gEfiCertSha1Guid)) {
-    ListTypeId = STRING_TOKEN(STR_LIST_TYPE_SHA1);
-    DataSize = 20;
-  } else if (CompareGuid(&ListEntry->SignatureType, &gEfiCertSha256Guid)) {
-    ListTypeId = STRING_TOKEN(STR_LIST_TYPE_SHA256);
-    DataSize = 32;
-  } else if (CompareGuid(&ListEntry->SignatureType, &gEfiCertX509Sha256Guid)) {
-    ListTypeId = STRING_TOKEN(STR_LIST_TYPE_X509_SHA256);
-    DataSize = 32;
-    Time = (EFI_TIME *)(DataEntry->SignatureData + DataSize);
-  } else if (CompareGuid(&ListEntry->SignatureType, &gEfiCertX509Sha384Guid)) {
-    ListTypeId = STRING_TOKEN(STR_LIST_TYPE_X509_SHA384);
-    DataSize = 48;
-    Time = (EFI_TIME *)(DataEntry->SignatureData + DataSize);
-  } else if (CompareGuid(&ListEntry->SignatureType, &gEfiCertX509Sha512Guid)) {
-    ListTypeId = STRING_TOKEN(STR_LIST_TYPE_X509_SHA512);
-    DataSize = 64;
-    Time = (EFI_TIME *)(DataEntry->SignatureData + DataSize);
-  } else {
-    Status = EFI_UNSUPPORTED;
-    goto ON_EXIT;
-  }
-
-  FormatTypeString = HiiGetString (PrivateData->HiiHandle, ListTypeId, NULL);
-  if (FormatTypeString == NULL) {
-    goto ON_EXIT;
-  }
-
-  TotalSize = 1024;
-  HelpInfoString = AllocateZeroPool (TotalSize);
-  if (HelpInfoString == NULL) {
-    Status = EFI_OUT_OF_RESOURCES;
-    goto ON_EXIT;
-  }
-
-  //
-  // Format GUID part.
-  //
-  ZeroMem (GuidString, sizeof (GuidString));
-  GuidToString(&DataEntry->SignatureOwner, GuidString, BUFFER_MAX_SIZE);
-  FormatHelpString = HiiGetString (PrivateData->HiiHandle, STRING_TOKEN (STR_SIGNATURE_DATA_HELP_FORMAT_GUID), NULL);
-  if (FormatHelpString == NULL) {
-    goto ON_EXIT;
-  }
-  HelpInfoIndex += UnicodeSPrint (
-                     &HelpInfoString[HelpInfoIndex],
-                     TotalSize - sizeof(CHAR16) * HelpInfoIndex,
-                     FormatHelpString,
-                     GuidString
-                   );
-  SECUREBOOT_FREE_NON_NULL (FormatHelpString);
-  FormatHelpString = NULL;
-
-  //
-  // Format content part, it depends on the type of signature list, hash value or CN.
-  //
-  if (IsCert) {
-    GetCommonNameFromX509 (ListEntry, DataEntry, &DataString);
-    FormatHelpString = HiiGetString (PrivateData->HiiHandle, STRING_TOKEN (STR_SIGNATURE_DATA_HELP_FORMAT_CN), NULL);
-  } else {
-    //
-    //  Format hash value for each signature data entry.
-    //
-    ParseHashValue (ListEntry, DataEntry, &DataString);
-    FormatHelpString = HiiGetString (PrivateData->HiiHandle, STRING_TOKEN (STR_SIGNATURE_DATA_HELP_FORMAT_HASH), NULL);
-  }
-  if (FormatHelpString == NULL) {
-    goto ON_EXIT;
-  }
-  HelpInfoIndex += UnicodeSPrint (
-                     &HelpInfoString[HelpInfoIndex],
-                     TotalSize - sizeof (CHAR16) * HelpInfoIndex,
-                     FormatHelpString,
-                     FormatTypeString,
-                     DataSize,
-                     DataString
-                   );
-  SECUREBOOT_FREE_NON_NULL (FormatHelpString);
-  FormatHelpString = NULL;
-
-  //
-  // Format revocation time part.
-  //
-  if (Time != NULL) {
-    ZeroMem (TimeString, sizeof (TimeString));
-    UnicodeSPrint (
-      TimeString,
-      sizeof (TimeString),
-      L"%d-%d-%d %d:%d:%d",
-      Time->Year,
-      Time->Month,
-      Time->Day,
-      Time->Hour,
-      Time->Minute,
-      Time->Second
-    );
-    FormatHelpString = HiiGetString (PrivateData->HiiHandle, STRING_TOKEN (STR_SIGNATURE_DATA_HELP_FORMAT_TIME), NULL);
-    if (FormatHelpString == NULL) {
-      goto ON_EXIT;
-    }
-    UnicodeSPrint (
-      &HelpInfoString[HelpInfoIndex],
-      TotalSize - sizeof (CHAR16) * HelpInfoIndex,
-      FormatHelpString,
-      TimeString
-    );
-    SECUREBOOT_FREE_NON_NULL (FormatHelpString);
-    FormatHelpString = NULL;
-  }
-
-  *StringId = HiiSetString (PrivateData->HiiHandle, 0, HelpInfoString, NULL);
-ON_EXIT:
-  SECUREBOOT_FREE_NON_NULL (DataString);
-  SECUREBOOT_FREE_NON_NULL (HelpInfoString);
-
-  SECUREBOOT_FREE_NON_NULL (FormatTypeString);
-
-  return Status;
-}
-
-/**
-  This function to load signature data under the signature list.
-
-  @param[in]  PrivateData         Module's private data.
-  @param[in]  LabelId             Label number to insert opcodes.
-  @param[in]  FormId              Form ID of current page.
-  @param[in]  QuestionIdBase      Base question id of the signature list.
-  @param[in]  ListIndex           Indicate to load which signature list.
-
-  @retval   EFI_SUCCESS           Success to update the signature list page
-  @retval   EFI_OUT_OF_RESOURCES  Unable to allocate required resources.
-**/
-EFI_STATUS
-LoadSignatureData (
-  IN SECUREBOOT_CONFIG_PRIVATE_DATA *PrivateData,
-  IN UINT16                         LabelId,
-  IN EFI_FORM_ID                    FormId,
-  IN EFI_QUESTION_ID                QuestionIdBase,
-  IN UINT16                         ListIndex
-  )
-{
-  EFI_STATUS            Status;
-  EFI_SIGNATURE_LIST    *ListWalker;
-  EFI_SIGNATURE_DATA    *DataWalker;
-  EFI_IFR_GUID_LABEL    *StartLabel;
-  EFI_IFR_GUID_LABEL    *EndLabel;
-  EFI_STRING_ID         HelpStringId;
-  EFI_STRING            FormatNameString;
-  VOID                  *StartOpCodeHandle;
-  VOID                  *EndOpCodeHandle;
-  UINTN                 DataSize;
-  UINTN                 RemainingSize;
-  UINT16                Index;
-  UINT8                 *VariableData;
-  CHAR16                VariableName[BUFFER_MAX_SIZE];
-  CHAR16                NameBuffer[BUFFER_MAX_SIZE];
-
-  Status              = EFI_SUCCESS;
-  FormatNameString    = NULL;
-  StartOpCodeHandle   = NULL;
-  EndOpCodeHandle     = NULL;
-  Index               = 0;
-  VariableData        = NULL;
-
-  //
-  // Initialize the container for dynamic opcodes.
-  //
-  StartOpCodeHandle = HiiAllocateOpCodeHandle ();
-  if (StartOpCodeHandle == NULL) {
-    Status = EFI_OUT_OF_RESOURCES;
-    goto ON_EXIT;
-  }
-
-  EndOpCodeHandle = HiiAllocateOpCodeHandle ();
-  if (EndOpCodeHandle == NULL) {
-    Status = EFI_OUT_OF_RESOURCES;
-    goto ON_EXIT;
-  }
-
-  //
-  // Create Hii Extend Label OpCode.
-  //
-  StartLabel = (EFI_IFR_GUID_LABEL *)HiiCreateGuidOpCode (
-                                       StartOpCodeHandle,
-                                       &gEfiIfrTianoGuid,
-                                       NULL,
-                                       sizeof (EFI_IFR_GUID_LABEL)
-                                     );
-  StartLabel->ExtendOpCode  = EFI_IFR_EXTEND_OP_LABEL;
-  StartLabel->Number        = LabelId;
-
-  EndLabel = (EFI_IFR_GUID_LABEL *)HiiCreateGuidOpCode (
-                                     EndOpCodeHandle,
-                                     &gEfiIfrTianoGuid,
-                                     NULL,
-                                     sizeof (EFI_IFR_GUID_LABEL)
-                                   );
-  EndLabel->ExtendOpCode  = EFI_IFR_EXTEND_OP_LABEL;
-  EndLabel->Number        = LABEL_END;
-
-  if (PrivateData->VariableName == Variable_DB) {
-    UnicodeSPrint (VariableName, sizeof (VariableName), EFI_IMAGE_SECURITY_DATABASE);
-  } else if (PrivateData->VariableName == Variable_DBX) {
-    UnicodeSPrint (VariableName, sizeof (VariableName), EFI_IMAGE_SECURITY_DATABASE1);
-  } else if (PrivateData->VariableName == Variable_DBT) {
-    UnicodeSPrint (VariableName, sizeof (VariableName), EFI_IMAGE_SECURITY_DATABASE2);
-  } else {
-    goto ON_EXIT;
-  }
-
-  //
-  // Read Variable, the variable name save in the PrivateData->VariableName.
-  //
-  DataSize = 0;
-  Status = gRT->GetVariable (VariableName, &gEfiImageSecurityDatabaseGuid, NULL, &DataSize, VariableData);
-  if (EFI_ERROR (Status) && Status != EFI_BUFFER_TOO_SMALL) {
-    goto ON_EXIT;
-  }
-
-  VariableData = AllocateZeroPool (DataSize);
-  if (VariableData == NULL) {
-    Status = EFI_OUT_OF_RESOURCES;
-    goto ON_EXIT;
-  }
-  Status = gRT->GetVariable (VariableName, &gEfiImageSecurityDatabaseGuid, NULL, &DataSize, VariableData);
-  if (EFI_ERROR (Status)) {
-    goto ON_EXIT;
-  }
-
-  RemainingSize = DataSize;
-  ListWalker = (EFI_SIGNATURE_LIST *)VariableData;
-
-  //
-  // Skip signature list.
-  //
-  while ((RemainingSize > 0) && (RemainingSize >= ListWalker->SignatureListSize) && ListIndex-- > 0) {
-    RemainingSize -= ListWalker->SignatureListSize;
-    ListWalker = (EFI_SIGNATURE_LIST *)((UINT8 *)ListWalker + ListWalker->SignatureListSize);
-  }
-
-  FormatNameString = HiiGetString (PrivateData->HiiHandle, STRING_TOKEN (STR_SIGNATURE_DATA_NAME_FORMAT), NULL);
-  if (FormatNameString == NULL) {
-    goto ON_EXIT;
-  }
-
-  DataWalker = (EFI_SIGNATURE_DATA *)((UINT8 *)ListWalker + sizeof(EFI_SIGNATURE_LIST) + ListWalker->SignatureHeaderSize);
-  for (Index = 0; Index < SIGNATURE_DATA_COUNTS(ListWalker); Index = Index + 1) {
-    //
-    // Format name buffer.
-    //
-    ZeroMem (NameBuffer, sizeof (NameBuffer));
-    UnicodeSPrint (NameBuffer, sizeof (NameBuffer), FormatNameString, Index + 1);
-
-    //
-    // Format help info buffer.
-    //
-    Status = FormatHelpInfo (PrivateData, ListWalker, DataWalker, &HelpStringId);
-    if (EFI_ERROR (Status)) {
-      goto ON_EXIT;
-    }
-
-    HiiCreateCheckBoxOpCode (
-      StartOpCodeHandle,
-      (EFI_QUESTION_ID)(QuestionIdBase + Index),
-      0,
-      0,
-      HiiSetString (PrivateData->HiiHandle, 0, NameBuffer, NULL),
-      HelpStringId,
-      EFI_IFR_FLAG_CALLBACK,
-      0,
-      NULL
-    );
-
-    ZeroMem(NameBuffer, 100);
-    DataWalker = (EFI_SIGNATURE_DATA *)((UINT8 *)DataWalker + ListWalker->SignatureSize);
-  }
-
-  //
-  // Allocate a buffer to record which signature data will be checked.
-  // This memory buffer will be freed when exit from the SECUREBOOT_DELETE_SIGNATURE_DATA_FORM form.
-  //
-  PrivateData->CheckArray = AllocateZeroPool (SIGNATURE_DATA_COUNTS (ListWalker) * sizeof (BOOLEAN));
-ON_EXIT:
-  HiiUpdateForm (
-    PrivateData->HiiHandle,
-    &gSecureBootConfigFormSetGuid,
-    FormId,
-    StartOpCodeHandle,
-    EndOpCodeHandle
-  );
-
-  SECUREBOOT_FREE_NON_OPCODE (StartOpCodeHandle);
-  SECUREBOOT_FREE_NON_OPCODE (EndOpCodeHandle);
-
-  SECUREBOOT_FREE_NON_NULL (VariableData);
-  SECUREBOOT_FREE_NON_NULL (FormatNameString);
-
-  return Status;
 }
 
 /**
@@ -4285,76 +3136,29 @@ SecureBootCallback (
 {
   EFI_INPUT_KEY                   Key;
   EFI_STATUS                      Status;
-  RETURN_STATUS                   RStatus;
   SECUREBOOT_CONFIG_PRIVATE_DATA  *Private;
   UINTN                           BufferSize;
   SECUREBOOT_CONFIGURATION        *IfrNvData;
   UINT16                          LabelId;
   UINT8                           *SecureBootEnable;
-  UINT8                           *Pk;
   UINT8                           *SecureBootMode;
   UINT8                           *SetupMode;
   CHAR16                          PromptString[100];
-  EFI_DEVICE_PATH_PROTOCOL        *File;
-  UINTN                           NameLength;
-  UINT16                          *FilePostFix;
-  SECUREBOOT_CONFIG_PRIVATE_DATA  *PrivateData;
-  BOOLEAN                         GetBrowserDataResult;
 
-  Status           = EFI_SUCCESS;
   SecureBootEnable = NULL;
   SecureBootMode   = NULL;
   SetupMode        = NULL;
-  File             = NULL;
 
   if ((This == NULL) || (Value == NULL) || (ActionRequest == NULL)) {
     return EFI_INVALID_PARAMETER;
   }
 
-  Private = SECUREBOOT_CONFIG_PRIVATE_FROM_THIS (This);
-
-  gSecureBootPrivateData = Private;
-
-  //
-  // Retrieve uncommitted data from Browser
-  //
-  BufferSize = sizeof (SECUREBOOT_CONFIGURATION);
-  IfrNvData = AllocateZeroPool (BufferSize);
-  if (IfrNvData == NULL) {
-    return EFI_OUT_OF_RESOURCES;
-  }
-
-  GetBrowserDataResult = HiiGetBrowserData (&gSecureBootConfigFormSetGuid, mSecureBootStorageName, BufferSize, (UINT8 *) IfrNvData);
-
   if (Action == EFI_BROWSER_ACTION_FORM_OPEN) {
     if (QuestionId == KEY_SECURE_BOOT_MODE) {
-      //
-      // Update secure boot strings when opening this form
-      //
-      Status = UpdateSecureBootString(Private);
-      SecureBootExtractConfigFromVariable (Private, IfrNvData);
       mIsEnterSecureBootForm = TRUE;
-    } else {
-      //
-      // When entering SecureBoot OPTION Form
-      // always close opened file & free resource
-      //
-      if ((QuestionId == KEY_SECURE_BOOT_PK_OPTION) ||
-          (QuestionId == KEY_SECURE_BOOT_KEK_OPTION) ||
-          (QuestionId == KEY_SECURE_BOOT_DB_OPTION) ||
-          (QuestionId == KEY_SECURE_BOOT_DBX_OPTION) ||
-          (QuestionId == KEY_SECURE_BOOT_DBT_OPTION)) {
-        CloseEnrolledFile(Private->FileContext);
-      } else if (QuestionId == KEY_SECURE_BOOT_DELETE_ALL_LIST) {
-        //
-        // Update ListCount field in varstore
-        // Button "Delete All Signature List" is
-        // enable when ListCount is greater than 0.
-        //
-        IfrNvData->ListCount = Private->ListCount;
-      }
     }
-    goto EXIT;
+
+    return EFI_SUCCESS;
   }
 
   if (Action == EFI_BROWSER_ACTION_RETRIEVE) {
@@ -4365,16 +3169,30 @@ SecureBootCallback (
         Status = EFI_SUCCESS;
       }
     }
-    goto EXIT;
+    return Status;
   }
 
   if ((Action != EFI_BROWSER_ACTION_CHANGED) &&
       (Action != EFI_BROWSER_ACTION_CHANGING) &&
       (Action != EFI_BROWSER_ACTION_FORM_CLOSE) &&
       (Action != EFI_BROWSER_ACTION_DEFAULT_STANDARD)) {
-    Status = EFI_UNSUPPORTED;
-    goto EXIT;
+    return EFI_UNSUPPORTED;
   }
+
+  Private = SECUREBOOT_CONFIG_PRIVATE_FROM_THIS (This);
+
+  //
+  // Retrieve uncommitted data from Browser
+  //
+  BufferSize = sizeof (SECUREBOOT_CONFIGURATION);
+  IfrNvData = AllocateZeroPool (BufferSize);
+  if (IfrNvData == NULL) {
+    return EFI_OUT_OF_RESOURCES;
+  }
+
+  Status = EFI_SUCCESS;
+
+  HiiGetBrowserData (&gSecureBootConfigFormSetGuid, mSecureBootStorageName, BufferSize, (UINT8 *) IfrNvData);
 
   if (Action == EFI_BROWSER_ACTION_CHANGING) {
 
@@ -4402,11 +3220,15 @@ SecureBootCallback (
       }
       break;
 
+    case KEY_SECURE_BOOT_OPTION:
+      FreeMenu (&DirectoryMenu);
+      FreeMenu (&FsOptionMenu);
+      break;
+
     case KEY_SECURE_BOOT_KEK_OPTION:
     case KEY_SECURE_BOOT_DB_OPTION:
     case KEY_SECURE_BOOT_DBX_OPTION:
     case KEY_SECURE_BOOT_DBT_OPTION:
-      PrivateData = SECUREBOOT_CONFIG_PRIVATE_FROM_THIS (This);
       //
       // Clear Signature GUID.
       //
@@ -4417,11 +3239,6 @@ SecureBootCallback (
           return EFI_OUT_OF_RESOURCES;
         }
       }
-
-      //
-      // Cleanup VFRData once leaving PK/KEK/DB/DBX/DBT enroll/delete page
-      //
-      SecureBootExtractConfigFromVariable (PrivateData, IfrNvData);
 
       if (QuestionId == KEY_SECURE_BOOT_DB_OPTION) {
         LabelId = SECUREBOOT_ENROLL_SIGNATURE_TO_DB;
@@ -4438,64 +3255,28 @@ SecureBootCallback (
       //
       CleanUpPage (LabelId, Private);
       break;
-    case KEY_SECURE_BOOT_PK_OPTION:
-      LabelId = FORMID_ENROLL_PK_FORM;
-      //
-      // Refresh selected file.
-      //
-      CleanUpPage (LabelId, Private);
-      break;
 
-    case FORMID_ENROLL_PK_FORM:
-      ChooseFile (NULL, NULL, UpdatePKFromFile, &File);
-      break;
-
+    case SECUREBOOT_ADD_PK_FILE_FORM_ID:
     case FORMID_ENROLL_KEK_FORM:
-      ChooseFile (NULL, NULL, UpdateKEKFromFile, &File);
-      break;
-
     case SECUREBOOT_ENROLL_SIGNATURE_TO_DB:
-      ChooseFile (NULL, NULL, UpdateDBFromFile, &File);
-      break;
-
     case SECUREBOOT_ENROLL_SIGNATURE_TO_DBX:
-      ChooseFile (NULL, NULL, UpdateDBXFromFile, &File);
-
-      if (Private->FileContext->FHandle != NULL) {
-        //
-        // Parse the file's postfix.
-        //
-        NameLength = StrLen (Private->FileContext->FileName);
-        if (NameLength <= 4) {
-          return FALSE;
-        }
-        FilePostFix = Private->FileContext->FileName + NameLength - 4;
-
-        if (IsDerEncodeCertificate (FilePostFix)) {
-          //
-          // Supports DER-encoded X509 certificate.
-          //
-          IfrNvData->FileEnrollType = X509_CERT_FILE_TYPE;
-        } else if (IsAuthentication2Format(Private->FileContext->FHandle)){
-          IfrNvData->FileEnrollType = AUTHENTICATION_2_FILE_TYPE;
-        } else {
-          IfrNvData->FileEnrollType = PE_IMAGE_FILE_TYPE;
-        }
-        Private->FileContext->FileType = IfrNvData->FileEnrollType;
-
-        //
-        // Clean up Certificate Format if File type is not X509 DER
-        //
-        if (IfrNvData->FileEnrollType != X509_CERT_FILE_TYPE) {
-          IfrNvData->CertificateFormat = HASHALG_RAW;
-        }
-        DEBUG((DEBUG_ERROR, "IfrNvData->FileEnrollType %d\n", Private->FileContext->FileType));
+    case SECUREBOOT_ENROLL_SIGNATURE_TO_DBT:
+      if (QuestionId == SECUREBOOT_ADD_PK_FILE_FORM_ID) {
+        Private->FeCurrentState = FileExplorerStateEnrollPkFile;
+      } else if (QuestionId == FORMID_ENROLL_KEK_FORM) {
+        Private->FeCurrentState = FileExplorerStateEnrollKekFile;
+      } else if (QuestionId == SECUREBOOT_ENROLL_SIGNATURE_TO_DB) {
+        Private->FeCurrentState = FileExplorerStateEnrollSignatureFileToDb;
+      } else if (QuestionId == SECUREBOOT_ENROLL_SIGNATURE_TO_DBX) {
+        Private->FeCurrentState = FileExplorerStateEnrollSignatureFileToDbx;
+        IfrNvData->CertificateFormat = HASHALG_SHA256;
+      } else {
+        Private->FeCurrentState = FileExplorerStateEnrollSignatureFileToDbt;
       }
 
-      break;
-
-    case SECUREBOOT_ENROLL_SIGNATURE_TO_DBT:
-      ChooseFile (NULL, NULL, UpdateDBTFromFile, &File);
+      Private->FeDisplayContext = FileExplorerDisplayUnknown;
+      CleanUpPage (FORM_FILE_EXPLORER_ID, Private);
+      UpdateFileExplorer (Private, 0);
       break;
 
     case KEY_SECURE_BOOT_DELETE_PK:
@@ -4543,89 +3324,16 @@ SecureBootCallback (
         );
        break;
 
-    //
-    // From DBX option to the level-1 form, display signature list.
-    //
-    case KEY_VALUE_FROM_DBX_TO_LIST_FORM:
-      Private->VariableName = Variable_DBX;
-      LoadSignatureList (
+    case SECUREBOOT_DELETE_SIGNATURE_FROM_DBX:
+      UpdateDeletePage (
         Private,
-        LABEL_SIGNATURE_LIST_START,
-        SECUREBOOT_DELETE_SIGNATURE_LIST_FORM,
-        OPTION_SIGNATURE_LIST_QUESTION_ID
-      );
-      break;
+        EFI_IMAGE_SECURITY_DATABASE1,
+        &gEfiImageSecurityDatabaseGuid,
+        LABEL_DBX_DELETE,
+        SECUREBOOT_DELETE_SIGNATURE_FROM_DBX,
+        OPTION_DEL_DBX_QUESTION_ID
+        );
 
-      //
-      // Delete all signature list and reload.
-      //
-    case KEY_SECURE_BOOT_DELETE_ALL_LIST:
-      CreatePopUp(
-        EFI_LIGHTGRAY | EFI_BACKGROUND_BLUE,
-        &Key,
-        L"Press 'Y' to delete signature list.",
-        L"Press other key to cancel and exit.",
-        NULL
-      );
-
-      if (Key.UnicodeChar == L'Y' || Key.UnicodeChar == L'y') {
-        DeleteSignatureEx (Private, Delete_Signature_List_All, IfrNvData->CheckedDataCount);
-      }
-
-      LoadSignatureList (
-        Private,
-        LABEL_SIGNATURE_LIST_START,
-        SECUREBOOT_DELETE_SIGNATURE_LIST_FORM,
-        OPTION_SIGNATURE_LIST_QUESTION_ID
-      );
-      break;
-
-      //
-      // Delete one signature list and reload.
-      //
-    case KEY_SECURE_BOOT_DELETE_ALL_DATA:
-      CreatePopUp(
-        EFI_LIGHTGRAY | EFI_BACKGROUND_BLUE,
-        &Key,
-        L"Press 'Y' to delete signature data.",
-        L"Press other key to cancel and exit.",
-        NULL
-      );
-
-      if (Key.UnicodeChar == L'Y' || Key.UnicodeChar == L'y') {
-        DeleteSignatureEx (Private, Delete_Signature_List_One, IfrNvData->CheckedDataCount);
-      }
-
-      LoadSignatureList (
-        Private,
-        LABEL_SIGNATURE_LIST_START,
-        SECUREBOOT_DELETE_SIGNATURE_LIST_FORM,
-        OPTION_SIGNATURE_LIST_QUESTION_ID
-      );
-      break;
-
-      //
-      // Delete checked signature data and reload.
-      //
-    case KEY_SECURE_BOOT_DELETE_CHECK_DATA:
-      CreatePopUp(
-        EFI_LIGHTGRAY | EFI_BACKGROUND_BLUE,
-        &Key,
-        L"Press 'Y' to delete signature data.",
-        L"Press other key to cancel and exit.",
-        NULL
-      );
-
-      if (Key.UnicodeChar == L'Y' || Key.UnicodeChar == L'y') {
-        DeleteSignatureEx (Private, Delete_Signature_Data, IfrNvData->CheckedDataCount);
-      }
-
-      LoadSignatureList (
-        Private,
-        LABEL_SIGNATURE_LIST_START,
-        SECUREBOOT_DELETE_SIGNATURE_LIST_FORM,
-        OPTION_SIGNATURE_LIST_QUESTION_ID
-      );
       break;
 
     case SECUREBOOT_DELETE_SIGNATURE_FROM_DBT:
@@ -4674,12 +3382,7 @@ SecureBootCallback (
           L"Enrollment failed! Same certificate had already been in the dbx!",
           NULL
           );
-
-        //
-        // Cert already exists in DBX. Close opened file before exit.
-        //
-        CloseEnrolledFile(Private->FileContext);
-        break;
+          break;
       }
 
       if ((IfrNvData != NULL) && (IfrNvData->CertificateFormat < HASHALG_MAX)) {
@@ -4690,7 +3393,6 @@ SecureBootCallback (
                    &IfrNvData->RevocationTime,
                    IfrNvData->AlwaysRevocation
                    );
-        IfrNvData->CertificateFormat = HASHALG_RAW;
       } else {
         Status = EnrollSignatureDatabase (Private, EFI_IMAGE_SECURITY_DATABASE1);
       }
@@ -4699,7 +3401,7 @@ SecureBootCallback (
           EFI_LIGHTGRAY | EFI_BACKGROUND_BLUE,
           &Key,
           L"ERROR: Unsupported file type!",
-          L"Only supports DER-encoded X509 certificate, AUTH_2 format data & executable EFI image",
+          L"Only supports DER-encoded X509 certificate and executable EFI image",
           NULL
           );
       }
@@ -4717,6 +3419,54 @@ SecureBootCallback (
           );
       }
       break;
+
+    default:
+      if (QuestionId >= FILE_OPTION_GOTO_OFFSET) {
+        UpdateFileExplorer (Private, QuestionId);
+      } else if ((QuestionId >= OPTION_DEL_KEK_QUESTION_ID) &&
+                 (QuestionId < (OPTION_DEL_KEK_QUESTION_ID + OPTION_CONFIG_RANGE))) {
+        DeleteKeyExchangeKey (Private, QuestionId);
+      } else if ((QuestionId >= OPTION_DEL_DB_QUESTION_ID) &&
+                 (QuestionId < (OPTION_DEL_DB_QUESTION_ID + OPTION_CONFIG_RANGE))) {
+        DeleteSignature (
+          Private,
+          EFI_IMAGE_SECURITY_DATABASE,
+          &gEfiImageSecurityDatabaseGuid,
+          LABEL_DB_DELETE,
+          SECUREBOOT_DELETE_SIGNATURE_FROM_DB,
+          OPTION_DEL_DB_QUESTION_ID,
+          QuestionId - OPTION_DEL_DB_QUESTION_ID
+          );
+      } else if ((QuestionId >= OPTION_DEL_DBX_QUESTION_ID) &&
+                 (QuestionId < (OPTION_DEL_DBX_QUESTION_ID + OPTION_CONFIG_RANGE))) {
+        DeleteSignature (
+          Private,
+          EFI_IMAGE_SECURITY_DATABASE1,
+          &gEfiImageSecurityDatabaseGuid,
+          LABEL_DBX_DELETE,
+          SECUREBOOT_DELETE_SIGNATURE_FROM_DBX,
+          OPTION_DEL_DBX_QUESTION_ID,
+          QuestionId - OPTION_DEL_DBX_QUESTION_ID
+          );
+      } else if ((QuestionId >= OPTION_DEL_DBT_QUESTION_ID) &&
+                 (QuestionId < (OPTION_DEL_DBT_QUESTION_ID + OPTION_CONFIG_RANGE))) {
+        DeleteSignature (
+          Private,
+          EFI_IMAGE_SECURITY_DATABASE2,
+          &gEfiImageSecurityDatabaseGuid,
+          LABEL_DBT_DELETE,
+          SECUREBOOT_DELETE_SIGNATURE_FROM_DBT,
+          OPTION_DEL_DBT_QUESTION_ID,
+          QuestionId - OPTION_DEL_DBT_QUESTION_ID
+          );
+      }
+      break;
+    }
+  } else if (Action == EFI_BROWSER_ACTION_CHANGED) {
+    switch (QuestionId) {
+    case KEY_SECURE_BOOT_ENABLE:
+      *ActionRequest = EFI_BROWSER_ACTION_REQUEST_FORM_APPLY;
+      break;
     case KEY_VALUE_SAVE_AND_EXIT_PK:
       Status = EnrollPlatformKey (Private);
       if (EFI_ERROR (Status)) {
@@ -4733,53 +3483,8 @@ SecureBootCallback (
           PromptString,
           NULL
           );
-      }
-      break;
-    default:
-      if ((QuestionId >= OPTION_DEL_KEK_QUESTION_ID) &&
-                 (QuestionId < (OPTION_DEL_KEK_QUESTION_ID + OPTION_CONFIG_RANGE))) {
-        DeleteKeyExchangeKey (Private, QuestionId);
-      } else if ((QuestionId >= OPTION_DEL_DB_QUESTION_ID) &&
-                 (QuestionId < (OPTION_DEL_DB_QUESTION_ID + OPTION_CONFIG_RANGE))) {
-        DeleteSignature (
-          Private,
-          EFI_IMAGE_SECURITY_DATABASE,
-          &gEfiImageSecurityDatabaseGuid,
-          LABEL_DB_DELETE,
-          SECUREBOOT_DELETE_SIGNATURE_FROM_DB,
-          OPTION_DEL_DB_QUESTION_ID,
-          QuestionId - OPTION_DEL_DB_QUESTION_ID
-          );
-      } else if ((QuestionId >= OPTION_SIGNATURE_LIST_QUESTION_ID) &&
-                 (QuestionId < (OPTION_SIGNATURE_LIST_QUESTION_ID + OPTION_CONFIG_RANGE))) {
-        LoadSignatureData (
-          Private,
-          LABEL_SIGNATURE_DATA_START,
-          SECUREBOOT_DELETE_SIGNATURE_DATA_FORM,
-          OPTION_SIGNATURE_DATA_QUESTION_ID,
-          QuestionId - OPTION_SIGNATURE_LIST_QUESTION_ID
-        );
-        Private->ListIndex = QuestionId - OPTION_SIGNATURE_LIST_QUESTION_ID;
-      } else if ((QuestionId >= OPTION_SIGNATURE_DATA_QUESTION_ID) &&
-                 (QuestionId < (OPTION_SIGNATURE_DATA_QUESTION_ID + OPTION_CONFIG_RANGE))) {
-        if (Private->CheckArray[QuestionId - OPTION_SIGNATURE_DATA_QUESTION_ID]) {
-          IfrNvData->CheckedDataCount--;
-          Private->CheckArray[QuestionId - OPTION_SIGNATURE_DATA_QUESTION_ID] = FALSE;
-        } else {
-          IfrNvData->CheckedDataCount++;
-          Private->CheckArray[QuestionId - OPTION_SIGNATURE_DATA_QUESTION_ID] = TRUE;
-        }
-      } else if ((QuestionId >= OPTION_DEL_DBT_QUESTION_ID) &&
-                 (QuestionId < (OPTION_DEL_DBT_QUESTION_ID + OPTION_CONFIG_RANGE))) {
-        DeleteSignature (
-          Private,
-          EFI_IMAGE_SECURITY_DATABASE2,
-          &gEfiImageSecurityDatabaseGuid,
-          LABEL_DBT_DELETE,
-          SECUREBOOT_DELETE_SIGNATURE_FROM_DBT,
-          OPTION_DEL_DBT_QUESTION_ID,
-          QuestionId - OPTION_DEL_DBT_QUESTION_ID
-          );
+      } else {
+        *ActionRequest = EFI_BROWSER_ACTION_REQUEST_RESET;
       }
       break;
 
@@ -4788,35 +3493,40 @@ SecureBootCallback (
     case KEY_VALUE_NO_SAVE_AND_EXIT_DB:
     case KEY_VALUE_NO_SAVE_AND_EXIT_DBX:
     case KEY_VALUE_NO_SAVE_AND_EXIT_DBT:
-      CloseEnrolledFile(Private->FileContext);
+      if (Private->FileContext->FHandle != NULL) {
+        CloseFile (Private->FileContext->FHandle);
+        Private->FileContext->FHandle = NULL;
+        Private->FileContext->FileName = NULL;
+      }
 
       if (Private->SignatureGUID != NULL) {
         FreePool (Private->SignatureGUID);
         Private->SignatureGUID = NULL;
       }
+      *ActionRequest = EFI_BROWSER_ACTION_REQUEST_EXIT;
       break;
-    }
-  } else if (Action == EFI_BROWSER_ACTION_CHANGED) {
-    switch (QuestionId) {
-    case KEY_SECURE_BOOT_ENABLE:
-      *ActionRequest = EFI_BROWSER_ACTION_REQUEST_FORM_APPLY;
-      break;
+
     case KEY_SECURE_BOOT_MODE:
       mIsEnterSecureBootForm = FALSE;
       break;
+
     case KEY_SECURE_BOOT_KEK_GUID:
     case KEY_SECURE_BOOT_SIGNATURE_GUID_DB:
     case KEY_SECURE_BOOT_SIGNATURE_GUID_DBX:
     case KEY_SECURE_BOOT_SIGNATURE_GUID_DBT:
       ASSERT (Private->SignatureGUID != NULL);
-      RStatus = StrToGuid (IfrNvData->SignatureGuid, Private->SignatureGUID);
-      if (RETURN_ERROR (RStatus) || (IfrNvData->SignatureGuid[GUID_STRING_LENGTH] != L'\0')) {
-        Status = EFI_INVALID_PARAMETER;
+      Status = StringToGuid (
+                 IfrNvData->SignatureGuid,
+                 StrLen (IfrNvData->SignatureGuid),
+                 Private->SignatureGUID
+                 );
+      if (EFI_ERROR (Status)) {
         break;
       }
 
       *ActionRequest = EFI_BROWSER_ACTION_REQUEST_FORM_APPLY;
       break;
+
     case KEY_SECURE_BOOT_DELETE_PK:
       GetVariable2 (EFI_SETUP_MODE_NAME, &gEfiGlobalVariableGuid, (VOID**)&SetupMode, NULL);
       if (SetupMode == NULL || (*SetupMode) == SETUP_MODE) {
@@ -4833,15 +3543,20 @@ SecureBootCallback (
       }
       break;
     default:
+      if (QuestionId >= FILE_OPTION_OFFSET && QuestionId < FILE_OPTION_GOTO_OFFSET) {
+        if (UpdateFileExplorer (Private, QuestionId)) {
+          *ActionRequest = EFI_BROWSER_ACTION_REQUEST_EXIT;
+        }
+      }
       break;
     }
   } else if (Action == EFI_BROWSER_ACTION_DEFAULT_STANDARD) {
     if (QuestionId == KEY_HIDE_SECURE_BOOT) {
-      GetVariable2 (EFI_PLATFORM_KEY_NAME, &gEfiGlobalVariableGuid, (VOID**)&Pk, NULL);
-      if (Pk == NULL) {
+      GetVariable2 (EFI_SECURE_BOOT_ENABLE_NAME, &gEfiSecureBootEnableDisableGuid, (VOID**)&SecureBootEnable, NULL);
+      if (SecureBootEnable == NULL) {
         IfrNvData->HideSecureBoot = TRUE;
       } else {
-        FreePool (Pk);
+        FreePool (SecureBootEnable);
         IfrNvData->HideSecureBoot = FALSE;
       }
       Value->b = IfrNvData->HideSecureBoot;
@@ -4858,29 +3573,13 @@ SecureBootCallback (
     if (SecureBootMode != NULL) {
       FreePool (SecureBootMode);
     }
-
-    if (QuestionId == KEY_SECURE_BOOT_DELETE_ALL_DATA) {
-      //
-      // Free memory when exit from the SECUREBOOT_DELETE_SIGNATURE_DATA_FORM form.
-      //
-      SECUREBOOT_FREE_NON_NULL (Private->CheckArray);
-      IfrNvData->CheckedDataCount = 0;
-    }
   }
 
-EXIT:
-
-  if (!EFI_ERROR (Status) && GetBrowserDataResult) {
+  if (!EFI_ERROR (Status)) {
     BufferSize = sizeof (SECUREBOOT_CONFIGURATION);
     HiiSetBrowserData (&gSecureBootConfigFormSetGuid, mSecureBootStorageName, BufferSize, (UINT8*) IfrNvData, NULL);
   }
-
   FreePool (IfrNvData);
-
-  if (File != NULL){
-    FreePool(File);
-    File = NULL;
-  }
 
   return EFI_SUCCESS;
 }
@@ -4946,11 +3645,18 @@ InstallSecureBootConfigForm (
   PrivateData->HiiHandle = HiiHandle;
 
   PrivateData->FileContext = AllocateZeroPool (sizeof (SECUREBOOT_FILE_CONTEXT));
+  PrivateData->MenuEntry   = AllocateZeroPool (sizeof (SECUREBOOT_MENU_ENTRY));
 
-  if (PrivateData->FileContext == NULL) {
+  if (PrivateData->FileContext == NULL || PrivateData->MenuEntry == NULL) {
     UninstallSecureBootConfigForm (PrivateData);
     return EFI_OUT_OF_RESOURCES;
   }
+
+  PrivateData->FeCurrentState = FileExplorerStateInActive;
+  PrivateData->FeDisplayContext = FileExplorerDisplayUnknown;
+
+  InitializeListHead (&FsOptionMenu.Head);
+  InitializeListHead (&DirectoryMenu.Head);
 
   //
   // Init OpCode Handle and Allocate space for creation of Buffer
@@ -5031,11 +3737,18 @@ UninstallSecureBootConfigForm (
     FreePool (PrivateData->SignatureGUID);
   }
 
+  if (PrivateData->MenuEntry != NULL) {
+    FreePool (PrivateData->MenuEntry);
+  }
+
   if (PrivateData->FileContext != NULL) {
     FreePool (PrivateData->FileContext);
   }
 
   FreePool (PrivateData);
+
+  FreeMenu (&DirectoryMenu);
+  FreeMenu (&FsOptionMenu);
 
   if (mStartOpCodeHandle != NULL) {
     HiiFreeOpCodeHandle (mStartOpCodeHandle);

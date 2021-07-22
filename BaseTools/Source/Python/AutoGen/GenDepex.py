@@ -1,8 +1,14 @@
 ## @file
 # This file is used to generate DEPEX file for module's dependency expression
 #
-# Copyright (c) 2007 - 2018, Intel Corporation. All rights reserved.<BR>
-# SPDX-License-Identifier: BSD-2-Clause-Patent
+# Copyright (c) 2007 - 2014, Intel Corporation. All rights reserved.<BR>
+# This program and the accompanying materials
+# are licensed and made available under the terms and conditions of the BSD License
+# which accompanies this distribution.    The full text of the license may be found at
+# http://opensource.org/licenses/bsd-license.php
+#
+# THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+# WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 ## Import Modules
 #
@@ -11,36 +17,31 @@ import Common.LongFilePathOs as os
 import re
 import traceback
 from Common.LongFilePathSupport import OpenLongFilePath as open
-from io import BytesIO
+from StringIO import StringIO
 from struct import pack
 from Common.BuildToolError import *
 from Common.Misc import SaveFileOnChange
 from Common.Misc import GuidStructureStringToGuidString
-from Common.Misc import GuidStructureByteArrayToGuidString
-from Common.Misc import GuidStringToGuidStructureString
 from Common import EdkLogger as EdkLogger
 from Common.BuildVersion import gBUILD_VERSION
-from Common.DataType import *
 
 ## Regular expression for matching "DEPENDENCY_START ... DEPENDENCY_END"
 gStartClosePattern = re.compile(".*DEPENDENCY_START(.+)DEPENDENCY_END.*", re.S)
 
 ## Mapping between module type and EFI phase
 gType2Phase = {
-    SUP_MODULE_BASE              :   None,
-    SUP_MODULE_SEC               :   "PEI",
-    SUP_MODULE_PEI_CORE          :   "PEI",
-    SUP_MODULE_PEIM              :   "PEI",
-    SUP_MODULE_DXE_CORE          :   "DXE",
-    SUP_MODULE_DXE_DRIVER        :   "DXE",
-    SUP_MODULE_DXE_SMM_DRIVER    :   "DXE",
-    SUP_MODULE_DXE_RUNTIME_DRIVER:   "DXE",
-    SUP_MODULE_DXE_SAL_DRIVER    :   "DXE",
-    SUP_MODULE_UEFI_DRIVER       :   "DXE",
-    SUP_MODULE_UEFI_APPLICATION  :   "DXE",
-    SUP_MODULE_SMM_CORE          :   "DXE",
-    SUP_MODULE_MM_STANDALONE     :   "MM",
-    SUP_MODULE_MM_CORE_STANDALONE :  "MM",
+    "BASE"              :   None,
+    "SEC"               :   "PEI",
+    "PEI_CORE"          :   "PEI",
+    "PEIM"              :   "PEI",
+    "DXE_CORE"          :   "DXE",
+    "DXE_DRIVER"        :   "DXE",
+    "DXE_SMM_DRIVER"    :   "DXE",
+    "DXE_RUNTIME_DRIVER":   "DXE",
+    "DXE_SAL_DRIVER"    :   "DXE",
+    "UEFI_DRIVER"       :   "DXE",
+    "UEFI_APPLICATION"  :   "DXE",
+    "SMM_CORE"          :   "DXE",
 }
 
 ## Convert dependency expression string into EFI internal representation
@@ -50,7 +51,7 @@ gType2Phase = {
 #
 class DependencyExpression:
 
-    ArchProtocols = {
+    ArchProtocols = set([
                         '665e3ff6-46cc-11d4-9a38-0090273fc14d',     #   'gEfiBdsArchProtocolGuid'
                         '26baccb1-6f42-11d4-bce7-0080c73c8881',     #   'gEfiCpuArchProtocolGuid'
                         '26baccb2-6f42-11d4-bce7-0080c73c8881',     #   'gEfiMetronomeArchProtocolGuid'
@@ -63,65 +64,56 @@ class DependencyExpression:
                         '6441f818-6362-4e44-b570-7dba31dd2453',     #   'gEfiVariableWriteArchProtocolGuid'
                         '1e5668e2-8481-11d4-bcf1-0080c73c8881',     #   'gEfiVariableArchProtocolGuid'
                         '665e3ff5-46cc-11d4-9a38-0090273fc14d'      #   'gEfiWatchdogTimerArchProtocolGuid'
-                    }
+                        ]
+                    )
 
     OpcodePriority = {
-        DEPEX_OPCODE_AND   :   1,
-        DEPEX_OPCODE_OR    :   1,
-        DEPEX_OPCODE_NOT   :   2,
+        "AND"   :   1,
+        "OR"    :   1,
+        "NOT"   :   2,
+        # "SOR"   :   9,
+        # "BEFORE":   9,
+        # "AFTER" :   9,
     }
 
     Opcode = {
         "PEI"   : {
-            DEPEX_OPCODE_PUSH  :   0x02,
-            DEPEX_OPCODE_AND   :   0x03,
-            DEPEX_OPCODE_OR    :   0x04,
-            DEPEX_OPCODE_NOT   :   0x05,
-            DEPEX_OPCODE_TRUE  :   0x06,
-            DEPEX_OPCODE_FALSE :   0x07,
-            DEPEX_OPCODE_END   :   0x08
+            "PUSH"  :   0x02,
+            "AND"   :   0x03,
+            "OR"    :   0x04,
+            "NOT"   :   0x05,
+            "TRUE"  :   0x06,
+            "FALSE" :   0x07,
+            "END"   :   0x08
         },
 
         "DXE"   : {
-            DEPEX_OPCODE_BEFORE:   0x00,
-            DEPEX_OPCODE_AFTER :   0x01,
-            DEPEX_OPCODE_PUSH  :   0x02,
-            DEPEX_OPCODE_AND   :   0x03,
-            DEPEX_OPCODE_OR    :   0x04,
-            DEPEX_OPCODE_NOT   :   0x05,
-            DEPEX_OPCODE_TRUE  :   0x06,
-            DEPEX_OPCODE_FALSE :   0x07,
-            DEPEX_OPCODE_END   :   0x08,
-            DEPEX_OPCODE_SOR   :   0x09
-        },
-
-        "MM"   : {
-            DEPEX_OPCODE_BEFORE:   0x00,
-            DEPEX_OPCODE_AFTER :   0x01,
-            DEPEX_OPCODE_PUSH  :   0x02,
-            DEPEX_OPCODE_AND   :   0x03,
-            DEPEX_OPCODE_OR    :   0x04,
-            DEPEX_OPCODE_NOT   :   0x05,
-            DEPEX_OPCODE_TRUE  :   0x06,
-            DEPEX_OPCODE_FALSE :   0x07,
-            DEPEX_OPCODE_END   :   0x08,
-            DEPEX_OPCODE_SOR   :   0x09
+            "BEFORE":   0x00,
+            "AFTER" :   0x01,
+            "PUSH"  :   0x02,
+            "AND"   :   0x03,
+            "OR"    :   0x04,
+            "NOT"   :   0x05,
+            "TRUE"  :   0x06,
+            "FALSE" :   0x07,
+            "END"   :   0x08,
+            "SOR"   :   0x09
         }
     }
 
     # all supported op codes and operands
-    SupportedOpcode = [DEPEX_OPCODE_BEFORE, DEPEX_OPCODE_AFTER, DEPEX_OPCODE_PUSH, DEPEX_OPCODE_AND, DEPEX_OPCODE_OR, DEPEX_OPCODE_NOT, DEPEX_OPCODE_END, DEPEX_OPCODE_SOR]
-    SupportedOperand = [DEPEX_OPCODE_TRUE, DEPEX_OPCODE_FALSE]
+    SupportedOpcode = ["BEFORE", "AFTER", "PUSH", "AND", "OR", "NOT", "END", "SOR"]
+    SupportedOperand = ["TRUE", "FALSE"]
 
-    OpcodeWithSingleOperand = [DEPEX_OPCODE_NOT, DEPEX_OPCODE_BEFORE, DEPEX_OPCODE_AFTER]
-    OpcodeWithTwoOperand = [DEPEX_OPCODE_AND, DEPEX_OPCODE_OR]
+    OpcodeWithSingleOperand = ['NOT', 'BEFORE', 'AFTER']
+    OpcodeWithTwoOperand = ['AND', 'OR']
 
     # op code that should not be the last one
-    NonEndingOpcode = [DEPEX_OPCODE_AND, DEPEX_OPCODE_OR, DEPEX_OPCODE_NOT, DEPEX_OPCODE_SOR]
+    NonEndingOpcode = ["AND", "OR", "NOT", 'SOR']
     # op code must not present at the same time
-    ExclusiveOpcode = [DEPEX_OPCODE_BEFORE, DEPEX_OPCODE_AFTER]
+    ExclusiveOpcode = ["BEFORE", "AFTER"]
     # op code that should be the first one if it presents
-    AboveAllOpcode = [DEPEX_OPCODE_SOR, DEPEX_OPCODE_BEFORE, DEPEX_OPCODE_AFTER]
+    AboveAllOpcode = ["SOR", "BEFORE", "AFTER"]
 
     #
     # open and close brace must be taken as individual tokens
@@ -136,7 +128,7 @@ class DependencyExpression:
     def __init__(self, Expression, ModuleType, Optimize=False):
         self.ModuleType = ModuleType
         self.Phase = gType2Phase[ModuleType]
-        if isinstance(Expression, type([])):
+        if type(Expression) == type([]):
             self.ExpressionString = " ".join(Expression)
             self.TokenList = Expression
         else:
@@ -193,7 +185,7 @@ class DependencyExpression:
                         break
                     self.PostfixNotation.append(Stack.pop())
             elif Token in self.OpcodePriority:
-                if Token == DEPEX_OPCODE_NOT:
+                if Token == "NOT":
                     if LastToken not in self.SupportedOpcode + ['(', '', None]:
                         EdkLogger.error("GenDepex", PARSER_ERROR, "Invalid dependency expression: missing operator before NOT",
                                         ExtraData="Near %s" % LastToken)
@@ -215,10 +207,10 @@ class DependencyExpression:
                                         ExtraData="Near %s" % LastToken)
                     if len(self.OpcodeList) == 0 or self.OpcodeList[-1] not in self.ExclusiveOpcode:
                         if Token not in self.SupportedOperand:
-                            self.PostfixNotation.append(DEPEX_OPCODE_PUSH)
+                            self.PostfixNotation.append("PUSH")
                 # check if OP is valid in this phase
                 elif Token in self.Opcode[self.Phase]:
-                    if Token == DEPEX_OPCODE_END:
+                    if Token == "END":
                         break
                     self.OpcodeList.append(Token)
                 else:
@@ -234,8 +226,8 @@ class DependencyExpression:
                             ExtraData=str(self))
         while len(Stack) > 0:
             self.PostfixNotation.append(Stack.pop())
-        if self.PostfixNotation[-1] != DEPEX_OPCODE_END:
-            self.PostfixNotation.append(DEPEX_OPCODE_END)
+        if self.PostfixNotation[-1] != 'END':
+            self.PostfixNotation.append("END")
 
     ## Validate the dependency expression
     def ValidateOpcode(self):
@@ -255,40 +247,36 @@ class DependencyExpression:
                 if len(self.PostfixNotation) < 3:
                     EdkLogger.error("GenDepex", PARSER_ERROR, "Missing operand for %s" % Op,
                                     ExtraData=str(self))
-        if self.TokenList[-1] != DEPEX_OPCODE_END and self.TokenList[-1] in self.NonEndingOpcode:
+        if self.TokenList[-1] != 'END' and self.TokenList[-1] in self.NonEndingOpcode:
             EdkLogger.error("GenDepex", PARSER_ERROR, "Extra %s at the end of the dependency expression" % self.TokenList[-1],
                             ExtraData=str(self))
-        if self.TokenList[-1] == DEPEX_OPCODE_END and self.TokenList[-2] in self.NonEndingOpcode:
+        if self.TokenList[-1] == 'END' and self.TokenList[-2] in self.NonEndingOpcode:
             EdkLogger.error("GenDepex", PARSER_ERROR, "Extra %s at the end of the dependency expression" % self.TokenList[-2],
                             ExtraData=str(self))
-        if DEPEX_OPCODE_END in self.TokenList and DEPEX_OPCODE_END != self.TokenList[-1]:
+        if "END" in self.TokenList and "END" != self.TokenList[-1]:
             EdkLogger.error("GenDepex", PARSER_ERROR, "Extra expressions after END",
                             ExtraData=str(self))
 
     ## Simply optimize the dependency expression by removing duplicated operands
     def Optimize(self):
-        OpcodeSet = set(self.OpcodeList)
-        # if there are isn't one in the set, return
-        if len(OpcodeSet) != 1:
-          return
-        Op = OpcodeSet.pop()
-        #if Op isn't either OR or AND, return
-        if Op not in [DEPEX_OPCODE_AND, DEPEX_OPCODE_OR]:
+        ValidOpcode = list(set(self.OpcodeList))
+        if len(ValidOpcode) != 1 or ValidOpcode[0] not in ['AND', 'OR']:
             return
+        Op = ValidOpcode[0]
         NewOperand = []
         AllOperand = set()
         for Token in self.PostfixNotation:
             if Token in self.SupportedOpcode or Token in NewOperand:
                 continue
             AllOperand.add(Token)
-            if Token == DEPEX_OPCODE_TRUE:
-                if Op == DEPEX_OPCODE_AND:
+            if Token == 'TRUE':
+                if Op == 'AND':
                     continue
                 else:
                     NewOperand.append(Token)
                     break
-            elif Token == DEPEX_OPCODE_FALSE:
-                if Op == DEPEX_OPCODE_OR:
+            elif Token == 'FALSE':
+                if Op == 'OR':
                     continue
                 else:
                     NewOperand.append(Token)
@@ -296,14 +284,14 @@ class DependencyExpression:
             NewOperand.append(Token)
 
         # don't generate depex if only TRUE operand left
-        if self.ModuleType == SUP_MODULE_PEIM and len(NewOperand) == 1 and NewOperand[0] == DEPEX_OPCODE_TRUE:
+        if self.ModuleType == 'PEIM' and len(NewOperand) == 1 and NewOperand[0] == 'TRUE':
             self.PostfixNotation = []
-            return
+            return            
 
         # don't generate depex if all operands are architecture protocols
-        if self.ModuleType in [SUP_MODULE_UEFI_DRIVER, SUP_MODULE_DXE_DRIVER, SUP_MODULE_DXE_RUNTIME_DRIVER, SUP_MODULE_DXE_SAL_DRIVER, SUP_MODULE_DXE_SMM_DRIVER, SUP_MODULE_MM_STANDALONE] and \
-           Op == DEPEX_OPCODE_AND and \
-           self.ArchProtocols == set(GuidStructureStringToGuidString(Guid) for Guid in AllOperand):
+        if self.ModuleType in ['UEFI_DRIVER', 'DXE_DRIVER', 'DXE_RUNTIME_DRIVER', 'DXE_SAL_DRIVER', 'DXE_SMM_DRIVER'] and \
+           Op == 'AND' and \
+           self.ArchProtocols == set([GuidStructureStringToGuidString(Guid) for Guid in AllOperand]):
             self.PostfixNotation = []
             return
 
@@ -329,10 +317,6 @@ class DependencyExpression:
     def GetGuidValue(self, Guid):
         GuidValueString = Guid.replace("{", "").replace("}", "").replace(" ", "")
         GuidValueList = GuidValueString.split(",")
-        if len(GuidValueList) != 11 and len(GuidValueList) == 16:
-            GuidValueString = GuidStringToGuidStructureString(GuidStructureByteArrayToGuidString(Guid))
-            GuidValueString = GuidValueString.replace("{", "").replace("}", "").replace(" ", "")
-            GuidValueList = GuidValueString.split(",")
         if len(GuidValueList) != 11:
             EdkLogger.error("GenDepex", PARSER_ERROR, "Invalid GUID value string or opcode: %s" % Guid)
         return pack("1I2H8B", *(int(value, 16) for value in GuidValueList))
@@ -345,7 +329,7 @@ class DependencyExpression:
     #   @retval False   If file exists and is not changed.
     #
     def Generate(self, File=None):
-        Buffer = BytesIO()
+        Buffer = StringIO()
         if len(self.PostfixNotation) == 0:
             return False
 
@@ -361,7 +345,7 @@ class DependencyExpression:
 
         FilePath = ""
         FileChangeFlag = True
-        if File is None:
+        if File == None:
             sys.stdout.write(Buffer.getvalue())
             FilePath = "STDOUT"
         else:
@@ -372,7 +356,7 @@ class DependencyExpression:
 
 versionNumber = ("0.04" + " " + gBUILD_VERSION)
 __version__ = "%prog Version " + versionNumber
-__copyright__ = "Copyright (c) 2007-2018, Intel Corporation  All rights reserved."
+__copyright__ = "Copyright (c) 2007-2010, Intel Corporation  All rights reserved."
 __usage__ = "%prog [options] [dependency_expression_file]"
 
 ## Parse command line options
@@ -415,13 +399,13 @@ def Main():
         EdkLogger.SetLevel(EdkLogger.QUIET)
     elif Option.verbose:
         EdkLogger.SetLevel(EdkLogger.VERBOSE)
-    elif Option.debug is not None:
+    elif Option.debug != None:
         EdkLogger.SetLevel(Option.debug + 1)
     else:
         EdkLogger.SetLevel(EdkLogger.INFO)
 
     try:
-        if Option.ModuleType is None or Option.ModuleType not in gType2Phase:
+        if Option.ModuleType == None or Option.ModuleType not in gType2Phase:
             EdkLogger.error("GenDepex", OPTION_MISSING, "Module type is not specified or supported")
 
         DxsFile = ''
@@ -438,9 +422,9 @@ def Main():
             EdkLogger.error("GenDepex", OPTION_MISSING, "No expression string or file given")
 
         Dpx = DependencyExpression(DxsString, Option.ModuleType, Option.Optimize)
-        if Option.OutputFile is not None:
+        if Option.OutputFile != None:
             FileChangeFlag = Dpx.Generate(Option.OutputFile)
-            if not FileChangeFlag and DxsFile:
+            if not FileChangeFlag and DxsFile: 
                 #
                 # Touch the output file if its time stamp is older than the original
                 # DXS file to avoid re-invoke this tool for the dependency check in build rule.
@@ -449,9 +433,9 @@ def Main():
                     os.utime(Option.OutputFile, None)
         else:
             Dpx.Generate()
-    except BaseException as X:
+    except BaseException, X:
         EdkLogger.quiet("")
-        if Option is not None and Option.debug is not None:
+        if Option != None and Option.debug != None:
             EdkLogger.quiet(traceback.format_exc())
         else:
             EdkLogger.quiet(str(X))

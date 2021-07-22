@@ -2,7 +2,13 @@
 
   Copyright (c) 2011 - 2014, ARM Ltd. All rights reserved.<BR>
 
-  SPDX-License-Identifier: BSD-2-Clause-Patent
+  This program and the accompanying materials
+  are licensed and made available under the terms and conditions of the BSD License
+  which accompanies this distribution.  The full text of the license may be found at
+  http://opensource.org/licenses/bsd-license.php
+
+  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
@@ -116,17 +122,19 @@
 
 typedef struct _NOR_FLASH_INSTANCE                NOR_FLASH_INSTANCE;
 
-#pragma pack (1)
+typedef EFI_STATUS (*NOR_FLASH_INITIALIZE)        (NOR_FLASH_INSTANCE* Instance);
+
 typedef struct {
   VENDOR_DEVICE_PATH                  Vendor;
-  UINT8                               Index;
   EFI_DEVICE_PATH_PROTOCOL            End;
 } NOR_FLASH_DEVICE_PATH;
-#pragma pack ()
 
 struct _NOR_FLASH_INSTANCE {
   UINT32                              Signature;
   EFI_HANDLE                          Handle;
+
+  BOOLEAN                             Initialized;
+  NOR_FLASH_INITIALIZE                Initialize;
 
   UINTN                               DeviceBaseAddress;
   UINTN                               RegionBaseAddress;
@@ -137,11 +145,14 @@ struct _NOR_FLASH_INSTANCE {
   EFI_BLOCK_IO_MEDIA                  Media;
   EFI_DISK_IO_PROTOCOL                DiskIoProtocol;
 
+  BOOLEAN                             SupportFvb;
   EFI_FIRMWARE_VOLUME_BLOCK2_PROTOCOL FvbProtocol;
   VOID*                               ShadowBuffer;
 
   NOR_FLASH_DEVICE_PATH               DevicePath;
 };
+
+extern CONST EFI_GUID* CONST          mNorFlashVariableGuid;
 
 EFI_STATUS
 NorFlashReadCfiData (

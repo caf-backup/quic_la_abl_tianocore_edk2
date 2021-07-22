@@ -1,10 +1,16 @@
 ## @file
-# This file is used to define class objects of INF file [LibraryClasses] section.
-# It will consumed by InfParser.
+# This file is used to define class objects of INF file [LibraryClasses] section. 
+# It will consumed by InfParser. 
 #
-# Copyright (c) 2011 - 2018, Intel Corporation. All rights reserved.<BR>
+# Copyright (c) 2011 - 2014, Intel Corporation. All rights reserved.<BR>
 #
-# SPDX-License-Identifier: BSD-2-Clause-Patent
+# This program and the accompanying materials are licensed and made available 
+# under the terms and conditions of the BSD License which accompanies this 
+# distribution. The full text of the license may be found at 
+# http://opensource.org/licenses/bsd-license.php
+#
+# THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+# WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 '''
 InfLibraryClassesObject
@@ -31,11 +37,11 @@ def GetArchModuleType(KeyList):
     for (ArchItem, ModuleItem) in KeyList:
         #
         # Validate Arch
-        #
-        if (ArchItem == '' or ArchItem is None):
+        #            
+        if (ArchItem == '' or ArchItem == None):
             ArchItem = 'COMMON'
 
-        if (ModuleItem == '' or ModuleItem is None):
+        if (ModuleItem == '' or ModuleItem == None):
             ModuleItem = 'COMMON'
 
         if ArchItem not in __SupArchList:
@@ -112,7 +118,7 @@ class InfLibraryClassObject():
 
     ##SetLibraryClasses
     #
-    #
+    # 
     # @param HelpString:     It can be a common comment or contain a recommend
     #                        instance.
     #
@@ -130,7 +136,7 @@ class InfLibraryClassObject():
                 LibItemObj.CurrentLine.SetLineNo(LibItem[2][1])
                 LibItemObj.CurrentLine.SetLineString(LibItem[2][0])
                 LibItem = LibItem[0]
-                if HelpStringObj is not None:
+                if HelpStringObj != None:
                     LibItemObj.SetHelpString(HelpStringObj)
                 if len(LibItem) >= 1:
                     if LibItem[0].strip() != '':
@@ -167,7 +173,7 @@ class InfLibraryClassObject():
                                      Line=LibItemObj.CurrentLine.GetLineNo(),
                                      ExtraData=LibItemObj.CurrentLine.GetLineString())
                     #
-                    # Validate FFE
+                    # Validate FFE    
                     #
                     FeatureFlagRtv = IsValidFeatureFlagExp(LibItem[1].strip())
                     if not FeatureFlagRtv[0]:
@@ -196,15 +202,15 @@ class InfLibraryClassObject():
                 #
                 # Determine Library class duplicate. Follow below rule:
                 #
-                # A library class keyword must not be duplicated within a
-                # [LibraryClasses] section. Library class keywords may appear in
-                # multiple architectural and module type [LibraryClasses] sections.
-                # A library class keyword listed in an architectural or module type
-                # [LibraryClasses] section must not be listed in the common
+                # A library class keyword must not be duplicated within a 
+                # [LibraryClasses] section. Library class keywords may appear in 
+                # multiple architectural and module type [LibraryClasses] sections. 
+                # A library class keyword listed in an architectural or module type 
+                # [LibraryClasses] section must not be listed in the common 
                 # architectural or module type [LibraryClasses] section.
-                #
+                # 
                 # NOTE: This check will not report error now. But keep code for future enhancement.
-                #
+                # 
 #                for Item in self.LibraryClasses:
 #                    if Item.GetLibName() == LibItemObj.GetLibName():
 #                        ItemSupArchList = Item.GetSupArchList()
@@ -232,7 +238,7 @@ class InfLibraryClassObject():
                 LibItemObj.SetVersion(LibItem[1])
                 LibItemObj.SetSupArchList(__SupArchList)
 
-            if (LibItemObj) in self.LibraryClasses:
+            if self.LibraryClasses.has_key((LibItemObj)):
                 LibraryList = self.LibraryClasses[LibItemObj]
                 LibraryList.append(LibItemObj)
                 self.LibraryClasses[LibItemObj] = LibraryList

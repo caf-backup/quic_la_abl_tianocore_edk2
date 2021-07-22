@@ -1,10 +1,15 @@
 /** @file
   The ICMPv6 handle routines to process the ICMPv6 control messages.
 
-  Copyright (c) 2009 - 2018, Intel Corporation. All rights reserved.<BR>
-  (C) Copyright 2016 Hewlett Packard Enterprise Development LP<BR>
+  Copyright (c) 2009 - 2010, Intel Corporation. All rights reserved.<BR>
 
-  SPDX-License-Identifier: BSD-2-Clause-Patent
+  This program and the accompanying materials
+  are licensed and made available under the terms and conditions of the BSD License
+  which accompanies this distribution.  The full text of the license may be found at
+  http://opensource.org/licenses/bsd-license.php.
+
+  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
@@ -300,7 +305,7 @@ Ip6ProcessIcmpError (
   }
 
   //
-  // Notify the upper-layer process that an ICMPv6 error message is received.
+  // Notify the upper-layer process that an ICMPv6 eror message is received.
   //
   IP6_GET_CLIP_INFO (Packet)->Status = EFI_ICMP_ERROR;
   return Ip6Demultiplex (IpSb, Head, Packet);
@@ -393,7 +398,7 @@ Ip6ProcessIcmpInformation (
   @param[in]  Packet             The content of the ICMPv6 packet with IP head
                                  removed.
 
-  @retval EFI_INVALID_PARAMETER  The packet is malformatted.
+  @retval EFI_INVALID_PARAMETER  The packet is malformated.
   @retval EFI_SUCCESS            The ICMPv6 message successfully processed.
   @retval Others                 Failed to handle the ICMPv6 packet.
 
@@ -467,14 +472,14 @@ Ip6GetPrefix (
   UINT8                     Mask;
   UINT8                     Value;
 
-  ASSERT ((Prefix != NULL) && (PrefixLength < IP6_PREFIX_MAX));
+  ASSERT ((Prefix != NULL) && (PrefixLength < IP6_PREFIX_NUM));
 
   if (PrefixLength == 0) {
     ZeroMem (Prefix, sizeof (EFI_IPv6_ADDRESS));
     return ;
   }
 
-  if (PrefixLength >= IP6_PREFIX_MAX) {
+  if (PrefixLength == IP6_PREFIX_NUM - 1) {
     return ;
   }
 
@@ -482,7 +487,7 @@ Ip6GetPrefix (
   Bit   = (UINT8) (PrefixLength % 8);
   Value = Prefix->Addr[Byte];
 
-  if (Byte > 0) {
+  if ((Byte > 0) && (Byte < 16)) {
     ZeroMem (Prefix->Addr + Byte, 16 - Byte);
   }
 
@@ -554,7 +559,7 @@ Ip6IsAnycast (
   @param[in]  Pointer            If not NULL, identifies the octet offset within
                                  the invoking packet where the error was detected.
 
-  @retval EFI_INVALID_PARAMETER  The packet is malformatted.
+  @retval EFI_INVALID_PARAMETER  The packet is malformated.
   @retval EFI_OUT_OF_RESOURCES   There is no sufficient resource to complete the
                                  operation.
   @retval EFI_SUCCESS            The ICMPv6 message was successfully sent out.

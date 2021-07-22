@@ -1,8 +1,14 @@
 /** @file
   Implements inputbar interface functions.
 
-  Copyright (c) 2005 - 2018, Intel Corporation. All rights reserved. <BR>
-  SPDX-License-Identifier: BSD-2-Clause-Patent
+  Copyright (c) 2005 - 2014, Intel Corporation. All rights reserved. <BR>
+  This program and the accompanying materials
+  are licensed and made available under the terms and conditions of the BSD License
+  which accompanies this distribution.  The full text of the license may be found at
+  http://opensource.org/licenses/bsd-license.php
+
+  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
@@ -12,28 +18,26 @@
 CHAR16  *mPrompt;        // Input bar mPrompt string.
 CHAR16  *mReturnString;  // The returned string.
 UINTN   StringSize;      // Size of mReturnString space size.
-EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL *mTextInEx;
 
 /**
   Initialize the input bar.
-
-  @param[in] TextInEx  Pointer to SimpleTextInEx instance in System Table.
 **/
 VOID
+EFIAPI
 InputBarInit (
-  IN EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL *TextInEx
+  VOID
   )
 {
   mPrompt       = NULL;
   mReturnString = NULL;
   StringSize    = 0;
-  mTextInEx     = TextInEx;
 }
 
 /**
   Cleanup function for input bar.
 **/
 VOID
+EFIAPI
 InputBarCleanup (
   VOID
   )
@@ -55,6 +59,7 @@ InputBarCleanup (
   @param[in]  LastRow      The last printable row.
 **/
 VOID
+EFIAPI
 InputBarPrintInput (
   IN UINTN LastColumn,
   IN UINTN LastRow
@@ -116,6 +121,7 @@ typedef union {
   @retval EFI_SUCCESS           The operation was successful.
 **/
 EFI_STATUS
+EFIAPI
 InputBarRefresh (
   UINTN LastRow,
   UINTN LastColumn
@@ -123,7 +129,7 @@ InputBarRefresh (
 {
   INPUT_BAR_COLOR_UNION   Orig;
   INPUT_BAR_COLOR_UNION   New;
-  EFI_KEY_DATA            KeyData;
+  EFI_INPUT_KEY           Key;
   UINTN                   Size;
   EFI_STATUS              Status;
   BOOLEAN                 NoDisplay;
@@ -172,25 +178,15 @@ InputBarRefresh (
   // wait for user input
   //
   for (;;) {
-    Status = gBS->WaitForEvent (1, &mTextInEx->WaitForKeyEx, &EventIndex);
-    if (EFI_ERROR (Status) || (EventIndex != 0)) {
-      continue;
-    }
-    Status = mTextInEx->ReadKeyStrokeEx (mTextInEx, &KeyData);
+    gBS->WaitForEvent (1, &gST->ConIn->WaitForKey, &EventIndex);
+    Status = gST->ConIn->ReadKeyStroke (gST->ConIn, &Key);
     if (EFI_ERROR (Status)) {
-      continue;
-    }
-    if (((KeyData.KeyState.KeyShiftState & EFI_SHIFT_STATE_VALID) != 0) &&
-        (KeyData.KeyState.KeyShiftState != EFI_SHIFT_STATE_VALID)) {
-      //
-      // Shift key pressed.
-      //
       continue;
     }
     //
     // pressed ESC
     //
-    if (KeyData.Key.ScanCode == SCAN_ESC) {
+    if (Key.ScanCode == SCAN_ESC) {
       Size    = 0;
       Status  = EFI_NOT_READY;
       break;
@@ -198,9 +194,9 @@ InputBarRefresh (
     //
     // return pressed
     //
-    if (KeyData.Key.UnicodeChar == CHAR_LINEFEED || KeyData.Key.UnicodeChar == CHAR_CARRIAGE_RETURN) {
+    if (Key.UnicodeChar == CHAR_LINEFEED || Key.UnicodeChar == CHAR_CARRIAGE_RETURN) {
       break;
-    } else if (KeyData.Key.UnicodeChar == CHAR_BACKSPACE) {
+    } else if (Key.UnicodeChar == CHAR_BACKSPACE) {
       //
       // backspace
       //
@@ -213,11 +209,11 @@ InputBarRefresh (
 
         }
       }
-    } else if (KeyData.Key.UnicodeChar <= 127 && KeyData.Key.UnicodeChar >= 32) {
+    } else if (Key.UnicodeChar <= 127 && Key.UnicodeChar >= 32) {
       //
       // VALID ASCII char pressed
       //
-      mReturnString[Size] = KeyData.Key.UnicodeChar;
+      mReturnString[Size] = Key.UnicodeChar;
 
       //
       // should be less than specified length
@@ -245,7 +241,7 @@ InputBarRefresh (
   }
 
   mReturnString[Size] = CHAR_NULL;
-
+  
 
   //
   // restore screen attributes
@@ -265,6 +261,7 @@ InputBarRefresh (
   @retval EFI_OUT_OF_RESOURCES  A memory allocation failed.
 **/
 EFI_STATUS
+EFIAPI
 InputBarSetPrompt (
   IN CONST CHAR16 *Str
   )
@@ -291,6 +288,7 @@ InputBarSetPrompt (
   @retval EFI_OUT_OF_RESOURCES  A memory allocation failed.
 **/
 EFI_STATUS
+EFIAPI
 InputBarSetStringSize (
   UINTN   Size
   )
@@ -316,6 +314,7 @@ InputBarSetStringSize (
   @return The string that was input.
 **/
 CONST CHAR16*
+EFIAPI
 InputBarGetString (
   VOID
   )

@@ -1,8 +1,14 @@
 /** @file
   Functions to deal with Disk buffer.
 
-  Copyright (c) 2005 - 2018, Intel Corporation. All rights reserved. <BR>
-  SPDX-License-Identifier: BSD-2-Clause-Patent
+  Copyright (c) 2005 - 2011, Intel Corporation. All rights reserved. <BR>
+  This program and the accompanying materials
+  are licensed and made available under the terms and conditions of the BSD License
+  which accompanies this distribution.  The full text of the license may be found at
+  http://opensource.org/licenses/bsd-license.php
+
+  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
@@ -33,7 +39,7 @@ HEFI_EDITOR_DISK_IMAGE            HDiskImageConst = {
 
 /**
   Initialization function for HDiskImage.
-
+ 
   @retval EFI_SUCCESS     The operation was successful.
   @retval EFI_LOAD_ERROR  A load error occured.
 **/
@@ -53,7 +59,7 @@ HDiskImageInit (
 }
 
 /**
-  Backup function for HDiskImage. Only a few fields need to be backup.
+  Backup function for HDiskImage. Only a few fields need to be backup.   
   This is for making the Disk buffer refresh as few as possible.
 
   @retval EFI_SUCCESS           The operation was successful.
@@ -108,28 +114,33 @@ HDiskImageCleanup (
   @retval EFI_OUT_OF_RESOURCES  A memory allocation failed.
 **/
 EFI_STATUS
+EFIAPI
 HDiskImageSetDiskNameOffsetSize (
   IN CONST CHAR16   *Str,
   IN UINTN    Offset,
   IN UINTN    Size
   )
 {
-  if (Str == HDiskImage.Name) {
-    //
-    // This function might be called using HDiskImage.FileName as Str.
-    // Directly return without updating HDiskImage.FileName.
-    //
-    return EFI_SUCCESS;
-  }
+  UINTN Len;
+  UINTN Index;
 
   //
   // free the old file name
   //
   SHELL_FREE_NON_NULL (HDiskImage.Name);
-  HDiskImage.Name = AllocateCopyPool (StrSize (Str), Str);
+
+  Len             = StrLen (Str);
+
+  HDiskImage.Name = AllocateZeroPool (2 * (Len + 1));
   if (HDiskImage.Name == NULL) {
     return EFI_OUT_OF_RESOURCES;
   }
+
+  for (Index = 0; Index < Len; Index++) {
+    HDiskImage.Name[Index] = Str[Index];
+  }
+
+  HDiskImage.Name[Len]  = L'\0';
 
   HDiskImage.Offset     = Offset;
   HDiskImage.Size       = Size;
@@ -148,7 +159,7 @@ HDiskImageSetDiskNameOffsetSize (
   @retval EFI_SUCCESS           The operation was successful.
   @retval EFI_OUT_OF_RESOURCES  A memory allocation failed.
   @retval EFI_LOAD_ERROR        A load error occured.
-  @retval EFI_INVALID_PARAMETER A parameter was invalid.
+  @retval EFI_INVALID_PARAMETER A parameter was invalid.  
 **/
 EFI_STATUS
 HDiskImageRead (
@@ -320,7 +331,7 @@ HDiskImageRead (
   @retval EFI_SUCCESS           The operation was successful.
   @retval EFI_OUT_OF_RESOURCES  A memory allocation failed.
   @retval EFI_LOAD_ERROR        A load error occured.
-  @retval EFI_INVALID_PARAMETER A parameter was invalid.
+  @retval EFI_INVALID_PARAMETER A parameter was invalid.  
 **/
 EFI_STATUS
 HDiskImageSave (
@@ -332,7 +343,6 @@ HDiskImageSave (
 
   CONST EFI_DEVICE_PATH_PROTOCOL  *DevicePath;
   EFI_DEVICE_PATH_PROTOCOL        *DupDevicePath;
-  EFI_DEVICE_PATH_PROTOCOL        *DupDevicePathForFree;
   EFI_BLOCK_IO_PROTOCOL           *BlkIo;
   EFI_STATUS                      Status;
   EFI_HANDLE                      Handle;
@@ -354,13 +364,12 @@ HDiskImageSave (
     return EFI_INVALID_PARAMETER;
   }
   DupDevicePath = DuplicateDevicePath(DevicePath);
-  DupDevicePathForFree = DupDevicePath;
 
   //
   // get blkio interface
   //
   Status = gBS->LocateDevicePath(&gEfiBlockIoProtocolGuid,&DupDevicePath,&Handle);
-  FreePool(DupDevicePathForFree);
+  FreePool(DupDevicePath);
   if (EFI_ERROR (Status)) {
 //    StatusBarSetStatusString (L"Read Disk Failed");
     return Status;

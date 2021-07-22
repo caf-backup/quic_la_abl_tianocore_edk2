@@ -1,8 +1,14 @@
 /** @file
 These functions assist in parsing and manipulating a Firmware Volume.
 
-Copyright (c) 2004 - 2018, Intel Corporation. All rights reserved.<BR>
-SPDX-License-Identifier: BSD-2-Clause-Patent
+Copyright (c) 2004 - 2015, Intel Corporation. All rights reserved.<BR>
+This program and the accompanying materials                          
+are licensed and made available under the terms and conditions of the BSD License         
+which accompanies this distribution.  The full text of the license may be found at        
+http://opensource.org/licenses/bsd-license.php                                            
+                                                                                          
+THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,                     
+WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.             
 
 **/
 
@@ -38,9 +44,9 @@ Arguments:
 
   Fv            Buffer containing the FV.
   FvLength      Length of the FV
-
+    
 Returns:
-
+ 
   EFI_SUCCESS             Function Completed successfully.
   EFI_INVALID_PARAMETER   A required parameter was NULL.
 
@@ -74,9 +80,9 @@ Arguments:
 
   FvHeader      Pointer to the FV buffer.
   FvLength      Length of the FV
-
+    
 Returns:
-
+ 
   EFI_SUCCESS             Function Completed successfully.
   EFI_INVALID_PARAMETER   A required parameter was NULL.
   EFI_ABORTED             The library needs to be initialized.
@@ -111,16 +117,16 @@ GetNextFile (
 Routine Description:
 
   This function returns the next file.  If the current file is NULL, it returns
-  the first file in the FV.  If the function returns EFI_SUCCESS and the file
+  the first file in the FV.  If the function returns EFI_SUCCESS and the file 
   pointer is NULL, then there are no more files in the FV.
 
 Arguments:
 
   CurrentFile   Pointer to the current file, must be within the current FV.
   NextFile      Pointer to the next file in the FV.
-
+    
 Returns:
-
+ 
   EFI_SUCCESS             Function completed successfully.
   EFI_INVALID_PARAMETER   A required parameter was NULL or is out of range.
   EFI_ABORTED             The library needs to be initialized.
@@ -188,7 +194,7 @@ Returns:
   //
   // Get next file, compensate for 8 byte alignment if necessary.
   //
-  *NextFile = (EFI_FFS_FILE_HEADER *) ((((UINTN) CurrentFile - (UINTN) mFvHeader + GetFfsFileLength(CurrentFile) + 0x07) & (~(UINTN) 7)) + (UINT8 *) mFvHeader);
+  *NextFile = (EFI_FFS_FILE_HEADER *) ((((UINTN) CurrentFile - (UINTN) mFvHeader + GetFfsFileLength(CurrentFile) + 0x07) & (-1 << 3)) + (UINT8 *) mFvHeader);
 
   //
   // Verify file is in this FV.
@@ -312,7 +318,7 @@ Routine Description:
 Arguments:
 
   FileType    Type of file to search for.
-  Instance    Instance of the file type to return.
+  Instance    Instace of the file type to return.
   File        Return pointer.  In the case of an error, contents are undefined.
 
 Returns:
@@ -473,7 +479,7 @@ Returns:
     //
     // Find next section (including compensating for alignment issues.
     //
-    CurrentSection.CommonHeader = (EFI_COMMON_SECTION_HEADER *) ((((UINTN) CurrentSection.CommonHeader) + GetSectionFileLength(CurrentSection.CommonHeader) + 0x03) & (~(UINTN) 3));
+    CurrentSection.CommonHeader = (EFI_COMMON_SECTION_HEADER *) ((((UINTN) CurrentSection.CommonHeader) + GetSectionFileLength(CurrentSection.CommonHeader) + 0x03) & (-1 << 2));
   }
 
   return EFI_NOT_FOUND;
@@ -490,7 +496,7 @@ GetSectionByType (
 
 Routine Description:
 
-  Find a section in a file by type and instance.  An instance of 1 is the first
+  Find a section in a file by type and instance.  An instance of 1 is the first 
   instance.  The function will return NULL if a matching section cannot be found.
   GUID-defined sections, if special processing is not needed, are handled in a
   depth-first manner.
@@ -499,7 +505,7 @@ Arguments:
 
   File        The file to search.
   SectionType Type of file to search for.
-  Instance    Instance of the section to return.
+  Instance    Instace of the section to return.
   Section     Return pointer.  In the case of an error, contents are undefined.
 
 Returns:
@@ -537,7 +543,7 @@ Returns:
   // Get the first section
   //
   CurrentSection.CommonHeader = (EFI_COMMON_SECTION_HEADER *) ((UINTN) File + GetFfsHeaderLength(File));
-
+  
   //
   // Depth-first manner to find section file.
   //
@@ -852,7 +858,7 @@ Returns:
   EFI_SUCCESS              The function completed successfully.
   EFI_INVALID_PARAMETER    One of the input parameters was invalid.
   EFI_ABORTED              Operation aborted.
-
+  
 --*/
 {
   EFI_STATUS  Status;
@@ -899,7 +905,7 @@ Routine Description:
   It in no way validate the FFS file.
 
 Arguments:
-
+  
   ErasePolarity The erase polarity for the file state bits.
   FfsHeader     Pointer to a FFS file.
 

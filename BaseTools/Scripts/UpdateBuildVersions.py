@@ -4,11 +4,17 @@
 # This script will modife the C/Include/Common/BuildVersion.h file and the two
 # Python scripts, Python/Common/BuildVersion.py and Python/UPT/BuildVersion.py.
 # If SVN is available, the tool will obtain the current checked out version of
-# the source tree for including the --version commands.
+# the source tree for including the the --version commands.
 
 #  Copyright (c) 2014 - 2015, Intel Corporation. All rights reserved.<BR>
 #
-#  SPDX-License-Identifier: BSD-2-Clause-Patent
+#  This program and the accompanying materials
+#  are licensed and made available under the terms and conditions of the BSD License
+#  which accompanies this distribution.  The full text of the license may be found at
+#  http://opensource.org/licenses/bsd-license.php
+#
+#  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 ##
 """ This program will update the BuildVersion.py and BuildVersion.h files used to set a tool's version value """
 from __future__ import absolute_import
@@ -67,7 +73,7 @@ def ParseOptions():
 
 
 def ShellCommandResults(CmdLine, Opt):
-    """ Execute the command, returning the output content """
+    """ Execute the comand, returning the output content """
     file_list = NamedTemporaryFile(delete=False)
     filename = file_list.name
     Results = []
@@ -84,8 +90,7 @@ def ShellCommandResults(CmdLine, Opt):
             sys.stderr.flush()
         returnValue = err_val.returncode
 
-    except IOError as err_val:
-        (errno, strerror) = err_val.args
+    except IOError as (errno, strerror):
         file_list.close()
         if not Opt.silent:
             sys.stderr.write("I/O ERROR : %s : %s\n" % (str(errno), strerror))
@@ -95,8 +100,7 @@ def ShellCommandResults(CmdLine, Opt):
             sys.stderr.flush()
         returnValue = errno
 
-    except OSError as err_val:
-        (errno, strerror) = err_val.args
+    except OSError as (errno, strerror):
         file_list.close()
         if not Opt.silent:
             sys.stderr.write("OS ERROR : %s : %s\n" % (str(errno), strerror))
@@ -206,15 +210,13 @@ def RevertCmd(Filename, Opt):
             sys.stderr.write("Subprocess ERROR : %s\n" % err_val)
             sys.stderr.flush()
 
-    except IOError as err_val:
-        (errno, strerror) = err_val.args
+    except IOError as (errno, strerror):
         if not Opt.silent:
             sys.stderr.write("I/O ERROR : %d : %s\n" % (str(errno), strerror))
             sys.stderr.write("ERROR : this command failed : %s\n" % CmdLine)
             sys.stderr.flush()
 
-    except OSError as err_val:
-        (errno, strerror) = err_val.args
+    except OSError as (errno, strerror):
         if not Opt.silent:
             sys.stderr.write("OS ERROR : %d : %s\n" % (str(errno), strerror))
             sys.stderr.write("ERROR : this command failed : %s\n" % CmdLine)
@@ -247,7 +249,7 @@ def GetSvnRevision(opts):
     StatusCmd = "svn st -v --depth infinity --non-interactive"
     contents = ShellCommandResults(StatusCmd, opts)
     os.chdir(Cwd)
-    if isinstance(contents, ListType):
+    if type(contents) is ListType:
         for line in contents:
             if line.startswith("M "):
                 Modified = True
@@ -257,7 +259,7 @@ def GetSvnRevision(opts):
     InfoCmd = "svn info %s" % SrcPath.replace("\\", "/").strip()
     Revision = 0
     contents = ShellCommandResults(InfoCmd, opts)
-    if isinstance(contents, IntType):
+    if type(contents) is IntType:
         return 0, Modified
     for line in contents:
         line = line.strip()
@@ -278,7 +280,7 @@ def CheckSvn(opts):
     VerCmd = "svn --version"
     contents = ShellCommandResults(VerCmd, opts)
     opts.silent = OriginalSilent
-    if isinstance(contents, IntType):
+    if type(contents) is IntType:
         if opts.verbose:
             sys.stdout.write("SVN does not appear to be available.\n")
             sys.stdout.flush()

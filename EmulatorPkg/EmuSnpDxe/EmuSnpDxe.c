@@ -3,7 +3,13 @@
  Copyright (c) 2010, Apple, Inc. All rights reserved.<BR>
  Copyright (c) 2011, Intel Corporation. All rights reserved.<BR>
 
-    SPDX-License-Identifier: BSD-2-Clause-Patent
+    This program and the accompanying materials
+    are licensed and made available under the terms and conditions of the BSD License
+    which accompanies this distribution. The full text of the license may be found at
+    http://opensource.org/licenses/bsd-license.php
+
+    THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+    WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 Module Name:
 
@@ -36,7 +42,7 @@ EFI_SIMPLE_NETWORK_PROTOCOL gEmuSnpTemplate = {
   NULL                      // Mode
  };
 
-EFI_SIMPLE_NETWORK_MODE gEmuSnpModeTemplate = {
+EFI_SIMPLE_NETWORK_MODE gEmuSnpModeTemplate = {                 
   EfiSimpleNetworkStopped,      //  State
   NET_ETHER_ADDR_LEN,           //  HwAddressSize
   NET_ETHER_HEADER_SIZE,        //  MediaHeaderSize
@@ -864,7 +870,6 @@ EmuSnpDriverBindingStop (
   EFI_STATUS                  Status;
   EMU_SNP_PRIVATE_DATA        *Private = NULL;
   EFI_SIMPLE_NETWORK_PROTOCOL *Snp;
-  VOID                        *EmuIoThunk;
 
   //
   // Complete all outstanding transactions to Controller.
@@ -909,42 +914,27 @@ EmuSnpDriverBindingStop (
   }
 
   Private = EMU_SNP_PRIVATE_DATA_FROM_SNP_THIS (Snp);
-  ASSERT (Private->DeviceHandle == ChildHandleBuffer[0]);
-  ASSERT (Private->EfiHandle    == ControllerHandle);
+  Status = Private->IoThunk->Close (Private->IoThunk);
 
   Status = gBS->CloseProtocol(
-                  ControllerHandle,
+                  ChildHandleBuffer[0],
                   &gEmuIoThunkProtocolGuid,
                   This->DriverBindingHandle,
                   Private->DeviceHandle
                   );
-  ASSERT_EFI_ERROR (Status);
 
   Status = gBS->UninstallMultipleProtocolInterfaces(
-                  Private->DeviceHandle,
+                  ChildHandleBuffer[0],
                   &gEfiSimpleNetworkProtocolGuid,   &Private->Snp,
                   &gEfiDevicePathProtocolGuid,      Private->DevicePath,
                   NULL
                   );
-  if (EFI_ERROR (Status)) {
-    gBS->OpenProtocol (
-           ControllerHandle,
-           &gEmuIoThunkProtocolGuid,
-           &EmuIoThunk,
-           This->DriverBindingHandle,
-           Private->DeviceHandle,
-           EFI_OPEN_PROTOCOL_BY_CHILD_CONTROLLER
-           );
-  } else {
-    Status = Private->IoThunk->Close (Private->IoThunk);
-    ASSERT_EFI_ERROR (Status);
 
-    FreePool (Private->DevicePath);
-    FreeUnicodeStringTable (Private->ControllerNameTable);
-    FreePool (Private);
-  }
+  FreePool (Private->DevicePath);
+  FreeUnicodeStringTable (Private->ControllerNameTable);
+  FreePool (Private);
 
-  return Status;
+  return EFI_SUCCESS;
 }
 
 

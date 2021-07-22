@@ -1,8 +1,14 @@
 /** @file
   Processor or Compiler specific defines and types for IA-32 architecture.
 
-Copyright (c) 2006 - 2018, Intel Corporation. All rights reserved.<BR>
-SPDX-License-Identifier: BSD-2-Clause-Patent
+Copyright (c) 2006 - 2015, Intel Corporation. All rights reserved.<BR>
+This program and the accompanying materials are licensed and made available under 
+the terms and conditions of the BSD License that accompanies this distribution.  
+The full text of the license may be found at
+http://opensource.org/licenses/bsd-license.php.                                          
+    
+THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,                     
+WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.             
 
 **/
 
@@ -73,7 +79,7 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
 #pragma warning ( disable : 4057 )
 
 //
-// ASSERT(FALSE) or while (TRUE) are legal constructs so suppress this warning
+// ASSERT(FALSE) or while (TRUE) are legal constructes so supress this warning
 //
 #pragma warning ( disable : 4127 )
 
@@ -87,24 +93,24 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
 //
 #pragma warning ( disable : 4206 )
 
-#if defined(_MSC_VER) && _MSC_VER >= 1800
+#if _MSC_VER == 1800
 
 //
 // Disable these warnings for VS2013.
 //
 
 //
-// This warning is for potentially uninitialized local variable, and it may cause false
-// positive issues in VS2013 and VS2015 build
+// This warning is for potentially uninitialized local variable, and it may cause false 
+// positive issues in VS2013 build
 //
 #pragma warning ( disable : 4701 )
-
+  
 //
-// This warning is for potentially uninitialized local pointer variable, and it may cause
-// false positive issues in VS2013 and VS2015 build
+// This warning is for potentially uninitialized local pointer variable, and it may cause 
+// false positive issues in VS2013 build
 //
 #pragma warning ( disable : 4703 )
-
+  
 #endif
 
 #endif
@@ -113,7 +119,7 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
 #if defined(_MSC_EXTENSIONS)
 
   //
-  // use Microsoft C compiler dependent integer width types
+  // use Microsoft C complier dependent integer width types 
   //
 
   ///
@@ -162,7 +168,7 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
   /// 1-byte signed value.
   ///
   typedef signed char         INT8;
-#else
+#else  
   ///
   /// 8-byte unsigned value.
   ///
@@ -241,31 +247,15 @@ typedef INT32   INTN;
 #define MAX_ADDRESS   0xFFFFFFFF
 
 ///
-/// Maximum usable address at boot time
-///
-#define MAX_ALLOC_ADDRESS   MAX_ADDRESS
-
-///
 /// Maximum legal IA-32 INTN and UINTN values.
 ///
 #define MAX_INTN   ((INTN)0x7FFFFFFF)
 #define MAX_UINTN  ((UINTN)0xFFFFFFFF)
 
 ///
-/// Minimum legal IA-32 INTN value.
-///
-#define MIN_INTN   (((INTN)-2147483647) - 1)
-
-///
 /// The stack alignment required for IA-32.
 ///
 #define CPU_STACK_ALIGNMENT   sizeof(UINTN)
-
-///
-/// Page allocation granularity for IA-32.
-///
-#define DEFAULT_PAGE_ALLOCATION_GRANULARITY   (0x1000)
-#define RUNTIME_PAGE_ALLOCATION_GRANULARITY   (0x1000)
 
 //
 // Modifier to ensure that all protocol member functions and EFI intrinsics
@@ -279,22 +269,22 @@ typedef INT32   INTN;
 #elif defined(_MSC_EXTENSIONS)
   ///
   /// Microsoft* compiler specific method for EFIAPI calling convention.
-  ///
-  #define EFIAPI __cdecl
-#elif defined(__GNUC__) || defined(__clang__)
+  /// 
+  #define EFIAPI __cdecl  
+#elif defined(__GNUC__)
   ///
   /// GCC specific method for EFIAPI calling convention.
-  ///
-  #define EFIAPI __attribute__((cdecl))
+  /// 
+  #define EFIAPI __attribute__((cdecl))  
 #else
   ///
   /// The default for a non Microsoft* or GCC compiler is to assume the EFI ABI
-  /// is the standard.
+  /// is the standard. 
   ///
   #define EFIAPI
 #endif
 
-#if defined(__GNUC__) || defined(__clang__)
+#if defined(__GNUC__)
   ///
   /// For GNU assembly code, .global or .globl can declare global symbols.
   /// Define this macro to unify the usage.
@@ -304,13 +294,13 @@ typedef INT32   INTN;
 
 /**
   Return the pointer to the first instruction of a function given a function pointer.
-  On IA-32 CPU architectures, these two pointer values are the same,
+  On IA-32 CPU architectures, these two pointer values are the same, 
   so the implementation of this macro is very simple.
-
+  
   @param  FunctionPointer   A pointer to a function.
 
   @return The pointer to the first instruction of a function given a function pointer.
-
+  
 **/
 #define FUNCTION_ENTRY_POINT(FunctionPointer) (VOID *)(UINTN)(FunctionPointer)
 

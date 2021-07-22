@@ -1,9 +1,15 @@
 /** @file
   Mtftp6 support functions declaration.
 
-  Copyright (c) 2009 - 2018, Intel Corporation. All rights reserved.<BR>
+  Copyright (c) 2009 - 2010, Intel Corporation. All rights reserved.<BR>
 
-  SPDX-License-Identifier: BSD-2-Clause-Patent
+  This program and the accompanying materials
+  are licensed and made available under the terms and conditions of the BSD License
+  which accompanies this distribution.  The full text of the license may be found at
+  http://opensource.org/licenses/bsd-license.php.
+
+  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
@@ -90,8 +96,8 @@ Mtftp6SetLastBlockNum (
 
   @param[in]  Head                   The block range list to remove from.
   @param[in]  Num                    The block number to remove.
-  @param[in]  Completed              Whether Num is the last block number.
-  @param[out] BlockCounter           The continuous block counter instead of the value after roll-over.
+  @param[in]  Completed              Whether Num is the last block number
+  @param[out] TotalBlock             The continuous block number in all
 
   @retval EFI_NOT_FOUND          The block number isn't in the block range list.
   @retval EFI_SUCCESS            The block number has been removed from the list.
@@ -103,7 +109,7 @@ Mtftp6RemoveBlockNum (
   IN LIST_ENTRY             *Head,
   IN UINT16                 Num,
   IN BOOLEAN                Completed,
-  OUT UINT64                *BlockCounter
+  OUT UINT64                *TotalBlock
   );
 
 
@@ -334,7 +340,7 @@ Mtftp6RrqInput (
 
 /**
   Start the Mtftp6 instance to download. It first initializes some
-  of the internal states then builds and sends an RRQ request packet.
+  of the internal states then builds and sends an RRQ reqeuest packet.
   Finally, it starts receive for the downloading.
 
   @param[in]  Instance              The pointer to the Mtftp6 instance.

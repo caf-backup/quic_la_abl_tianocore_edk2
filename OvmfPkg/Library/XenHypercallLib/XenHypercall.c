@@ -3,7 +3,13 @@
 
   Copyright (C) 2014, Citrix Ltd.
 
-  SPDX-License-Identifier: BSD-2-Clause-Patent
+  This program and the accompanying materials
+  are licensed and made available under the terms and conditions of the BSD License
+  which accompanies this distribution.  The full text of the license may be found at
+  http://opensource.org/licenses/bsd-license.php
+
+  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
@@ -15,24 +21,7 @@
 #include <Library/DebugLib.h>
 #include <Library/XenHypercallLib.h>
 
-RETURN_STATUS
-EFIAPI
-XenHypercallLibConstruct (
-  VOID
-  )
-{
-  XenHypercallLibInit ();
-  //
-  // We don't fail library construction, since that has catastrophic
-  // consequences for client modules (whereas those modules may easily be
-  // running on a non-Xen platform). Instead, XenHypercallIsAvailable()
-  // will return FALSE.
-  //
-  return RETURN_SUCCESS;
-}
-
 UINT64
-EFIAPI
 XenHypercallHvmGetParam (
   IN UINT32        Index
   )
@@ -54,7 +43,6 @@ XenHypercallHvmGetParam (
 }
 
 INTN
-EFIAPI
 XenHypercallMemoryOp (
   IN     UINTN Operation,
   IN OUT VOID *Arguments
@@ -65,7 +53,6 @@ XenHypercallMemoryOp (
 }
 
 INTN
-EFIAPI
 XenHypercallEventChannelOp (
   IN     INTN Operation,
   IN OUT VOID *Arguments

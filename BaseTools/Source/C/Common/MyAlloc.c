@@ -1,8 +1,14 @@
 /** @file
 File for memory allocation tracking functions.
 
-Copyright (c) 2004 - 2018, Intel Corporation. All rights reserved.<BR>
-SPDX-License-Identifier: BSD-2-Clause-Patent
+Copyright (c) 2004 - 2014, Intel Corporation. All rights reserved.<BR>
+This program and the accompanying materials                          
+are licensed and made available under the terms and conditions of the BSD License         
+which accompanies this distribution.  The full text of the license may be found at        
+http://opensource.org/licenses/bsd-license.php                                            
+                                                                                          
+THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,                     
+WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.             
 
 **/
 
@@ -67,18 +73,7 @@ MyCheck (
   //
   // Check parameters.
   //
-  if (File == NULL) {
-    printf (
-      "\nMyCheck(Final=%u, File=NULL, Line=%u)"
-      "Invalid parameter(s).\n",
-      Final,
-      (unsigned)Line
-      );
-
-    exit (1);
-  }
-
-  if (Line == 0) {
+  if (File == NULL || Line == 0) {
     printf (
       "\nMyCheck(Final=%u, File=%s, Line=%u)"
       "Invalid parameter(s).\n",
@@ -195,18 +190,7 @@ MyAlloc (
   //
   // Check for invalid parameters.
   //
-  if (File == NULL) {
-    printf (
-      "\nMyAlloc(Size=%u, File=NULL, Line=%u)"
-      "\nInvalid parameter(s).\n",
-      (unsigned)Size,
-      (unsigned)Line
-      );
-
-    exit (1);
-  }
-
-  if (Size == 0 || Line == 0) {
+  if (Size == 0 || File == NULL || Line == 0) {
     printf (
       "\nMyAlloc(Size=%u, File=%s, Line=%u)"
       "\nInvalid parameter(s).\n",
@@ -319,19 +303,7 @@ MyRealloc (
   //
   // Check for invalid parameter(s).
   //
-  if (File == NULL) {
-    printf (
-      "\nMyRealloc(Ptr=%p, Size=%u, File=NULL, Line=%u)"
-      "\nInvalid parameter(s).\n",
-      Ptr,
-      (unsigned)Size,
-      (unsigned)Line
-      );
-
-    exit (1);
-  }
-
-  if (Size == 0 || Line == 0) {
+  if (Size == 0 || File == NULL || Line == 0) {
     printf (
       "\nMyRealloc(Ptr=%p, Size=%u, File=%s, Line=%u)"
       "\nInvalid parameter(s).\n",
@@ -436,18 +408,7 @@ MyFree (
   //
   // Check for invalid parameter(s).
   //
-  if (File == NULL) {
-    printf (
-      "\nMyFree(Ptr=%p, File=NULL, Line=%u)"
-      "\nInvalid parameter(s).\n",
-      Ptr,
-      (unsigned)Line
-      );
-
-    exit (1);
-  }
-
-  if (Line == 0) {
+  if (File == NULL || Line == 0) {
     printf (
       "\nMyFree(Ptr=%p, File=%s, Line=%u)"
       "\nInvalid parameter(s).\n",

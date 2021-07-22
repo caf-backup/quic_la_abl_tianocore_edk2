@@ -1,14 +1,19 @@
 /** @file
-
+  
   The definition of CFormPkg's member function
 
-Copyright (c) 2004 - 2019, Intel Corporation. All rights reserved.<BR>
-SPDX-License-Identifier: BSD-2-Clause-Patent
+Copyright (c) 2004 - 2013, Intel Corporation. All rights reserved.<BR>
+This program and the accompanying materials                          
+are licensed and made available under the terms and conditions of the BSD License         
+which accompanies this distribution.  The full text of the license may be found at        
+http://opensource.org/licenses/bsd-license.php                                            
+                                                                                          
+THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,                     
+WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.             
 
 **/
 
 #include "stdio.h"
-#include "assert.h"
 #include "VfrFormPkg.h"
 
 /*
@@ -16,9 +21,9 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
  */
 
 SPendingAssign::SPendingAssign (
-  IN CHAR8  *Key,
-  IN VOID   *Addr,
-  IN UINT32 Len,
+  IN CHAR8  *Key, 
+  IN VOID   *Addr, 
+  IN UINT32 Len, 
   IN UINT32 LineNo,
   IN CONST CHAR8  *Msg
   )
@@ -50,20 +55,20 @@ SPendingAssign::~SPendingAssign (
   )
 {
   if (mKey != NULL) {
-    delete[] mKey;
+    delete mKey;
   }
   mAddr   = NULL;
   mLen    = 0;
   mLineNo = 0;
   if (mMsg != NULL) {
-    delete[] mMsg;
+    delete mMsg;
   }
   mNext   = NULL;
 }
 
 VOID
 SPendingAssign::SetAddrAndLen (
-  IN VOID   *Addr,
+  IN VOID   *Addr, 
   IN UINT32 LineNo
   )
 {
@@ -73,7 +78,7 @@ SPendingAssign::SetAddrAndLen (
 
 VOID
 SPendingAssign::AssignValue (
-  IN VOID   *Addr,
+  IN VOID   *Addr, 
   IN UINT32 Len
   )
 {
@@ -98,13 +103,8 @@ CFormPkg::CFormPkg (
   SBufferNode *Node;
 
   mPkgLength           = 0;
-  mBufferSize          = 0;
   mBufferNodeQueueHead = NULL;
-  mBufferNodeQueueTail = NULL;
   mCurrBufferNode      = NULL;
-  mReadBufferNode      = NULL;
-  mReadBufferOffset    = 0;
-  PendingAssignList    = NULL;
 
   Node = new SBufferNode;
   if (Node == NULL) {
@@ -112,7 +112,6 @@ CFormPkg::CFormPkg (
   }
   BufferStart = new CHAR8[BufferSize];
   if (BufferStart == NULL) {
-    delete Node;
     return;
   }
   BufferEnd   = BufferStart + BufferSize;
@@ -138,7 +137,7 @@ CFormPkg::~CFormPkg ()
     pBNode = mBufferNodeQueueHead;
     mBufferNodeQueueHead = mBufferNodeQueueHead->mNext;
     if (pBNode->mBufferStart != NULL) {
-      delete[] pBNode->mBufferStart;
+      delete pBNode->mBufferStart;
       delete pBNode;
     }
   }
@@ -249,7 +248,7 @@ CFormPkg::Close (
 
 UINT32
 CFormPkg::Read (
-  IN CHAR8     *Buffer,
+  IN CHAR8     *Buffer, 
   IN UINT32    Size
   )
 {
@@ -303,7 +302,7 @@ CFormPkg::BuildPkg (
   OUT PACKAGE_DATA &TBuffer
   )
 {
-
+  
   CHAR8  *Temp;
   UINT32 Size;
   CHAR8  Buffer[1024];
@@ -351,7 +350,7 @@ CFormPkg::BuildPkg (
   }
   fwrite (PkgHdr, sizeof (EFI_HII_PACKAGE_HEADER), 1, Output);
   delete PkgHdr;
-
+  
   if (PkgData == NULL) {
     Open ();
     while ((Size = Read (Buffer, 1024)) != 0) {
@@ -421,7 +420,7 @@ UINT32   gAdjustOpcodeOffset = 0;
 BOOLEAN  gNeedAdjustOpcode   = FALSE;
 UINT32   gAdjustOpcodeLen    = 0;
 
-EFI_VFR_RETURN_CODE
+EFI_VFR_RETURN_CODE 
 CFormPkg::GenCFile (
   IN CHAR8 *BaseName,
   IN FILE *pFile,
@@ -444,17 +443,28 @@ CFormPkg::GenCFile (
     return Ret;
   }
 
-
-  fprintf (pFile, "  // ARRAY LENGTH\n");
-  PkgLength = PkgHdr->Length + sizeof (UINT32);
-  _WRITE_PKG_LINE(pFile, BYTES_PRE_LINE, "  ", (CHAR8 *)&PkgLength, sizeof (UINT32));
+  //
+  // For framework vfr file, the extension framework header will be added.
+  //
+  if (VfrCompatibleMode) {
+	  fprintf (pFile, "  // FRAMEWORK PACKAGE HEADER Length\n");
+	  PkgLength = PkgHdr->Length + sizeof (UINT32) + 2;
+	  _WRITE_PKG_LINE(pFile, BYTES_PRE_LINE, "  ", (CHAR8 *)&PkgLength, sizeof (UINT32));	
+	  fprintf (pFile, "\n\n  // FRAMEWORK PACKAGE HEADER Type\n");
+	  PkgLength = 3;
+	  _WRITE_PKG_LINE(pFile, BYTES_PRE_LINE, "  ", (CHAR8 *)&PkgLength, sizeof (UINT16));	
+	} else {
+	  fprintf (pFile, "  // ARRAY LENGTH\n");
+	  PkgLength = PkgHdr->Length + sizeof (UINT32);
+	  _WRITE_PKG_LINE(pFile, BYTES_PRE_LINE, "  ", (CHAR8 *)&PkgLength, sizeof (UINT32));	
+	}
 
   fprintf (pFile, "\n\n  // PACKAGE HEADER\n");
   _WRITE_PKG_LINE(pFile, BYTES_PRE_LINE, "  ", (CHAR8 *)PkgHdr, sizeof (EFI_HII_PACKAGE_HEADER));
   PkgLength = sizeof (EFI_HII_PACKAGE_HEADER);
 
   fprintf (pFile, "\n\n  // PACKAGE DATA\n");
-
+  
   if (PkgData == NULL) {
     Open ();
     while ((ReadSize = Read ((CHAR8 *)Buffer, BYTES_PRE_LINE * 8)) != 0) {
@@ -486,8 +496,8 @@ CFormPkg::GenCFile (
 
 EFI_VFR_RETURN_CODE
 CFormPkg::AssignPending (
-  IN CHAR8  *Key,
-  IN VOID   *ValAddr,
+  IN CHAR8  *Key, 
+  IN VOID   *ValAddr, 
   IN UINT32 ValLen,
   IN UINT32 LineNo,
   IN CONST CHAR8  *Msg
@@ -507,8 +517,8 @@ CFormPkg::AssignPending (
 
 VOID
 CFormPkg::DoPendingAssign (
-  IN CHAR8  *Key,
-  IN VOID   *ValAddr,
+  IN CHAR8  *Key, 
+  IN VOID   *ValAddr, 
   IN UINT32 ValLen
   )
 {
@@ -642,12 +652,11 @@ CFormPkg::GetBufAddrBaseOnOffset (
 
 EFI_VFR_RETURN_CODE
 CFormPkg::AdjustDynamicInsertOpcode (
-  IN CHAR8              *InserPositionAddr,
-  IN CHAR8              *InsertOpcodeAddr,
-  IN BOOLEAN            CreateOpcodeAfterParsingVfr
+  IN CHAR8              *LastFormEndAddr,
+  IN CHAR8              *InsertOpcodeAddr
   )
 {
-  SBufferNode *InserPositionNode;
+  SBufferNode *LastFormEndNode;
   SBufferNode *InsertOpcodeNode;
   SBufferNode *NewRestoreNodeBegin;
   SBufferNode *NewRestoreNodeEnd;
@@ -657,55 +666,53 @@ CFormPkg::AdjustDynamicInsertOpcode (
 
   NewRestoreNodeEnd = NULL;
 
-  InserPositionNode  = GetBinBufferNodeForAddr(InserPositionAddr);
+  LastFormEndNode  = GetBinBufferNodeForAddr(LastFormEndAddr);
   InsertOpcodeNode = GetBinBufferNodeForAddr(InsertOpcodeAddr);
-  assert (InserPositionNode != NULL);
-  assert (InsertOpcodeNode  != NULL);
 
-  if (InserPositionNode == InsertOpcodeNode) {
+  if (LastFormEndNode == InsertOpcodeNode) {
     //
     // Create New Node to save the restore opcode.
     //
-    NeedRestoreCodeLen = InsertOpcodeAddr - InserPositionAddr;
+    NeedRestoreCodeLen = InsertOpcodeAddr - LastFormEndAddr;
     gAdjustOpcodeLen   = NeedRestoreCodeLen;
     NewRestoreNodeBegin = CreateNewNode ();
     if (NewRestoreNodeBegin == NULL) {
       return VFR_RETURN_OUT_FOR_RESOURCES;
     }
-    memcpy (NewRestoreNodeBegin->mBufferFree, InserPositionAddr, NeedRestoreCodeLen);
+    memcpy (NewRestoreNodeBegin->mBufferFree, LastFormEndAddr, NeedRestoreCodeLen);
     NewRestoreNodeBegin->mBufferFree += NeedRestoreCodeLen;
 
     //
     // Override the restore buffer data.
     //
-    memmove (InserPositionAddr, InsertOpcodeAddr, InsertOpcodeNode->mBufferFree - InsertOpcodeAddr);
+    memmove (LastFormEndAddr, InsertOpcodeAddr, InsertOpcodeNode->mBufferFree - InsertOpcodeAddr);
     InsertOpcodeNode->mBufferFree -= NeedRestoreCodeLen;
     memset (InsertOpcodeNode->mBufferFree, 0, NeedRestoreCodeLen);
   } else {
     //
     // Create New Node to save the restore opcode.
     //
-    NeedRestoreCodeLen = InserPositionNode->mBufferFree - InserPositionAddr;
+    NeedRestoreCodeLen = LastFormEndNode->mBufferFree - LastFormEndAddr;
     gAdjustOpcodeLen   = NeedRestoreCodeLen;
     NewRestoreNodeBegin = CreateNewNode ();
     if (NewRestoreNodeBegin == NULL) {
       return VFR_RETURN_OUT_FOR_RESOURCES;
     }
-    memcpy (NewRestoreNodeBegin->mBufferFree, InserPositionAddr, NeedRestoreCodeLen);
+    memcpy (NewRestoreNodeBegin->mBufferFree, LastFormEndAddr, NeedRestoreCodeLen);
     NewRestoreNodeBegin->mBufferFree += NeedRestoreCodeLen;
     //
     // Override the restore buffer data.
     //
-    InserPositionNode->mBufferFree -= NeedRestoreCodeLen;
+    LastFormEndNode->mBufferFree -= NeedRestoreCodeLen;
     //
     // Link the restore data to new node.
     //
-    NewRestoreNodeBegin->mNext = InserPositionNode->mNext;
+    NewRestoreNodeBegin->mNext = LastFormEndNode->mNext;
 
     //
     // Count the Adjust opcode len.
     //
-    TmpNode = InserPositionNode->mNext;
+    TmpNode = LastFormEndNode->mNext;
     while (TmpNode != InsertOpcodeNode) {
       gAdjustOpcodeLen += TmpNode->mBufferFree - TmpNode->mBufferStart;
       TmpNode = TmpNode->mNext;
@@ -733,68 +740,50 @@ CFormPkg::AdjustDynamicInsertOpcode (
       // Insert the last restore data node.
       //
       TmpNode = GetNodeBefore (InsertOpcodeNode);
-      assert (TmpNode != NULL);
-
-      if (TmpNode == InserPositionNode) {
+      if (TmpNode == LastFormEndNode) {
         NewRestoreNodeBegin->mNext = NewRestoreNodeEnd;
       } else {
         TmpNode->mNext = NewRestoreNodeEnd;
       }
       //
-      // Connect the dynamic opcode node to the node after InserPositionNode.
+      // Connect the dynamic opcode node to the node before last form end node.
       //
-      InserPositionNode->mNext = InsertOpcodeNode;
+      LastFormEndNode->mNext = InsertOpcodeNode;
     }
   }
 
-  if (CreateOpcodeAfterParsingVfr) {
+  if (mBufferNodeQueueTail->mBufferFree - mBufferNodeQueueTail->mBufferStart > 2) {
     //
-    // Th new opcodes were created after Parsing Vfr file,
-    // so the content in mBufferNodeQueueTail must be the new created opcodes.
-    // So connet the  NewRestoreNodeBegin to the tail and update the tail node.
+    // End form set opcode all in the mBufferNodeQueueTail node.
     //
+    NewLastEndNode = CreateNewNode ();
+    if (NewLastEndNode == NULL) {
+      return VFR_RETURN_OUT_FOR_RESOURCES;
+    }
+    NewLastEndNode->mBufferStart[0] = 0x29;
+    NewLastEndNode->mBufferStart[1] = 0x02;
+    NewLastEndNode->mBufferFree += 2;
+
+    mBufferNodeQueueTail->mBufferFree -= 2;
+
     mBufferNodeQueueTail->mNext = NewRestoreNodeBegin;
     if (NewRestoreNodeEnd != NULL) {
-      mBufferNodeQueueTail = NewRestoreNodeEnd;
+      NewRestoreNodeEnd->mNext = NewLastEndNode;
     } else {
-      mBufferNodeQueueTail = NewRestoreNodeBegin;
+      NewRestoreNodeBegin->mNext = NewLastEndNode;
     }
-  } else {
-    if (mBufferNodeQueueTail->mBufferFree - mBufferNodeQueueTail->mBufferStart > 2) {
-      //
-      // End form set opcode all in the mBufferNodeQueueTail node.
-      //
-      NewLastEndNode = CreateNewNode ();
-      if (NewLastEndNode == NULL) {
-        return VFR_RETURN_OUT_FOR_RESOURCES;
-      }
-      NewLastEndNode->mBufferStart[0] = 0x29;
-      NewLastEndNode->mBufferStart[1] = 0x02;
-      NewLastEndNode->mBufferFree += 2;
 
-      mBufferNodeQueueTail->mBufferFree -= 2;
-
-      mBufferNodeQueueTail->mNext = NewRestoreNodeBegin;
-      if (NewRestoreNodeEnd != NULL) {
-        NewRestoreNodeEnd->mNext = NewLastEndNode;
-      } else {
-        NewRestoreNodeBegin->mNext = NewLastEndNode;
-      }
-
-      mBufferNodeQueueTail = NewLastEndNode;
-    } else if (mBufferNodeQueueTail->mBufferFree - mBufferNodeQueueTail->mBufferStart == 2) {
-      TmpNode = GetNodeBefore(mBufferNodeQueueTail);
-      assert (TmpNode != NULL);
-
-      TmpNode->mNext = NewRestoreNodeBegin;
-      if (NewRestoreNodeEnd != NULL) {
-        NewRestoreNodeEnd->mNext = mBufferNodeQueueTail;
-      } else {
-        NewRestoreNodeBegin->mNext = mBufferNodeQueueTail;
-      }
+    mBufferNodeQueueTail = NewLastEndNode;
+  } else if (mBufferNodeQueueTail->mBufferFree - mBufferNodeQueueTail->mBufferStart == 2) {
+    TmpNode = GetNodeBefore(mBufferNodeQueueTail);
+    TmpNode->mNext = NewRestoreNodeBegin;
+    if (NewRestoreNodeEnd != NULL) {
+      NewRestoreNodeEnd->mNext = mBufferNodeQueueTail;
+    } else {
+      NewRestoreNodeBegin->mNext = mBufferNodeQueueTail;
     }
   }
-  mCurrBufferNode = mBufferNodeQueueTail;
+
   return VFR_RETURN_SUCCESS;
 }
 
@@ -814,12 +803,10 @@ CFormPkg::DeclarePendingQuestion (
   CHAR8          FName[MAX_NAME_LEN];
   CHAR8          *SName;
   CHAR8          *NewStr;
-  UINT32         ShrinkSize = 0;
+  UINT32         ShrinkSize;
   EFI_VFR_RETURN_CODE  ReturnCode;
   EFI_VFR_VARSTORE_TYPE VarStoreType  = EFI_VFR_VARSTORE_INVALID;
-  UINT8    LFlags;
-  UINT32   MaxValue;
-  CIfrGuid *GuidObj = NULL;
+  EFI_VARSTORE_ID       VarStoreId    = EFI_VARSTORE_ID_INVALID;
 
   //
   // Declare all questions as Numeric in DisableIf True
@@ -827,16 +814,22 @@ CFormPkg::DeclarePendingQuestion (
   // DisableIf
   CIfrDisableIf DIObj;
   DIObj.SetLineNo (LineNo);
-  *InsertOpcodeAddr = DIObj.GetObjBinAddr<CHAR8>();
-
+  *InsertOpcodeAddr = DIObj.GetObjBinAddr ();
+  
   //TrueOpcode
   CIfrTrue TObj (LineNo);
 
   // Declare Numeric qeustion for each undefined question.
   for (pNode = PendingAssignList; pNode != NULL; pNode = pNode->mNext) {
     if (pNode->mFlag == PENDING) {
-      EFI_VARSTORE_INFO Info;
+      CIfrNumeric CNObj;
+      EFI_VARSTORE_INFO Info; 
       EFI_QUESTION_ID   QId   = EFI_QUESTION_ID_INVALID;
+
+      CNObj.SetLineNo (LineNo);
+      CNObj.SetPrompt (0x0);
+      CNObj.SetHelp (0x0);
+
       //
       // Register this question, assume it is normal question, not date or time question
       //
@@ -846,7 +839,7 @@ CFormPkg::DeclarePendingQuestion (
         gCVfrErrorHandle.HandleError (ReturnCode, pNode->mLineNo, pNode->mKey);
         return ReturnCode;
       }
-
+ 
 #ifdef VFREXP_DEBUG
       printf ("Undefined Question name is %s and Id is 0x%x\n", VarStr, QId);
 #endif
@@ -866,14 +859,14 @@ CFormPkg::DeclarePendingQuestion (
         gCVfrErrorHandle.PrintMsg (pNode->mLineNo, FName, "Error", "Var Store Type is not defined");
         return ReturnCode;
       }
-      VarStoreType = lCVfrDataStorage.GetVarStoreType (Info.mVarStoreId);
+      VarStoreType = lCVfrDataStorage.GetVarStoreType (Info.mVarStoreId); 
 
       if (*VarStr == '\0' && ArrayIdx != INVALID_ARRAY_INDEX) {
         ReturnCode = lCVfrDataStorage.GetNameVarStoreInfo (&Info, ArrayIdx);
       } else {
         if (VarStoreType == EFI_VFR_VARSTORE_EFI) {
           ReturnCode = lCVfrDataStorage.GetEfiVarStoreInfo (&Info);
-        } else if (VarStoreType == EFI_VFR_VARSTORE_BUFFER || VarStoreType == EFI_VFR_VARSTORE_BUFFER_BITS) {
+        } else if (VarStoreType == EFI_VFR_VARSTORE_BUFFER) {
           VarStr = pNode->mKey;
           //convert VarStr with store name to VarStr with structure name
           ReturnCode = lCVfrDataStorage.GetBufferVarStoreDataTypeName (Info.mVarStoreId, &SName);
@@ -882,8 +875,8 @@ CFormPkg::DeclarePendingQuestion (
             NewStr[0] = '\0';
             strcpy (NewStr, SName);
             strcat (NewStr, VarStr + strlen (FName));
-            ReturnCode = lCVfrVarDataTypeDB.GetDataFieldInfo (NewStr, Info.mInfo.mVarOffset, Info.mVarType, Info.mVarTotalSize, Info.mIsBitVar);
-            delete[] NewStr;
+            ReturnCode = lCVfrVarDataTypeDB.GetDataFieldInfo (NewStr, Info.mInfo.mVarOffset, Info.mVarType, Info.mVarTotalSize);
+            delete NewStr;
           }
         } else {
           ReturnCode = VFR_RETURN_UNSUPPORTED;
@@ -893,63 +886,39 @@ CFormPkg::DeclarePendingQuestion (
         gCVfrErrorHandle.HandleError (ReturnCode, pNode->mLineNo, pNode->mKey);
         return ReturnCode;
       }
-      //
-      // If the storage is bit fields, create Guid opcode to wrap the numeric opcode.
-      //
-      if (Info.mIsBitVar) {
-        GuidObj = new CIfrGuid(0);
-        GuidObj->SetGuid (&gEdkiiIfrBitVarGuid);
-        GuidObj->SetLineNo(LineNo);
-      }
 
-      CIfrNumeric CNObj;
-      CNObj.SetLineNo (LineNo);
-      CNObj.SetPrompt (0x0);
-      CNObj.SetHelp (0x0);
       CNObj.SetQuestionId (QId);
       CNObj.SetVarStoreInfo (&Info);
-
       //
-      // Set Min/Max/Step Data and flags for the question with bit fields.Min/Max/Step Data are saved as UINT32 type for bit question.
+      // Numeric doesn't support BOOLEAN data type. 
+      // BOOLEAN type has the same data size to UINT8. 
       //
-      if (Info.mIsBitVar) {
-        MaxValue = (1 << Info.mVarTotalSize) -1;
-        CNObj.SetMinMaxStepData ((UINT32) 0, MaxValue, (UINT32) 0);
+      if (Info.mVarType == EFI_IFR_TYPE_BOOLEAN) {
+        Info.mVarType = EFI_IFR_TYPE_NUM_SIZE_8;
+      }
+      CNObj.SetFlags (0, Info.mVarType);
+      //
+      // Use maximum value not to limit the vaild value for the undefined question.
+      //
+      switch (Info.mVarType) {
+      case EFI_IFR_TYPE_NUM_SIZE_64:
+        CNObj.SetMinMaxStepData ((UINT64) 0, (UINT64) -1 , (UINT64) 0);
+        ShrinkSize = 0;
+        break;
+      case EFI_IFR_TYPE_NUM_SIZE_32:
+        CNObj.SetMinMaxStepData ((UINT32) 0, (UINT32) -1 , (UINT32) 0);
         ShrinkSize = 12;
-        LFlags = (EDKII_IFR_NUMERIC_SIZE_BIT & Info.mVarTotalSize);
-        CNObj.SetFlagsForBitField (0, LFlags);
-      } else {
-        //
-        // Numeric doesn't support BOOLEAN data type.
-        // BOOLEAN type has the same data size to UINT8.
-        //
-        if (Info.mVarType == EFI_IFR_TYPE_BOOLEAN) {
-          Info.mVarType = EFI_IFR_TYPE_NUM_SIZE_8;
-        }
-        CNObj.SetFlags (0, Info.mVarType);
-        //
-        // Use maximum value not to limit the valid value for the undefined question.
-        //
-        switch (Info.mVarType) {
-        case EFI_IFR_TYPE_NUM_SIZE_64:
-          CNObj.SetMinMaxStepData ((UINT64) 0, (UINT64) -1 , (UINT64) 0);
-          ShrinkSize = 0;
-          break;
-        case EFI_IFR_TYPE_NUM_SIZE_32:
-          CNObj.SetMinMaxStepData ((UINT32) 0, (UINT32) -1 , (UINT32) 0);
-          ShrinkSize = 12;
-          break;
-        case EFI_IFR_TYPE_NUM_SIZE_16:
-          CNObj.SetMinMaxStepData ((UINT16) 0, (UINT16) -1 , (UINT16) 0);
-          ShrinkSize = 18;
-          break;
-        case EFI_IFR_TYPE_NUM_SIZE_8:
-          CNObj.SetMinMaxStepData ((UINT8) 0, (UINT8) -1 , (UINT8) 0);
-          ShrinkSize = 21;
-          break;
-        default:
-          break;
-        }
+        break;
+      case EFI_IFR_TYPE_NUM_SIZE_16:
+        CNObj.SetMinMaxStepData ((UINT16) 0, (UINT16) -1 , (UINT16) 0);
+        ShrinkSize = 18;
+        break;
+      case EFI_IFR_TYPE_NUM_SIZE_8:
+        CNObj.SetMinMaxStepData ((UINT8) 0, (UINT8) -1 , (UINT8) 0);
+        ShrinkSize = 21;
+        break;
+      default:
+        break;
       }
       CNObj.ShrinkBinSize (ShrinkSize);
 
@@ -957,7 +926,7 @@ CFormPkg::DeclarePendingQuestion (
       // For undefined Efi VarStore type question
       // Append the extended guided opcode to contain VarName
       //
-      if (VarStoreType == EFI_VFR_VARSTORE_EFI) {
+      if (VarStoreType == EFI_VFR_VARSTORE_EFI || VfrCompatibleMode) {
         CIfrVarEqName CVNObj (QId, Info.mInfo.mVarName);
         CVNObj.SetLineNo (LineNo);
       }
@@ -965,18 +934,8 @@ CFormPkg::DeclarePendingQuestion (
       //
       // End for Numeric
       //
-      CIfrEnd CEObj;
+      CIfrEnd CEObj; 
       CEObj.SetLineNo (LineNo);
-      //
-      // End for Guided opcode
-      //
-      if (GuidObj != NULL) {
-        CIfrEnd CEObjGuid;
-        CEObjGuid.SetLineNo (LineNo);
-        GuidObj->SetScope(1);
-        delete GuidObj;
-        GuidObj = NULL;
-      }
     }
   }
 
@@ -1024,10 +983,6 @@ CIfrRecordInfoDB::CIfrRecordInfoDB (
   mRecordCount       = EFI_IFR_RECORDINFO_IDX_START;
   mIfrRecordListHead = NULL;
   mIfrRecordListTail = NULL;
-  mAllDefaultTypeCount = 0;
-  for (UINT8 i = 0; i < EFI_HII_MAX_SUPPORT_DEFAULT_TYPE; i++) {
-    mAllDefaultIdArray[i] = 0xffff;
-  }
 }
 
 CIfrRecordInfoDB::~CIfrRecordInfoDB (
@@ -1132,10 +1087,10 @@ CIfrRecordInfoDB::IfrRecordOutput (
   )
 {
   CHAR8      *Temp;
-  SIfrRecord *pNode;
+  SIfrRecord *pNode; 
 
   if (TBuffer.Buffer != NULL) {
-    delete[] TBuffer.Buffer;
+    delete TBuffer.Buffer;
   }
 
   TBuffer.Size = 0;
@@ -1144,18 +1099,18 @@ CIfrRecordInfoDB::IfrRecordOutput (
 
   if (mSwitch == FALSE) {
     return;
-  }
-
+  } 
+   
   for (pNode = mIfrRecordListHead; pNode != NULL; pNode = pNode->mNext) {
     TBuffer.Size += pNode->mBinBufLen;
   }
-
+  
   if (TBuffer.Size != 0) {
     TBuffer.Buffer = new CHAR8[TBuffer.Size];
   } else {
     return;
   }
-
+  
   Temp = TBuffer.Buffer;
 
   for (pNode = mIfrRecordListHead; pNode != NULL; pNode = pNode->mNext) {
@@ -1165,8 +1120,8 @@ CIfrRecordInfoDB::IfrRecordOutput (
     }
   }
 
-  return;
-}
+  return;   
+}   
 
 VOID
 CIfrRecordInfoDB::IfrRecordOutput (
@@ -1200,7 +1155,7 @@ CIfrRecordInfoDB::IfrRecordOutput (
       fprintf (File, "\n");
     }
   }
-
+  
   if (LineNo == 0) {
     fprintf (File, "\nTotal Size of all record is 0x%08X\n", TotalSize);
   }
@@ -1226,7 +1181,6 @@ CIfrRecordInfoDB::CheckQuestionOpCode (
   case EFI_IFR_DATE_OP:
   case EFI_IFR_TIME_OP:
   case EFI_IFR_ORDERED_LIST_OP:
-  case EFI_IFR_REF_OP:
     return TRUE;
   default:
     return FALSE;
@@ -1247,7 +1201,7 @@ CIfrRecordInfoDB::CheckIdOpCode (
   default:
     return FALSE;
   }
-}
+} 
 
 EFI_QUESTION_ID
 CIfrRecordInfoDB::GetOpcodeQuestionId (
@@ -1255,9 +1209,9 @@ CIfrRecordInfoDB::GetOpcodeQuestionId (
   )
 {
   EFI_IFR_QUESTION_HEADER *QuestionHead;
-
+  
   QuestionHead = (EFI_IFR_QUESTION_HEADER *) (OpHead + 1);
-
+  
   return QuestionHead->QuestionId;
 }
 
@@ -1277,131 +1231,62 @@ CIfrRecordInfoDB::GetRecordInfoFromOffset (
   return pNode;
 }
 
-/**
+/*
   Add just the op code position.
 
-  Case1 (CreateOpcodeAfterParsingVfr == FALSE): The dynamic opcodes were created before the formset opcode,
-  so pDynamicOpcodeNodes is before mIfrRecordListTail.
-
   From
-
-  |mIfrRecordListHead + ...+ pAdjustNode + pDynamicOpcodeNodes + mIfrRecordListTail|
-
+  
+  | form end opcode + end of if opcode for form ... + Dynamic opcode + form set end opcode |
+  
   To
+  
+  | Dynamic opcode + form end opcode + end of if opcode for form ... + form set end opcode |
 
-  |mIfrRecordListHead + ...+ pDynamicOpcodeNodes + pAdjustNode + mIfrRecordListTail|
-
-  Case2 (CreateOpcodeAfterParsingVfr == TRUE): The dynamic opcodes were created after paring the vfr file,
-  so new records are appennded to the end of OriginalIfrRecordListTail.
-
-  From
-
-  |mIfrRecordListHead + ...+ pAdjustNode +  ... + OriginalIfrRecordListTail + pDynamicOpcodeNodes|
-
-  To
-
-  |mIfrRecordListHead + ...+ pDynamicOpcodeNodes + pAdjustNode +  ... + OriginalIfrRecordListTail|
-
-
-  @param CreateOpcodeAfterParsingVfr     Whether create the dynamic opcode after parsing the VFR file.
-
-**/
+*/
 BOOLEAN
 CIfrRecordInfoDB::IfrAdjustDynamicOpcodeInRecords (
-  IN BOOLEAN  CreateOpcodeAfterParsingVfr
+  VOID
   )
 {
   UINT32             OpcodeOffset;
   SIfrRecord         *pNode, *pPreNode;
-  SIfrRecord         *pAdjustNode, *pNodeBeforeAdjust;
-  SIfrRecord         *pNodeBeforeDynamic;
-
-  pPreNode            = NULL;
-  pAdjustNode         = NULL;
-  pNodeBeforeDynamic  = NULL;
-  OpcodeOffset        = 0;
+  SIfrRecord         *pStartNode, *pNodeBeforeStart;
+  SIfrRecord         *pEndNode;
+  
+  pStartNode = NULL;
+  pEndNode   = NULL;
+  OpcodeOffset = 0;
 
   //
-  // Base on the gAdjustOpcodeOffset and gAdjustOpcodeLen to find the pAdjustNod, the node before pAdjustNode,
-  // and the node before pDynamicOpcodeNode.
+  // Base on the offset info to get the node.
   //
-  for (pNode = mIfrRecordListHead; pNode!= NULL; pNode = pNode->mNext) {
+  for (pNode = mIfrRecordListHead; pNode->mNext != NULL; pPreNode = pNode,pNode = pNode->mNext) {
     if (OpcodeOffset == gAdjustOpcodeOffset) {
-      pAdjustNode       = pNode;
-      pNodeBeforeAdjust = pPreNode;
+      pStartNode       = pNode;
+      pNodeBeforeStart = pPreNode;
     } else if (OpcodeOffset == gAdjustOpcodeOffset + gAdjustOpcodeLen) {
-      pNodeBeforeDynamic = pPreNode;
+      pEndNode = pPreNode;
     }
-    if (pNode->mNext != NULL) {
-      pPreNode = pNode;
-    }
+
     OpcodeOffset += pNode->mBinBufLen;
   }
 
   //
-  // Check the nodes whether exist.
+  // Check the value.
   //
-  if (pNodeBeforeDynamic == NULL || pAdjustNode == NULL || pNodeBeforeAdjust == NULL) {
+  if (pEndNode == NULL || pStartNode == NULL) {
     return FALSE;
   }
 
   //
   // Adjust the node. pPreNode save the Node before mIfrRecordListTail
   //
-  pNodeBeforeAdjust->mNext = pNodeBeforeDynamic->mNext;
-  if (CreateOpcodeAfterParsingVfr) {
-    //
-    // mIfrRecordListTail is the end of pDynamicNode (Case2).
-    //
-    mIfrRecordListTail->mNext = pAdjustNode;
-    mIfrRecordListTail = pNodeBeforeDynamic;
-    mIfrRecordListTail->mNext = NULL;
-  } else {
-    //
-    //pPreNode is the end of pDynamicNode(Case1).
-    //
-    pPreNode->mNext = pAdjustNode;
-    pNodeBeforeDynamic->mNext = mIfrRecordListTail;
-  }
+  pNodeBeforeStart->mNext = pEndNode->mNext;
+  pPreNode->mNext = pStartNode;
+  pEndNode->mNext = mIfrRecordListTail;
 
   return TRUE;
 }
-
-/**
-  Update the record info(the position in the record list, offset and mIfrBinBuf) for new created record.
-
-  @param CreateOpcodeAfterParsingVfr     Whether create the dynamic opcode after parsing the VFR file.
-
-**/
-VOID
-CIfrRecordInfoDB::IfrUpdateRecordInfoForDynamicOpcode (
-  IN BOOLEAN  CreateOpcodeAfterParsingVfr
-  )
-{
-  SIfrRecord          *pRecord;
-
-  //
-  // Base on the original offset info to update the record list.
-  //
-  if (!IfrAdjustDynamicOpcodeInRecords(CreateOpcodeAfterParsingVfr)) {
-    gCVfrErrorHandle.PrintMsg (0, (CHAR8 *)"Error", (CHAR8 *)"Can not find the adjust offset in the record.");
-  }
-
-  //
-  // Base on the opcode binary length to recalculate the offset for each opcode.
-  //
-  IfrAdjustOffsetForRecord();
-
-  //
-  // Base on the offset to find the binary address.
-  //
-  pRecord = GetRecordInfoFromOffset(gAdjustOpcodeOffset);
-  while (pRecord != NULL) {
-    pRecord->mIfrBinBuf = gCFormPkg.GetBufAddrBaseOnOffset(pRecord->mOffset);
-    pRecord = pRecord->mNext;
-  }
-}
-
 
 VOID
 CIfrRecordInfoDB::IfrAdjustOffsetForRecord (
@@ -1429,6 +1314,7 @@ CIfrRecordInfoDB::IfrRecordAdjust (
   EFI_QUESTION_ID    QuestionId;
   UINT32             StackCount;
   UINT32             QuestionScope;
+  UINT32             OpcodeOffset;
   CHAR8              ErrorMsg[MAX_STRING_LEN] = {0, };
   EFI_VFR_RETURN_CODE  Status;
 
@@ -1441,7 +1327,7 @@ CIfrRecordInfoDB::IfrRecordAdjust (
   QuestionScope = 0;
   while (pNode != NULL) {
     OpHead = (EFI_IFR_OP_HEADER *) pNode->mIfrBinBuf;
-
+    
     //
     // make sure the inconsistent opcode in question scope
     //
@@ -1451,7 +1337,7 @@ CIfrRecordInfoDB::IfrRecordAdjust (
         QuestionScope --;
       }
     }
-
+    
     if (CheckQuestionOpCode (OpHead->OpCode)) {
       QuestionScope = 1;
     }
@@ -1464,7 +1350,7 @@ CIfrRecordInfoDB::IfrRecordAdjust (
       //
 
       //
-      // Count inconsistent opcode Scope
+      // Count inconsistent opcode Scope 
       //
       StackCount = OpHead->Scope;
       QuestionId = EFI_QUESTION_ID_INVALID;
@@ -1482,7 +1368,7 @@ CIfrRecordInfoDB::IfrRecordAdjust (
         //
         // by IdEqual opcode to get QuestionId
         //
-        if (QuestionId == EFI_QUESTION_ID_INVALID &&
+        if (QuestionId == EFI_QUESTION_ID_INVALID && 
             CheckIdOpCode (tOpHead->OpCode)) {
           QuestionId = *(EFI_QUESTION_ID *) (tOpHead + 1);
         }
@@ -1498,15 +1384,15 @@ CIfrRecordInfoDB::IfrRecordAdjust (
       }
       //
       // extract inconsistent opcode list
-      // pNode is Inconsistent opcode, tNode is End Opcode
+      // pNode is Incosistent opcode, tNode is End Opcode
       //
-
+      
       //
       // insert inconsistent opcode list into the right question scope by questionid
       //
       for (uNode = mIfrRecordListHead; uNode != NULL; uNode = uNode->mNext) {
         tOpHead = (EFI_IFR_OP_HEADER *) uNode->mIfrBinBuf;
-        if (CheckQuestionOpCode (tOpHead->OpCode) &&
+        if (CheckQuestionOpCode (tOpHead->OpCode) && 
             (QuestionId == GetOpcodeQuestionId (tOpHead))) {
           break;
         }
@@ -1521,7 +1407,7 @@ CIfrRecordInfoDB::IfrRecordAdjust (
           //
           OpHead->OpCode = EFI_IFR_NO_SUBMIT_IF_OP;
         }
-
+        
         //
         // skip the default storage for Date and Time
         //
@@ -1548,7 +1434,7 @@ CIfrRecordInfoDB::IfrRecordAdjust (
         Status = VFR_RETURN_MISMATCHED;
         break;
       }
-    } else if (OpHead->OpCode == EFI_IFR_VARSTORE_OP ||
+    } else if (OpHead->OpCode == EFI_IFR_VARSTORE_OP || 
                OpHead->OpCode == EFI_IFR_VARSTORE_EFI_OP) {
       //
       // for new added group of varstore opcode
@@ -1556,9 +1442,9 @@ CIfrRecordInfoDB::IfrRecordAdjust (
       tNode = pNode;
       while (tNode->mNext != NULL) {
         tOpHead = (EFI_IFR_OP_HEADER *) tNode->mNext->mIfrBinBuf;
-        if (tOpHead->OpCode != EFI_IFR_VARSTORE_OP &&
+        if (tOpHead->OpCode != EFI_IFR_VARSTORE_OP && 
             tOpHead->OpCode != EFI_IFR_VARSTORE_EFI_OP) {
-          break;
+          break;    
         }
         tNode = tNode->mNext;
       }
@@ -1566,22 +1452,22 @@ CIfrRecordInfoDB::IfrRecordAdjust (
       if (tNode->mNext == NULL) {
         //
         // invalid IfrCode, IfrCode end by EndOpCode
-        //
+        // 
         gCVfrErrorHandle.PrintMsg (0, NULL, "Error", "No found End Opcode in the end");
         Status = VFR_RETURN_MISMATCHED;
         break;
       }
-
+      
       if (tOpHead->OpCode != EFI_IFR_END_OP) {
           //
           // not new added varstore, which are not needed to be adjust.
           //
           preNode = tNode;
           pNode   = tNode->mNext;
-          continue;
+          continue;        
       } else {
         //
-        // move new added varstore opcode to the position befor form opcode
+        // move new added varstore opcode to the position befor form opcode 
         // varstore opcode between pNode and tNode
         //
 
@@ -1622,9 +1508,9 @@ CIfrRecordInfoDB::IfrRecordAdjust (
     // next node
     //
     preNode = pNode;
-    pNode = pNode->mNext;
+    pNode = pNode->mNext; 
   }
-
+  
   //
   // Update Ifr Opcode Offset
   //
@@ -1632,585 +1518,6 @@ CIfrRecordInfoDB::IfrRecordAdjust (
     IfrAdjustOffsetForRecord ();
   }
   return Status;
-}
-
-/**
-  When the Varstore of the question is EFI_VFR_VARSTORE_BUFFER and the default value is not
-  given by expression, should save the default info for the Buffer VarStore.
-
-  @param  DefaultId           The default id.
-  @param  pQuestionNode       Point to the question opcode node.
-  @param  Value               The default value.
-**/
-VOID
-CIfrRecordInfoDB::IfrAddDefaultToBufferConfig (
-  IN  UINT16                  DefaultId,
-  IN  SIfrRecord              *pQuestionNode,
-  IN  EFI_IFR_TYPE_VALUE      Value
-  )
-{
-  CHAR8                   *VarStoreName = NULL;
-  EFI_VFR_VARSTORE_TYPE    VarStoreType  = EFI_VFR_VARSTORE_INVALID;
-  EFI_GUID                 *VarGuid      = NULL;
-  EFI_VARSTORE_INFO        VarInfo;
-  EFI_IFR_QUESTION_HEADER  *QuestionHead;
-  EFI_IFR_OP_HEADER        *pQuestionOpHead;
-
-  pQuestionOpHead = (EFI_IFR_OP_HEADER *) pQuestionNode->mIfrBinBuf;
-  QuestionHead    = (EFI_IFR_QUESTION_HEADER *) (pQuestionOpHead + 1);
-
-  //
-  // Get the Var Store name and type.
-  //
-  gCVfrDataStorage.GetVarStoreName (QuestionHead->VarStoreId, &VarStoreName);
-  VarGuid= gCVfrDataStorage.GetVarStoreGuid (QuestionHead->VarStoreId);
-  VarStoreType = gCVfrDataStorage.GetVarStoreType (QuestionHead->VarStoreId);
-
-  //
-  // Only for Buffer storage need to save the default info in the storage.
-  // Other type storage, just return.
-  //
-  if (VarStoreType != EFI_VFR_VARSTORE_BUFFER) {
-    return;
-  } else {
-    VarInfo.mInfo.mVarOffset = QuestionHead->VarStoreInfo.VarOffset;
-    VarInfo.mVarStoreId = QuestionHead->VarStoreId;
-  }
-
-  //
-  // Get the buffer storage info about this question.
-  //
-  gCVfrDataStorage.GetBufferVarStoreFieldInfo (&VarInfo);
-
-  //
-  // Add action.
-  //
-  gCVfrDefaultStore.BufferVarStoreAltConfigAdd (
-    DefaultId,
-    VarInfo,
-    VarStoreName,
-    VarGuid,
-    VarInfo.mVarType,
-    Value
-    );
-}
-
-/**
-  Record the number and default id of all defaultstore opcode.
-
-**/
-VOID
-CIfrRecordInfoDB::IfrGetDefaultStoreInfo (
-  VOID
-  )
-{
-  SIfrRecord             *pNode;
-  EFI_IFR_OP_HEADER      *pOpHead;
-  EFI_IFR_DEFAULTSTORE   *DefaultStore;
-
-  pNode                = mIfrRecordListHead;
-  mAllDefaultTypeCount = 0;
-
-  while (pNode != NULL) {
-    pOpHead = (EFI_IFR_OP_HEADER *) pNode->mIfrBinBuf;
-
-    if (pOpHead->OpCode == EFI_IFR_DEFAULTSTORE_OP){
-      DefaultStore = (EFI_IFR_DEFAULTSTORE *) pNode->mIfrBinBuf;
-      mAllDefaultIdArray[mAllDefaultTypeCount++] = DefaultStore->DefaultId;
-    }
-    pNode = pNode->mNext;
-  }
-}
-
-/**
-  Create new default opcode record.
-
-  @param    Size            The new default opcode size.
-  @param    DefaultId       The new default id.
-  @param    Type            The new default type.
-  @param    LineNo          The line number of the new record.
-  @param    Value           The new default value.
-
-**/
-VOID
-CIfrRecordInfoDB::IfrCreateDefaultRecord(
-  IN UINT8               Size,
-  IN UINT16              DefaultId,
-  IN UINT8               Type,
-  IN UINT32              LineNo,
-  IN EFI_IFR_TYPE_VALUE  Value
-  )
-{
-  CIfrDefault   *DObj;
-  CIfrDefault2  *DObj2;
-
-  DObj  = NULL;
-  DObj2 = NULL;
-
-  if (Type == EFI_IFR_TYPE_OTHER) {
-    DObj2 = new CIfrDefault2 (Size);
-    DObj2->SetDefaultId(DefaultId);
-    DObj2->SetType(Type);
-    DObj2->SetLineNo(LineNo);
-    DObj2->SetScope (1);
-    delete DObj2;
-  } else {
-    DObj = new CIfrDefault (Size);
-    DObj->SetDefaultId(DefaultId);
-    DObj->SetType(Type);
-    DObj->SetLineNo(LineNo);
-    DObj->SetValue (Value);
-    delete DObj;
-  }
-}
-
-/**
-  Create new default opcode for question base on the QuestionDefaultInfo.
-
-  @param  pQuestionNode              Point to the question opcode Node.
-  @param  QuestionDefaultInfo        Point to the QuestionDefaultInfo for current question.
-
-**/
-VOID
-CIfrRecordInfoDB::IfrCreateDefaultForQuestion (
-  IN  SIfrRecord              *pQuestionNode,
-  IN  QuestionDefaultRecord   *QuestionDefaultInfo
-  )
-{
-  EFI_IFR_OP_HEADER      *pOpHead;
-  EFI_IFR_DEFAULT        *Default;
-  SIfrRecord             *pSNode;
-  SIfrRecord             *pENode;
-  SIfrRecord             *pDefaultNode;
-  CIfrObj                *Obj;
-  CHAR8                  *ObjBinBuf;
-  UINT8                  ScopeCount;
-  UINT8                  OpcodeNumber;
-  UINT8                  OpcodeCount;
-  UINT8                  DefaultSize;
-  EFI_IFR_ONE_OF_OPTION  *DefaultOptionOpcode;
-  EFI_IFR_TYPE_VALUE     CheckBoxDefaultValue;
-
-  CheckBoxDefaultValue.b = 1;
-  pOpHead                = (EFI_IFR_OP_HEADER *) pQuestionNode->mIfrBinBuf;
-  ScopeCount             = 0;
-  OpcodeCount            = 0;
-  Obj                    = NULL;
-
-  //
-  // Record the offset of node which need to be adjust, will move the new created default opcode to this offset.
-  //
-  gAdjustOpcodeOffset = pQuestionNode->mNext->mOffset;
-  //
-  // Case 1:
-  // For oneof, the default with smallest default id is given by the option flag.
-  // So create the missing defaults base on the oneof option value(mDefaultValueRecord).
-  //
-  if (pOpHead->OpCode == EFI_IFR_ONE_OF_OP && !QuestionDefaultInfo->mIsDefaultOpcode) {
-    DefaultOptionOpcode = (EFI_IFR_ONE_OF_OPTION *)QuestionDefaultInfo->mDefaultValueRecord->mIfrBinBuf;
-    DefaultSize = QuestionDefaultInfo->mDefaultValueRecord->mBinBufLen - OFFSET_OF (EFI_IFR_ONE_OF_OPTION, Value);
-    DefaultSize += OFFSET_OF (EFI_IFR_DEFAULT, Value);
-    for (UINT8 i = 0; i < mAllDefaultTypeCount; i++) {
-      if (!QuestionDefaultInfo->mIsDefaultIdExist[i]) {
-        IfrCreateDefaultRecord (DefaultSize, mAllDefaultIdArray[i], DefaultOptionOpcode->Type, pQuestionNode->mLineNo, DefaultOptionOpcode->Value);
-        //
-        // Save the new created default in the buffer storage.
-        //
-        IfrAddDefaultToBufferConfig (mAllDefaultIdArray[i], pQuestionNode, DefaultOptionOpcode->Value);
-      }
-    }
-    return;
-  }
-
-  //
-  // Case2:
-  // For checkbox, the default with smallest default id is given by the question flag.
-  // And create the missing defaults with true value.
-  //
-  if (pOpHead-> OpCode == EFI_IFR_CHECKBOX_OP && !QuestionDefaultInfo->mIsDefaultOpcode) {
-    DefaultSize = OFFSET_OF (EFI_IFR_DEFAULT, Value) + sizeof (BOOLEAN);
-    for (UINT8 i = 0; i < mAllDefaultTypeCount; i++) {
-      if (!QuestionDefaultInfo->mIsDefaultIdExist[i]) {
-        IfrCreateDefaultRecord (DefaultSize, mAllDefaultIdArray[i], EFI_IFR_TYPE_BOOLEAN, pQuestionNode->mLineNo, CheckBoxDefaultValue);
-        //
-        // Save the new created default.
-        //
-        IfrAddDefaultToBufferConfig (mAllDefaultIdArray[i], pQuestionNode, CheckBoxDefaultValue);
-      }
-    }
-    return;
-  }
-
-  //
-  // Case3:
-  // The default with smallest default id is given by the default opcode.
-  // So create the missing defaults base on the value in the default opcode.
-  //
-
-  //
-  // pDefaultNode point to the mDefaultValueRecord in QuestionDefaultInfo.
-  //
-  pDefaultNode = QuestionDefaultInfo->mDefaultValueRecord;
-  Default = (EFI_IFR_DEFAULT *)pDefaultNode->mIfrBinBuf;
-  //
-  // Record the offset of node which need to be adjust, will move the new created default opcode to this offset.
-  //
-  gAdjustOpcodeOffset = pDefaultNode->mNext->mOffset;
-
-  if (Default->Type == EFI_IFR_TYPE_OTHER) {
-    //
-    // EFI_IFR_DEFAULT_2 opcode.
-    //
-    // Point to the first expression opcode.
-    //
-    pSNode = pDefaultNode->mNext;
-    pENode = NULL;
-    ScopeCount++;
-    //
-    // Get opcode number behind the EFI_IFR_DEFAULT_2 until reach its END opcode (including the END opcode of EFI_IFR_DEFAULT_2)
-    //
-    while (pSNode != NULL && pSNode->mNext != NULL && ScopeCount != 0) {
-      pOpHead = (EFI_IFR_OP_HEADER *) pSNode->mIfrBinBuf;
-      if (pOpHead->Scope == 1) {
-        ScopeCount++;
-      }
-      if (pOpHead->OpCode == EFI_IFR_END_OP) {
-        ScopeCount--;
-      }
-      pENode = pSNode;
-      pSNode = pSNode->mNext;
-      OpcodeCount++;
-    }
-
-    assert (pSNode);
-    assert (pENode);
-
-    //
-    // Record the offset of node which need to be adjust, will move the new created default opcode to this offset.
-    //
-    gAdjustOpcodeOffset = pSNode->mOffset;
-    //
-    // Create new default opcode node for missing default.
-    //
-    for (UINT8 i = 0; i < mAllDefaultTypeCount; i++) {
-      OpcodeNumber = OpcodeCount;
-      if (!QuestionDefaultInfo->mIsDefaultIdExist[i]) {
-        IfrCreateDefaultRecord (Default->Header.Length, mAllDefaultIdArray[i], Default->Type, pENode->mLineNo, Default->Value);
-        //
-        // Point to the first expression opcode node.
-        //
-        pSNode = pDefaultNode->mNext;
-        //
-        // Create the expression opcode and end opcode for the new created EFI_IFR_DEFAULT_2 opcode.
-        //
-        while (pSNode != NULL && pSNode->mNext != NULL && OpcodeNumber-- != 0) {
-          pOpHead = (EFI_IFR_OP_HEADER *) pSNode->mIfrBinBuf;
-          Obj = new CIfrObj (pOpHead->OpCode, NULL, pSNode->mBinBufLen, FALSE);
-          assert (Obj != NULL);
-          Obj->SetLineNo (pSNode->mLineNo);
-          ObjBinBuf = Obj->GetObjBinAddr<CHAR8>();
-          memcpy (ObjBinBuf, pSNode->mIfrBinBuf, (UINTN)pSNode->mBinBufLen);
-          delete Obj;
-          pSNode = pSNode->mNext;
-        }
-      }
-    }
-  } else {
-    //
-    // EFI_IFR_DEFAULT opcode.
-    //
-    // Create new default opcode node for missing default.
-    //
-    for (UINT8 i = 0; i < mAllDefaultTypeCount; i++) {
-      if (!QuestionDefaultInfo->mIsDefaultIdExist[i]) {
-        IfrCreateDefaultRecord (Default->Header.Length, mAllDefaultIdArray[i], Default->Type, pDefaultNode->mLineNo, Default->Value);
-        //
-        // Save the new created default in the buffer storage..
-        //
-        IfrAddDefaultToBufferConfig (mAllDefaultIdArray[i], pQuestionNode, Default->Value);
-      }
-    }
-  }
-}
-
-/**
-  Parse the default information in a question, get the QuestionDefaultInfo.
-
-  @param  pQuestionNode          Point to the question record Node.
-  @param  QuestionDefaultInfo    On return, point to the QuestionDefaultInfo.
-**/
-VOID
-CIfrRecordInfoDB::IfrParseDefaulInfoInQuestion(
-  IN  SIfrRecord              *pQuestionNode,
-  OUT QuestionDefaultRecord   *QuestionDefaultInfo
-  )
-{
-  SIfrRecord              *pSNode;
-  EFI_IFR_ONE_OF_OPTION   *OneofOptionOpcode;
-  EFI_IFR_OP_HEADER       *pSOpHead;
-  EFI_IFR_CHECKBOX        *CheckBoxOpcode;
-  EFI_IFR_DEFAULT         *DefaultOpcode;
-  BOOLEAN                 IsOneOfOpcode;
-  UINT16                  SmallestDefaultId;
-  UINT8                   ScopeCount;
-
-  SmallestDefaultId  = 0xffff;
-  IsOneOfOpcode      = FALSE;
-  ScopeCount         = 0;
-  pSNode             = pQuestionNode;
-
-  //
-  // Parse all the opcodes in the Question.
-  //
-  while (pSNode != NULL) {
-    pSOpHead = (EFI_IFR_OP_HEADER *) pSNode->mIfrBinBuf;
-    //
-    // For a question, its scope bit must be set, the scope exists until it reaches a corresponding EFI_IFR_END_OP.
-    // Scopes may be nested within other scopes.
-    // When finishing parsing a question, the scope count must be zero.
-    //
-    if (pSOpHead->Scope == 1) {
-      ScopeCount++;
-    }
-    if (pSOpHead->OpCode == EFI_IFR_END_OP) {
-      ScopeCount--;
-    }
-    //
-    // Check whether finishing parsing a question.
-    //
-    if (ScopeCount == 0) {
-      break;
-    }
-
-    //
-    // Record the default information in the question.
-    //
-    switch (pSOpHead->OpCode) {
-    case EFI_IFR_ONE_OF_OP:
-      IsOneOfOpcode = TRUE;
-      break;
-    case EFI_IFR_CHECKBOX_OP:
-      //
-      // The default info of check box may be given by flag.
-      // So need to check the flag of check box.
-      //
-      CheckBoxOpcode = (EFI_IFR_CHECKBOX *)pSNode->mIfrBinBuf;
-      if ((CheckBoxOpcode->Flags & EFI_IFR_CHECKBOX_DEFAULT) != 0) {
-        //
-        // Check whether need to update the smallest default id.
-        //
-        if (SmallestDefaultId > EFI_HII_DEFAULT_CLASS_STANDARD) {
-          SmallestDefaultId = EFI_HII_DEFAULT_CLASS_STANDARD;
-        }
-        //
-        // Update the QuestionDefaultInfo.
-        //
-        for (UINT8 i = 0; i < mAllDefaultTypeCount; i++) {
-          if (mAllDefaultIdArray[i] == EFI_HII_DEFAULT_CLASS_STANDARD) {
-            if (!QuestionDefaultInfo->mIsDefaultIdExist[i]) {
-              QuestionDefaultInfo->mDefaultNumber ++;
-              QuestionDefaultInfo->mIsDefaultIdExist[i] = TRUE;
-            }
-            break;
-          }
-        }
-      }
-      if ((CheckBoxOpcode->Flags & EFI_IFR_CHECKBOX_DEFAULT_MFG) != 0) {
-        //
-        // Check whether need to update the smallest default id.
-        //
-        if (SmallestDefaultId > EFI_HII_DEFAULT_CLASS_MANUFACTURING) {
-          SmallestDefaultId = EFI_HII_DEFAULT_CLASS_MANUFACTURING;
-        }
-        //
-        // Update the QuestionDefaultInfo.
-        //
-        for (UINT8 i = 0; i < mAllDefaultTypeCount; i++) {
-          if (mAllDefaultIdArray[i] == EFI_HII_DEFAULT_CLASS_MANUFACTURING) {
-            if (!QuestionDefaultInfo->mIsDefaultIdExist[i]) {
-              QuestionDefaultInfo->mDefaultNumber ++;
-              QuestionDefaultInfo->mIsDefaultIdExist[i] = TRUE;
-            }
-            break;
-          }
-        }
-      }
-      break;
-    case EFI_IFR_ONE_OF_OPTION_OP:
-      if (!IsOneOfOpcode) {
-        //
-        // Only check the option in oneof.
-        //
-        break;
-      }
-      OneofOptionOpcode = (EFI_IFR_ONE_OF_OPTION *)pSNode->mIfrBinBuf;
-      if ((OneofOptionOpcode->Flags & EFI_IFR_OPTION_DEFAULT) != 0) {
-        //
-        // The option is used as the standard default.
-        // Check whether need to update the smallest default id and QuestionDefaultInfo.
-        //
-        if (SmallestDefaultId > EFI_HII_DEFAULT_CLASS_STANDARD) {
-          SmallestDefaultId = EFI_HII_DEFAULT_CLASS_STANDARD;
-          QuestionDefaultInfo->mDefaultValueRecord = pSNode;
-        }
-        //
-        // Update the IsDefaultIdExist array in QuestionDefaultInfo.
-        //
-        for (UINT8 i = 0; i < mAllDefaultTypeCount; i++) {
-          if (mAllDefaultIdArray[i] == EFI_HII_DEFAULT_CLASS_STANDARD) {
-            if (!QuestionDefaultInfo->mIsDefaultIdExist[i]) {
-              QuestionDefaultInfo->mDefaultNumber ++;
-              QuestionDefaultInfo->mIsDefaultIdExist[i] = TRUE;
-            }
-            break;
-          }
-        }
-      }
-      if ((OneofOptionOpcode->Flags & EFI_IFR_OPTION_DEFAULT_MFG) != 0) {
-        //
-        // This option is used as the manufacture default.
-        // Check whether need to update the smallest default id and QuestionDefaultInfo.
-        //
-        if (SmallestDefaultId > EFI_HII_DEFAULT_CLASS_MANUFACTURING) {
-          SmallestDefaultId = EFI_HII_DEFAULT_CLASS_MANUFACTURING;
-          QuestionDefaultInfo->mDefaultValueRecord = pSNode;
-        }
-        //
-        // Update the QuestionDefaultInfo.
-        //
-        for (UINT8 i = 0; i < mAllDefaultTypeCount; i++) {
-          if (mAllDefaultIdArray[i] == EFI_HII_DEFAULT_CLASS_MANUFACTURING) {
-            if (!QuestionDefaultInfo->mIsDefaultIdExist[i]) {
-              QuestionDefaultInfo->mDefaultNumber ++;
-              QuestionDefaultInfo->mIsDefaultIdExist[i] = TRUE;
-            }
-            break;
-          }
-        }
-      }
-      break;
-    case EFI_IFR_DEFAULT_OP:
-      DefaultOpcode = (EFI_IFR_DEFAULT *) pSNode->mIfrBinBuf;
-      //
-      // Check whether need to update the smallest default id and QuestionDefaultInfo.
-      //
-      if (SmallestDefaultId >= DefaultOpcode->DefaultId ) {
-        SmallestDefaultId = DefaultOpcode->DefaultId;
-        QuestionDefaultInfo->mDefaultValueRecord= pSNode;
-        QuestionDefaultInfo->mIsDefaultOpcode= TRUE;
-      }
-      //
-      // Update the QuestionDefaultInfo.
-      //
-      for (UINT8 i = 0; i < mAllDefaultTypeCount; i++){
-        if (mAllDefaultIdArray[i] == ((EFI_IFR_DEFAULT *)pSNode->mIfrBinBuf)->DefaultId) {
-          if (!QuestionDefaultInfo->mIsDefaultIdExist[i]) {
-            QuestionDefaultInfo->mDefaultNumber ++;
-            QuestionDefaultInfo->mIsDefaultIdExist[i] = TRUE;
-          }
-          break;
-        }
-      }
-      break;
-    default:
-      break;
-    }
-    //
-    // Parse next opcode in this question.
-    //
-    pSNode = pSNode->mNext;
-  }
-}
-
-/**
-  Check or add default for question if need.
-
-  This function will check the default info for question.
-  If the question has default, but the default number < defaultstore opcode number.
-  will do following two action :
-
-  1. if (AutoDefault) will add default for question to support all kinds of defaults.
-  2. if (CheckDefault) will generate an error to tell user the question misses some default value.
-
-  We assume that the two options can not be TRUE at same time.
-  If they are TRUE at same time, only do the action corresponding to AutoDefault option.
-
-  @param  AutoDefault          Add default for question if needed
-  @param  CheckDefault         Check the default info, if missing default, generates an error.
-
-**/
-VOID
-CIfrRecordInfoDB::IfrCheckAddDefaultRecord (
-  BOOLEAN  AutoDefault,
-  BOOLEAN  CheckDefault
-  )
-{
-  SIfrRecord            *pNode;
-  SIfrRecord            *pTailNode;
-  SIfrRecord            *pStartAdjustNode;
-  EFI_IFR_OP_HEADER     *pOpHead;
-  QuestionDefaultRecord  QuestionDefaultInfo;
-  UINT8                  MissingDefaultCount;
-  CHAR8                  Msg[MAX_STRING_LEN] = {0, };
-
-  pNode               = mIfrRecordListHead;
-
-  //
-  // Record the number and default id of all defaultstore opcode.
-  //
-  IfrGetDefaultStoreInfo ();
-
-  while (pNode != NULL) {
-    pOpHead = (EFI_IFR_OP_HEADER *) pNode->mIfrBinBuf;
-    //
-    // Check whether is question opcode.
-    //
-    if (CheckQuestionOpCode (pOpHead->OpCode)) {
-      //
-      // Initialize some local variables here, because they vary with question.
-      // Record the mIfrRecordListTail for each question, because may create default node for question after mIfrRecordListTail.
-      //
-      memset (&QuestionDefaultInfo, 0, sizeof (QuestionDefaultRecord));
-      pTailNode = mIfrRecordListTail;
-      //
-      // Get the QuestionDefaultInfo for current question.
-      //
-      IfrParseDefaulInfoInQuestion (pNode, &QuestionDefaultInfo);
-
-      if (QuestionDefaultInfo.mDefaultNumber != mAllDefaultTypeCount && QuestionDefaultInfo.mDefaultNumber != 0) {
-        if (AutoDefault) {
-          //
-          // Create default for question which misses default.
-          //
-          IfrCreateDefaultForQuestion (pNode, &QuestionDefaultInfo);
-
-          //
-          // Adjust the buffer content.
-          // pStartAdjustNode->mIfrBinBuf points to the insert position.
-          // pTailNode->mNext->mIfrBinBuf points to the inset opcodes.
-          //
-          pStartAdjustNode =GetRecordInfoFromOffset (gAdjustOpcodeOffset);
-          gCFormPkg.AdjustDynamicInsertOpcode (pStartAdjustNode->mIfrBinBuf, pTailNode->mNext->mIfrBinBuf, TRUE);
-
-          //
-          // Update the record info.
-          //
-          IfrUpdateRecordInfoForDynamicOpcode (TRUE);
-        } else if (CheckDefault) {
-          //
-          // Generate an error for question which misses default.
-          //
-          MissingDefaultCount = mAllDefaultTypeCount - QuestionDefaultInfo.mDefaultNumber;
-          sprintf (Msg, "The question misses %d default, the question's opcode is %d", MissingDefaultCount, pOpHead->OpCode);
-          gCVfrErrorHandle.PrintMsg (pNode->mLineNo, NULL, "Error", Msg);
-        }
-      }
-    }
-    //
-    // parse next opcode.
-    //
-    pNode = pNode->mNext;
-  }
 }
 
 CIfrRecordInfoDB gCIfrRecordInfoDB;
@@ -2221,7 +1528,7 @@ CIfrObj::_EMIT_PENDING_OBJ (
   )
 {
   CHAR8  *ObjBinBuf = NULL;
-
+  
   //
   // do nothing
   //
@@ -2237,15 +1544,15 @@ CIfrObj::_EMIT_PENDING_OBJ (
   if (ObjBinBuf != NULL) {
     memmove (ObjBinBuf, mObjBinBuf, mObjBinLen);
   }
-
+  
   //
   // update bin buffer to package data buffer
   //
   if (mObjBinBuf != NULL) {
-    delete[] mObjBinBuf;
+    delete mObjBinBuf;
     mObjBinBuf = ObjBinBuf;
   }
-
+  
   mDelayEmit = FALSE;
 }
 
@@ -2409,9 +1716,6 @@ CIfrObj::CIfrObj (
   mObjBinLen   = (ObjBinLen == 0) ? gOpcodeSizesScopeTable[OpCode].mSize : ObjBinLen;
   mObjBinBuf   = ((DelayEmit == FALSE) && (gCreateOp == TRUE)) ? gCFormPkg.IfrBinBufferGet (mObjBinLen) : new CHAR8[EFI_IFR_MAX_LENGTH];
   mRecordIdx   = (gCreateOp == TRUE) ? gCIfrRecordInfoDB.IfrRecordRegister (0xFFFFFFFF, mObjBinBuf, mObjBinLen, mPkgOffset) : EFI_IFR_RECORDINFO_IDX_INVALUD;
-  mLineNo      = 0;
-
-  assert (mObjBinBuf != NULL);
 
   if (IfrObj != NULL) {
     *IfrObj    = mObjBinBuf;

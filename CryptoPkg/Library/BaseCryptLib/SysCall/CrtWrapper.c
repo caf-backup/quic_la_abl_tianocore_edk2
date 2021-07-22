@@ -2,12 +2,18 @@
   C Run-Time Libraries (CRT) Wrapper Implementation for OpenSSL-based
   Cryptographic Library.
 
-Copyright (c) 2009 - 2017, Intel Corporation. All rights reserved.<BR>
-SPDX-License-Identifier: BSD-2-Clause-Patent
+Copyright (c) 2009 - 2011, Intel Corporation. All rights reserved.<BR>
+This program and the accompanying materials
+are licensed and made available under the terms and conditions of the BSD License
+which accompanies this distribution.  The full text of the license may be found at
+http://opensource.org/licenses/bsd-license.php
+
+THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
-#include <CrtLibSupport.h>
+#include <OpenSslSupport.h>
 
 int errno = 0;
 
@@ -16,7 +22,7 @@ FILE  *stdin  = NULL;
 FILE  *stdout = NULL;
 
 typedef
-int
+INTN
 (*SORT_COMPARE)(
   IN  VOID  *Buffer1,
   IN  VOID  *Buffer2
@@ -78,14 +84,14 @@ QuickSortWorker (
     }
   }
   //
-  // Swap pivot to its final position (NextSwapLocation)
+  // Swap pivot to it's final position (NextSwapLocaiton)
   //
   CopyMem (Buffer, Pivot, ElementSize);
   CopyMem (Pivot, (UINT8 *)BufferToSort + (NextSwapLocation * ElementSize), ElementSize);
   CopyMem ((UINT8 *)BufferToSort + (NextSwapLocation * ElementSize), Buffer, ElementSize);
 
   //
-  // Now recurse on 2 partial lists.  Neither of these will have the 'pivot' element.
+  // Now recurse on 2 paritial lists.  Neither of these will have the 'pivot' element.
   // IE list is sorted left half, pivot element, sorted right half...
   //
   QuickSortWorker (
@@ -115,11 +121,6 @@ QuickSortWorker (
 // -- String Manipulation Routines --
 //
 
-char *strchr(const char *str, int ch)
-{
-  return ScanMem8 (str, AsciiStrSize (str), (UINT8)ch);
-}
-
 /* Scan a string for the last occurrence of a character */
 char *strrchr (const char *str, int c)
 {
@@ -135,30 +136,6 @@ char *strrchr (const char *str, int c)
   }
 }
 
-/* Compare first n bytes of string s1 with string s2, ignoring case */
-int strncasecmp (const char *s1, const char *s2, size_t n)
-{
-  int Val;
-
-  ASSERT(s1 != NULL);
-  ASSERT(s2 != NULL);
-
-  if (n != 0) {
-    do {
-      Val = tolower(*s1) - tolower(*s2);
-      if (Val != 0) {
-        return Val;
-      }
-      ++s1;
-      ++s2;
-      if (*s1 == '\0') {
-        break;
-      }
-    } while (--n != 0);
-  }
-  return 0;
-}
-
 /* Read formatted data from a string */
 int sscanf (const char *buffer, const char *format, ...)
 {
@@ -167,70 +144,6 @@ int sscanf (const char *buffer, const char *format, ...)
   // no direct functionality logic dependency in present UEFI cases.
   //
   return 0;
-}
-
-/* Maps errnum to an error-message string */
-char * strerror (int errnum)
-{
-  return NULL;
-}
-
-/* Computes the length of the maximum initial segment of the string pointed to by s1
-   which consists entirely of characters from the string pointed to by s2. */
-size_t strspn (const char *s1 , const char *s2)
-{
-  UINT8   Map[32];
-  UINT32  Index;
-  size_t  Count;
-
-  for (Index = 0; Index < 32; Index++) {
-    Map[Index] = 0;
-  }
-
-  while (*s2) {
-    Map[*s2 >> 3] |= (1 << (*s2 & 7));
-    s2++;
-  }
-
-  if (*s1) {
-    Count = 0;
-    while (Map[*s1 >> 3] & (1 << (*s1 & 7))) {
-      Count++;
-      s1++;
-    }
-
-    return Count;
-  }
-
-  return 0;
-}
-
-/* Computes the length of the maximum initial segment of the string pointed to by s1
-   which consists entirely of characters not from the string pointed to by s2. */
-size_t strcspn (const char *s1, const char *s2)
-{
-  UINT8  Map[32];
-  UINT32 Index;
-  size_t Count;
-
-  for (Index = 0; Index < 32; Index++) {
-    Map[Index] = 0;
-  }
-
-  while (*s2) {
-    Map[*s2 >> 3] |= (1 << (*s2 & 7));
-    s2++;
-  }
-
-  Map[0] |= 1;
-
-  Count   = 0;
-  while (!(Map[*s1 >> 3] & (1 << (*s1 & 7)))) {
-    Count ++;
-    s1++;
-  }
-
-  return Count;
 }
 
 //
@@ -360,22 +273,15 @@ char *getenv (const char *varname)
   return NULL;
 }
 
-/* Get a value from the current environment */
-char *secure_getenv (const char *varname)
-{
-  //
-  // Null secure_getenv() function implementation to satisfy the linker, since
-  // there is no direct functionality logic dependency in present UEFI cases.
-  //
-  // From the secure_getenv() manual: 'just like getenv() except that it
-  // returns NULL in cases where "secure execution" is required'.
-  //
-  return NULL;
-}
-
 //
 // -- Stream I/O Routines --
 //
+
+/* Write formatted output using a pointer to a list of arguments */
+int vfprintf (FILE *stream, const char *format, VA_LIST arg)
+{
+  return 0;
+}
 
 /* Write data to a stream */
 size_t fwrite (const void *buffer, size_t size, size_t count, FILE *stream)
@@ -397,6 +303,36 @@ int BIO_snprintf(char *buf, size_t n, const char *format, ...)
   return 0;
 }
 
+void *UI_OpenSSL(void)
+{
+  return NULL;
+}
+
+int X509_load_cert_file (VOID *ctx, const char *file, int type)
+{
+  return 0;
+}
+
+int X509_load_crl_file (VOID *ctx, const char *file, int type)
+{
+  return 0;
+}
+
+int chmod (const char *c, mode_t m)
+{
+  return -1;
+}
+
+int close (int f)
+{
+  return -1;
+}
+
+void closelog (void)
+{
+
+}
+
 #ifdef __GNUC__
 
 typedef
@@ -404,6 +340,7 @@ VOID
 (EFIAPI *NoReturnFuncPtr)(
   VOID
   ) __attribute__((__noreturn__));
+
 
 STATIC
 VOID
@@ -414,7 +351,8 @@ NopFunction (
 {
 }
 
-void abort (void)
+
+void exit (int e)
 {
   NoReturnFuncPtr NoReturnFunc;
 
@@ -425,9 +363,8 @@ void abort (void)
 
 #else
 
-void abort (void)
+void exit (int e)
 {
-  // Do nothing
 }
 
 #endif
@@ -443,6 +380,11 @@ FILE *fopen (const char *c, const char *m)
 }
 
 size_t fread (void *b, size_t c, size_t i, FILE *f)
+{
+  return 0;
+}
+
+int fprintf (FILE *f, const char *s, ...)
 {
   return 0;
 }
@@ -467,7 +409,42 @@ gid_t getegid (void)
   return 0;
 }
 
-int printf (char const *fmt, ...)
+off_t lseek (int a, off_t o, int d)
+{
+  return 0;
+}
+
+void openlog (const char *c, int a, int b)
+{
+
+}
+
+ssize_t read (int f, void *b, size_t c)
+{
+  return 0;
+}
+
+int stat (const char *c, struct stat *s)
+{
+  return -1;
+}
+
+int strcasecmp (const char *c, const char *s)
+{
+  return 0;
+}
+
+int strncasecmp (const char *c, const char *s, size_t l)
+{
+  return 0;
+}
+
+void syslog (int a, const char *c, ...)
+{
+
+}
+
+ssize_t write (int f, const void *b, size_t l)
 {
   return 0;
 }

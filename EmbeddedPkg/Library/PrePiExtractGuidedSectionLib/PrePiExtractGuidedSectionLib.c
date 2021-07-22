@@ -2,7 +2,13 @@
 
   Copyright (c) 2008 - 2009, Apple Inc. All rights reserved.<BR>
 
-  SPDX-License-Identifier: BSD-2-Clause-Patent
+  This program and the accompanying materials
+  are licensed and made available under the terms and conditions of the BSD License
+  which accompanies this distribution.  The full text of the license may be found at
+  http://opensource.org/licenses/bsd-license.php
+
+  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
@@ -47,7 +53,7 @@ ExtractGuidedSectionRegisterHandlers (
   PRE_PI_EXTRACT_GUIDED_SECTION_DATA  *SavedData;
   UINT32                              Index;
   //
-  // Check input parameter.
+  // Check input paramter.
   //
   if (SectionGuid == NULL) {
     return RETURN_INVALID_PARAMETER;
@@ -117,7 +123,6 @@ ExtractGuidedSectionGetInfo (
 {
   PRE_PI_EXTRACT_GUIDED_SECTION_DATA  *SavedData;
   UINT32                              Index;
-  EFI_GUID                            *SectionDefinitionGuid;
 
   if (InputSection == NULL) {
     return RETURN_INVALID_PARAMETER;
@@ -129,17 +134,11 @@ ExtractGuidedSectionGetInfo (
 
   SavedData = GetSavedData();
 
-  if (IS_SECTION2 (InputSection)) {
-    SectionDefinitionGuid = &(((EFI_GUID_DEFINED_SECTION2 *) InputSection)->SectionDefinitionGuid);
-  } else {
-    SectionDefinitionGuid = &(((EFI_GUID_DEFINED_SECTION *) InputSection)->SectionDefinitionGuid);
-  }
-
   //
   // Search the match registered GetInfo handler for the input guided section.
   //
   for (Index = 0; Index < SavedData->NumberOfExtractHandler; Index ++) {
-    if (CompareGuid (&SavedData->ExtractHandlerGuidTable[Index], SectionDefinitionGuid)) {
+    if (CompareGuid (&SavedData->ExtractHandlerGuidTable[Index], &(((EFI_GUID_DEFINED_SECTION *) InputSection)->SectionDefinitionGuid))) {
       break;
     }
   }
@@ -173,7 +172,6 @@ ExtractGuidedSectionDecode (
 {
   PRE_PI_EXTRACT_GUIDED_SECTION_DATA  *SavedData;
   UINT32                              Index;
-  EFI_GUID                            *SectionDefinitionGuid;
 
   if (InputSection == NULL) {
     return RETURN_INVALID_PARAMETER;
@@ -184,17 +182,11 @@ ExtractGuidedSectionDecode (
 
   SavedData = GetSavedData();
 
-  if (IS_SECTION2 (InputSection)) {
-    SectionDefinitionGuid = &(((EFI_GUID_DEFINED_SECTION2 *) InputSection)->SectionDefinitionGuid);
-  } else {
-    SectionDefinitionGuid = &(((EFI_GUID_DEFINED_SECTION *) InputSection)->SectionDefinitionGuid);
-  }
-
   //
   // Search the match registered GetInfo handler for the input guided section.
   //
   for (Index = 0; Index < SavedData->NumberOfExtractHandler; Index ++) {
-    if (CompareGuid (&SavedData->ExtractHandlerGuidTable[Index], SectionDefinitionGuid)) {
+    if (CompareGuid (&SavedData->ExtractHandlerGuidTable[Index], &(((EFI_GUID_DEFINED_SECTION *) InputSection)->SectionDefinitionGuid))) {
       break;
     }
   }

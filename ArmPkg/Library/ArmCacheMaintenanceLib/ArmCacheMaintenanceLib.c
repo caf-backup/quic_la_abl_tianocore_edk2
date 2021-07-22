@@ -3,24 +3,28 @@
   Copyright (c) 2008 - 2009, Apple Inc. All rights reserved.<BR>
   Copyright (c) 2011 - 2014, ARM Limited. All rights reserved.
 
-  SPDX-License-Identifier: BSD-2-Clause-Patent
+  This program and the accompanying materials
+  are licensed and made available under the terms and conditions of the BSD License
+  which accompanies this distribution.  The full text of the license may be found at
+  http://opensource.org/licenses/bsd-license.php
+
+  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 #include <Base.h>
 #include <Library/ArmLib.h>
-#include <Library/DebugLib.h>
 #include <Library/PcdLib.h>
 
-STATIC
 VOID
 CacheRangeOperation (
   IN  VOID            *Start,
   IN  UINTN           Length,
-  IN  LINE_OPERATION  LineOperation,
-  IN  UINTN           LineLength
+  IN  LINE_OPERATION  LineOperation
   )
 {
-  UINTN ArmCacheLineAlignmentMask  = LineLength - 1;
+  UINTN ArmCacheLineLength         = ArmDataCacheLineLength();
+  UINTN ArmCacheLineAlignmentMask  = ArmCacheLineLength - 1;
 
   // Align address (rounding down)
   UINTN AlignedAddress = (UINTN)Start - ((UINTN)Start & ArmCacheLineAlignmentMask);
@@ -29,9 +33,8 @@ CacheRangeOperation (
   // Perform the line operation on an address in each cache line
   while (AlignedAddress < EndAddress) {
     LineOperation(AlignedAddress);
-    AlignedAddress += LineLength;
+    AlignedAddress += ArmCacheLineLength;
   }
-  ArmDataSynchronizationBarrier ();
 }
 
 VOID
@@ -40,7 +43,8 @@ InvalidateInstructionCache (
   VOID
   )
 {
-  ASSERT (FALSE);
+  ArmCleanDataCache();
+  ArmInvalidateInstructionCache();
 }
 
 VOID
@@ -49,7 +53,7 @@ InvalidateDataCache (
   VOID
   )
 {
-  ASSERT (FALSE);
+  ArmInvalidateDataCache();
 }
 
 VOID *
@@ -59,14 +63,8 @@ InvalidateInstructionCacheRange (
   IN      UINTN                     Length
   )
 {
-  CacheRangeOperation (Address, Length, ArmCleanDataCacheEntryToPoUByMVA,
-    ArmDataCacheLineLength ());
-  CacheRangeOperation (Address, Length,
-    ArmInvalidateInstructionCacheEntryToPoUByMVA,
-    ArmInstructionCacheLineLength ());
-
-  ArmInstructionSynchronizationBarrier ();
-
+  CacheRangeOperation (Address, Length, ArmCleanDataCacheEntryByMVA);
+  ArmInvalidateInstructionCache ();
   return Address;
 }
 
@@ -76,7 +74,7 @@ WriteBackInvalidateDataCache (
   VOID
   )
 {
-  ASSERT (FALSE);
+  ArmCleanInvalidateDataCache();
 }
 
 VOID *
@@ -86,8 +84,7 @@ WriteBackInvalidateDataCacheRange (
   IN      UINTN                     Length
   )
 {
-  CacheRangeOperation(Address, Length, ArmCleanInvalidateDataCacheEntryByMVA,
-    ArmDataCacheLineLength ());
+  CacheRangeOperation(Address, Length, ArmCleanInvalidateDataCacheEntryByMVA);
   return Address;
 }
 
@@ -97,7 +94,7 @@ WriteBackDataCache (
   VOID
   )
 {
-  ASSERT (FALSE);
+  ArmCleanDataCache();
 }
 
 VOID *
@@ -107,8 +104,7 @@ WriteBackDataCacheRange (
   IN      UINTN                     Length
   )
 {
-  CacheRangeOperation(Address, Length, ArmCleanDataCacheEntryByMVA,
-    ArmDataCacheLineLength ());
+  CacheRangeOperation(Address, Length, ArmCleanDataCacheEntryByMVA);
   return Address;
 }
 
@@ -119,7 +115,6 @@ InvalidateDataCacheRange (
   IN      UINTN                     Length
   )
 {
-  CacheRangeOperation(Address, Length, ArmInvalidateDataCacheEntryByMVA,
-    ArmDataCacheLineLength ());
+  CacheRangeOperation(Address, Length, ArmInvalidateDataCacheEntryByMVA);
   return Address;
 }

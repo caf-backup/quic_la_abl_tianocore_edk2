@@ -3,8 +3,14 @@
   Layers on top of Firmware Block protocol to produce a file abstraction
   of FV based files.
 
-Copyright (c) 2006 - 2019, Intel Corporation. All rights reserved.<BR>
-SPDX-License-Identifier: BSD-2-Clause-Patent
+Copyright (c) 2006 - 2014, Intel Corporation. All rights reserved.<BR>
+This program and the accompanying materials
+are licensed and made available under the terms and conditions of the BSD License
+which accompanies this distribution.  The full text of the license may be found at
+http://opensource.org/licenses/bsd-license.php
+
+THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
@@ -28,8 +34,8 @@ FV_DEVICE mFvDevice = {
     FvReadFile,
     FvReadFileSection,
     FvWriteFile,
-    FvGetNextFile,
-  sizeof (UINTN),
+    FvGetNextFile,   
+	sizeof (UINTN),
     NULL,
     FvGetVolumeInfo,
     FvSetVolumeInfo
@@ -50,7 +56,7 @@ FV_DEVICE mFvDevice = {
 // FFS helper functions
 //
 /**
-  Read data from Firmware Block by FVB protocol Read.
+  Read data from Firmware Block by FVB protocol Read. 
   The data may cross the multi block ranges.
 
   @param  Fvb                   The FW_VOL_BLOCK_PROTOCOL instance from which to read data.
@@ -80,7 +86,7 @@ ReadFvbData (
   UINTN                       BlockIndex;
   UINTN                       ReadDataSize;
   EFI_STATUS                  Status;
-
+  
   //
   // Try read data in current block
   //
@@ -96,7 +102,7 @@ ReadFvbData (
     //
     return Status;
   }
-
+  
   //
   // Data crosses the blocks, read data from next block
   //
@@ -112,7 +118,7 @@ ReadFvbData (
     //
     // Read data from the crossing blocks
     //
-    BlockIndex = 0;
+    BlockIndex = 0; 
     while (BlockIndex < NumberOfBlocks && DataSize >= BlockSize) {
       Status = Fvb->Read (Fvb, *StartLba + BlockIndex, 0, &BlockSize, Data);
       if (EFI_ERROR (Status)) {
@@ -122,20 +128,20 @@ ReadFvbData (
       DataSize -= BlockSize;
       BlockIndex ++;
     }
-
+    
     //
     // Data doesn't exceed the current block range.
     //
     if (DataSize < BlockSize) {
       break;
     }
-
+    
     //
     // Data must be got from the next block range.
     //
     *StartLba += NumberOfBlocks;
   }
-
+  
   //
   // read the remaining data
   //
@@ -145,7 +151,7 @@ ReadFvbData (
       return Status;
     }
   }
-
+  
   //
   // Update Lba and Offset used by the following read.
   //
@@ -183,7 +189,7 @@ GetFwVolHeader (
   EFI_LBA                     StartLba;
   UINTN                       Offset;
   UINT8                       *Buffer;
-
+  
   //
   // Read the standard FV header
   //
@@ -323,6 +329,8 @@ FvCheck (
   FFS_FILE_LIST_ENTRY                   *FfsFileEntry;
   EFI_FFS_FILE_HEADER                   *FfsHeader;
   UINT8                                 *CacheLocation;
+  UINTN                                 LbaOffset;
+  UINTN                                 HeaderSize;
   UINTN                                 Index;
   EFI_LBA                               LbaIndex;
   UINTN                                 Size;
@@ -345,7 +353,11 @@ FvCheck (
     return Status;
   }
 
-  Size = (UINTN) FwVolHeader->FvLength;
+  //
+  // Size is the size of the FV minus the head. We have already allocated
+  // the header to check to make sure the volume is valid
+  //
+  Size = (UINTN)(FwVolHeader->FvLength - FwVolHeader->HeaderLength);
   if ((FvbAttributes & EFI_FVB2_MEMORY_MAPPED) != 0) {
     FvDevice->IsMemoryMapped = TRUE;
 
@@ -357,7 +369,7 @@ FvCheck (
     //
     // Don't cache memory mapped FV really.
     //
-    FvDevice->CachedFv = (UINT8 *) (UINTN) PhysicalAddress;
+    FvDevice->CachedFv = (UINT8 *) (UINTN) (PhysicalAddress + FwVolHeader->HeaderLength);
   } else {
     FvDevice->IsMemoryMapped = FALSE;
     FvDevice->CachedFv = AllocatePool (Size);
@@ -368,27 +380,52 @@ FvCheck (
   }
 
   //
-  // Remember a pointer to the end of the CachedFv
+  // Remember a pointer to the end fo the CachedFv
   //
   FvDevice->EndOfCachedFv = FvDevice->CachedFv + Size;
 
   if (!FvDevice->IsMemoryMapped) {
     //
-    // Copy FV into memory using the block map.
+    // Copy FV minus header into memory using the block map we have all ready
+    // read into memory.
     //
     BlockMap = FwVolHeader->BlockMap;
     CacheLocation = FvDevice->CachedFv;
     LbaIndex = 0;
+    LbaOffset = 0;
+    HeaderSize = FwVolHeader->HeaderLength;
     while ((BlockMap->NumBlocks != 0) || (BlockMap->Length != 0)) {
+      Index = 0;
+      Size  = BlockMap->Length;
+      if (HeaderSize > 0) {
+        //
+        // Skip header size
+        //
+        for (; Index < BlockMap->NumBlocks && HeaderSize >= BlockMap->Length; Index ++) {
+          HeaderSize -= BlockMap->Length;
+          LbaIndex ++;
+        }
+
+        //
+        // Check whether FvHeader is crossing the multi block range.
+        //
+        if (Index >= BlockMap->NumBlocks) {
+          BlockMap++;
+          continue;
+        } else if (HeaderSize > 0) {
+          LbaOffset = HeaderSize;
+          Size = BlockMap->Length - HeaderSize;
+          HeaderSize = 0;
+        }
+      }
+    
       //
-      // read the FV data
+      // read the FV data  
       //
-      Size = BlockMap->Length;
-      for (Index = 0; Index < BlockMap->NumBlocks; Index++) {
-        Status = Fvb->Read (
-                        Fvb,
+      for (; Index < BlockMap->NumBlocks; Index ++) {
+        Status = Fvb->Read (Fvb,
                         LbaIndex,
-                        0,
+                        LbaOffset,
                         &Size,
                         CacheLocation
                         );
@@ -401,7 +438,13 @@ FvCheck (
         }
 
         LbaIndex++;
-        CacheLocation += BlockMap->Length;
+        CacheLocation += Size;
+
+        //
+        // After we skip Fv Header always read from start of block
+        //
+        LbaOffset = 0;
+        Size  = BlockMap->Length;
       }
 
       BlockMap++;
@@ -432,12 +475,12 @@ FvCheck (
     //
     // Searching for files starts on an 8 byte aligned boundary after the end of the Extended Header if it exists.
     //
-    FwVolExtHeader = (EFI_FIRMWARE_VOLUME_EXT_HEADER *) (FvDevice->CachedFv + FwVolHeader->ExtHeaderOffset);
+    FwVolExtHeader = (EFI_FIRMWARE_VOLUME_EXT_HEADER *) (FvDevice->CachedFv + (FwVolHeader->ExtHeaderOffset - FwVolHeader->HeaderLength));
     FfsHeader = (EFI_FFS_FILE_HEADER *) ((UINT8 *) FwVolExtHeader + FwVolExtHeader->ExtHeaderSize);
+    FfsHeader = (EFI_FFS_FILE_HEADER *) ALIGN_POINTER (FfsHeader, 8);
   } else {
-    FfsHeader = (EFI_FFS_FILE_HEADER *) (FvDevice->CachedFv + FwVolHeader->HeaderLength);
+    FfsHeader = (EFI_FFS_FILE_HEADER *) (FvDevice->CachedFv);
   }
-  FfsHeader = (EFI_FFS_FILE_HEADER *) ALIGN_POINTER (FfsHeader, 8);
   TopFvAddress = FvDevice->EndOfCachedFv;
   while (((UINTN) FfsHeader >= (UINTN) FvDevice->CachedFv) && ((UINTN) FfsHeader <= (UINTN) ((UINTN) TopFvAddress - sizeof (EFI_FFS_FILE_HEADER)))) {
 
@@ -511,7 +554,7 @@ FvCheck (
         DEBUG ((EFI_D_ERROR, "Found a FFS3 formatted file: %g in a non-FFS3 formatted FV.\n", &CacheFfsHeader->Name));
         FfsHeader = (EFI_FFS_FILE_HEADER *) ((UINT8 *) FfsHeader + FFS_FILE2_SIZE (CacheFfsHeader));
         //
-        // Adjust pointer to the next 8-byte aligned boundary.
+        // Adjust pointer to the next 8-byte aligned boundry.
         //
         FfsHeader = (EFI_FFS_FILE_HEADER *) (((UINTN) FfsHeader + 7) & ~0x07);
         continue;
@@ -546,7 +589,7 @@ FvCheck (
     }
 
     //
-    // Adjust pointer to the next 8-byte aligned boundary.
+    // Adjust pointer to the next 8-byte aligned boundry.
     //
     FfsHeader = (EFI_FFS_FILE_HEADER *)(((UINTN)FfsHeader + 7) & ~0x07);
 
@@ -668,11 +711,14 @@ NotifyFwVolBlock (
       FvDevice->FwVolHeader     = FwVolHeader;
       FvDevice->IsFfs3Fv        = CompareGuid (&FwVolHeader->FileSystemGuid, &gEfiFirmwareFileSystem3Guid);
       FvDevice->Fv.ParentHandle = Fvb->ParentHandle;
-      //
-      // Inherit the authentication status from FVB.
-      //
-      FvDevice->AuthenticationStatus = GetFvbAuthenticationStatus (Fvb);
 
+      if (Fvb->ParentHandle != NULL) {
+        //
+        // Inherit the authentication status from FVB.
+        //
+        FvDevice->AuthenticationStatus = GetFvbAuthenticationStatus (Fvb);
+      }
+      
       if (!EFI_ERROR (FvCheck (FvDevice))) {
         //
         // Install an New FV protocol on the existing handle

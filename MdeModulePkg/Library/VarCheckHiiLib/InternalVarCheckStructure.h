@@ -1,8 +1,14 @@
 /** @file
   Internal structure for Var Check Hii.
 
-Copyright (c) 2015 - 2017, Intel Corporation. All rights reserved.<BR>
-SPDX-License-Identifier: BSD-2-Clause-Patent
+Copyright (c) 2015, Intel Corporation. All rights reserved.<BR>
+This program and the accompanying materials
+are licensed and made available under the terms and conditions of the BSD License
+which accompanies this distribution.  The full text of the license may be found at
+http://opensource.org/licenses/bsd-license.php
+
+THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
@@ -17,7 +23,7 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
 
 #pragma pack (1)
 
-#define VAR_CHECK_HII_REVISION  0x0002
+#define VAR_CHECK_HII_REVISION  0x0001
 
 typedef struct {
   UINT16            Revision;
@@ -36,7 +42,6 @@ typedef struct {
   UINT8             Length; // Length include this header
   UINT16            VarOffset;
   UINT8             StorageWidth;
-  BOOLEAN           BitFieldStore; // Whether the Question is stored in bit field, if TRUE, the VarOffset/StorageWidth will be saved as bit level, otherwise in byte level.
 } VAR_CHECK_HII_QUESTION_HEADER;
 
 typedef struct {
@@ -44,7 +49,6 @@ typedef struct {
   UINT8             Length; // Length include this header
   UINT16            VarOffset;
   UINT8             StorageWidth;
-  BOOLEAN           BitFieldStore; // Whether the Question is stored in bit field, if TRUE, the VarOffset/StorageWidth will be saved as bit level, otherwise in byte level.
 //UINTx               Data[]; // x = UINT8/UINT16/UINT32/UINT64;
 } VAR_CHECK_HII_QUESTION_ONEOF;
 
@@ -53,7 +57,6 @@ typedef struct {
   UINT8             Length; // Length include this header
   UINT16            VarOffset;
   UINT8             StorageWidth;
-  BOOLEAN           BitFieldStore; // Whether the Question is stored in bit field, if TRUE, the VarOffset/StorageWidth will be saved as bit level, otherwise in byte level.
 } VAR_CHECK_HII_QUESTION_CHECKBOX;
 
 typedef struct {
@@ -61,7 +64,6 @@ typedef struct {
   UINT8             Length; // Length include this header
   UINT16            VarOffset;
   UINT8             StorageWidth;
-  BOOLEAN           BitFieldStore; // Whether the Question is stored in bit field, if TRUE, the VarOffset/StorageWidth will be saved as bit level, otherwise in byte level.
 //UINTx               Minimum; // x = UINT8/UINT16/UINT32/UINT64;
 //UINTx               Maximum; // x = UINT8/UINT16/UINT32/UINT64;
 } VAR_CHECK_HII_QUESTION_NUMERIC;
@@ -71,7 +73,6 @@ typedef struct {
   UINT8             Length; // Length include this header
   UINT16            VarOffset;
   UINT8             StorageWidth;
-  BOOLEAN           BitFieldStore; // Whether the Question is stored in bit field, if TRUE, the VarOffset/StorageWidth will be saved as bit level, otherwise in byte level.
   UINT8             MaxContainers;
 //UINTx               Data[]; // x = UINT8/UINT16/UINT32/UINT64;
 } VAR_CHECK_HII_QUESTION_ORDEREDLIST;

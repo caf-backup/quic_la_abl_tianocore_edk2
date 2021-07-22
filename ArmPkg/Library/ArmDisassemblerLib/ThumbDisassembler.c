@@ -1,5 +1,5 @@
 /** @file
-  Thumb Disassembler. Still a work in progress.
+  Thumb Dissassembler. Still a work in progress.
 
   Wrong output is a bug, so please fix it.
   Hex output means there is not yet an entry or a decode bug.
@@ -10,7 +10,13 @@
 
   Copyright (c) 2008 - 2010, Apple Inc. All rights reserved.<BR>
 
-  SPDX-License-Identifier: BSD-2-Clause-Patent
+  This program and the accompanying materials
+  are licensed and made available under the terms and conditions of the BSD License
+  which accompanies this distribution.  The full text of the license may be found at
+  http://opensource.org/licenses/bsd-license.php
+
+  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
@@ -103,7 +109,7 @@ typedef struct {
 } THUMB_INSTRUCTIONS;
 
 THUMB_INSTRUCTIONS gOpThumb[] = {
-// Thumb 16-bit instructions
+// Thumb 16-bit instrucitons
 //          Op       Mask   Format
   { "ADC" , 0x4140, 0xffc0, DATA_FORMAT5 },  // ADC <Rndn>, <Rm>
   { "ADR",  0xa000, 0xf800, ADR_FORMAT   },  // ADR <Rd>, <label>
@@ -391,10 +397,12 @@ ThumbMRegList (
   )
 {
   UINTN     Index, Start, End;
+  CHAR8     *Str;
   BOOLEAN   First;
 
-  mThumbMregListStr[0] = '\0';
-  AsciiStrCatS (mThumbMregListStr, sizeof mThumbMregListStr, "{");
+  Str = mThumbMregListStr;
+  *Str = '\0';
+  AsciiStrCat  (Str, "{");
 
   for (Index = 0, First = TRUE; Index <= 15; Index++) {
     if ((RegBitMask & (1 << Index)) != 0) {
@@ -404,24 +412,24 @@ ThumbMRegList (
       }
 
       if (!First) {
-        AsciiStrCatS (mThumbMregListStr, sizeof mThumbMregListStr, ",");
+        AsciiStrCat  (Str, ",");
       } else {
         First = FALSE;
       }
 
       if (Start == End) {
-        AsciiStrCatS (mThumbMregListStr, sizeof mThumbMregListStr, gReg[Start]);
+        AsciiStrCat  (Str, gReg[Start]);
       } else {
-        AsciiStrCatS (mThumbMregListStr, sizeof mThumbMregListStr, gReg[Start]);
-        AsciiStrCatS (mThumbMregListStr, sizeof mThumbMregListStr, "-");
-        AsciiStrCatS (mThumbMregListStr, sizeof mThumbMregListStr, gReg[End]);
+        AsciiStrCat  (Str, gReg[Start]);
+        AsciiStrCat  (Str, "-");
+        AsciiStrCat  (Str, gReg[End]);
       }
     }
   }
   if (First) {
-    AsciiStrCatS (mThumbMregListStr, sizeof mThumbMregListStr, "ERROR");
+    AsciiStrCat  (Str, "ERROR");
   }
-  AsciiStrCatS (mThumbMregListStr, sizeof mThumbMregListStr, "}");
+  AsciiStrCat  (Str, "}");
 
   // BugBug: Make caller pass in buffer it is cleaner
   return mThumbMregListStr;
@@ -447,7 +455,7 @@ SignExtend32 (
 
 //
 // Some instructions specify the PC is always considered aligned
-// The PC is after the instruction that is executing. So you pass
+// The PC is after the instruction that is excuting. So you pass
 // in the instruction address and you get back the aligned answer
 //
 UINT32
@@ -459,8 +467,8 @@ PCAlign4 (
 }
 
 /**
-  Place a disassembly of **OpCodePtr into buffer, and update OpCodePtr to
-  point to next instruction.
+  Place a dissasembly of of **OpCodePtr into buffer, and update OpCodePtr to
+  point to next instructin.
 
   We cheat and only decode instructions that access
   memory. If the instruction is not found we dump the instruction in hex.
@@ -1023,8 +1031,8 @@ DisassembleArmInstruction (
 
 
 /**
-  Place a disassembly of **OpCodePtr into buffer, and update OpCodePtr to
-  point to next instruction.
+  Place a dissasembly of of **OpCodePtr into buffer, and update OpCodePtr to
+  point to next instructin.
 
   We cheat and only decode instructions that access
   memory. If the instruction is not found we dump the instruction in hex.

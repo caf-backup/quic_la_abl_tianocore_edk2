@@ -2,7 +2,13 @@
 *
 *  Copyright (c) 2011-2012, ARM Limited. All rights reserved.
 *
-*  SPDX-License-Identifier: BSD-2-Clause-Patent
+*  This program and the accompanying materials
+*  are licensed and made available under the terms and conditions of the BSD License
+*  which accompanies this distribution.  The full text of the license may be found at
+*  http://opensource.org/licenses/bsd-license.php
+*
+*  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+*  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 *
 **/
 
@@ -19,8 +25,11 @@
 #include <Library/MemoryAllocationLib.h>
 #include <Library/HobLib.h>
 #include <Library/SerialPortLib.h>
+#include <Library/ArmPlatformLib.h>
 
 #define SerialPrint(txt)  SerialPortWrite (txt, AsciiStrLen(txt)+1);
+
+extern UINT64 mSystemMemoryEnd;
 
 RETURN_STATUS
 EFIAPI
@@ -32,6 +41,7 @@ VOID
 PrePiMain (
   IN  UINTN                     UefiMemoryBase,
   IN  UINTN                     StacksBase,
+  IN  UINTN                     GlobalVariableBase,
   IN  UINT64                    StartTimeStamp
   );
 
@@ -52,6 +62,12 @@ PlatformPeim (
 VOID
 BuildMemoryTypeInformationHob (
   VOID
+  );
+
+EFI_STATUS
+GetPlatformPpi (
+  IN  EFI_GUID  *PpiGuid,
+  OUT VOID      **Ppi
   );
 
 // Initialize the Architecture specific controllers

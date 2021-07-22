@@ -1,10 +1,16 @@
 /** @file
-  This library abstract TPM2 hash calculation.
+  Ihis library abstract TPM2 hash calculation.
   The platform can choose multiply hash, while caller just need invoke these API.
   Then all hash value will be returned and/or extended.
 
-Copyright (c) 2013 - 2016, Intel Corporation. All rights reserved. <BR>
-SPDX-License-Identifier: BSD-2-Clause-Patent
+Copyright (c) 2013, Intel Corporation. All rights reserved. <BR>
+This program and the accompanying materials
+are licensed and made available under the terms and conditions of the BSD License
+which accompanies this distribution.  The full text of the license may be found at
+http://opensource.org/licenses/bsd-license.php
+
+THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
@@ -13,7 +19,7 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
 
 #include <Uefi.h>
 #include <Protocol/Hash.h>
-#include <IndustryStandard/Tpm20.h>
+
 typedef UINTN  HASH_HANDLE;
 
 /**
@@ -137,10 +143,6 @@ EFI_STATUS
 #define HASH_ALGORITHM_SHA256_GUID  EFI_HASH_ALGORITHM_SHA256_GUID
 #define HASH_ALGORITHM_SHA384_GUID  EFI_HASH_ALGORITHM_SHA384_GUID
 #define HASH_ALGORITHM_SHA512_GUID  EFI_HASH_ALGORITHM_SHA512_GUID
-#define HASH_ALGORITHM_SM3_256_GUID \
-  { \
-    0x251C7818, 0x0DBF, 0xE619, { 0x7F, 0xC2, 0xD6, 0xAC, 0x43, 0x42, 0x7D, 0xA3 } \
-  }
 
 typedef struct {
   EFI_GUID                           HashGuid;

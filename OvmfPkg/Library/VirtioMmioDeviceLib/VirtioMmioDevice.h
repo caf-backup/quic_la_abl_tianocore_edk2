@@ -3,9 +3,14 @@
   Internal definitions for the VirtIo MMIO Device driver
 
   Copyright (C) 2013, ARM Ltd
-  Copyright (C) 2017, AMD Inc. All rights reserved.<BR>
 
-  SPDX-License-Identifier: BSD-2-Clause-Patent
+  This program and the accompanying materials are licensed and made available
+  under the terms and conditions of the BSD License which accompanies this
+  distribution. The full text of the license may be found at
+  http://opensource.org/licenses/bsd-license.php
+
+  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS, WITHOUT
+  WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
@@ -20,7 +25,6 @@
 #include <Library/IoLib.h>
 #include <Library/UefiLib.h>
 #include <Library/VirtioMmioDeviceLib.h>
-#include <Library/MemoryAllocationLib.h>
 
 #define VIRTIO_MMIO_DEVICE_SIGNATURE  SIGNATURE_32 ('V', 'M', 'I', 'O')
 
@@ -61,7 +65,14 @@ EFI_STATUS
 EFIAPI
 VirtioMmioGetDeviceFeatures (
   IN VIRTIO_DEVICE_PROTOCOL *This,
-  OUT UINT64                *DeviceFeatures
+  OUT UINT32                *DeviceFeatures
+  );
+
+EFI_STATUS
+EFIAPI
+VirtioMmioGetQueueAddress (
+  IN  VIRTIO_DEVICE_PROTOCOL *This,
+  OUT UINT32                 *QueueAddress
   );
 
 EFI_STATUS
@@ -81,91 +92,56 @@ VirtioMmioGetDeviceStatus (
 EFI_STATUS
 EFIAPI
 VirtioMmioSetQueueSize (
-  IN VIRTIO_DEVICE_PROTOCOL *This,
-  IN UINT16                  QueueSize
+  VIRTIO_DEVICE_PROTOCOL *This,
+  UINT16                  QueueSize
   );
 
 EFI_STATUS
 EFIAPI
 VirtioMmioSetDeviceStatus (
-  IN VIRTIO_DEVICE_PROTOCOL *This,
-  IN UINT8                   DeviceStatus
+  VIRTIO_DEVICE_PROTOCOL *This,
+  UINT8                   DeviceStatus
   );
 
 EFI_STATUS
 EFIAPI
 VirtioMmioSetQueueNotify (
-  IN VIRTIO_DEVICE_PROTOCOL *This,
-  IN UINT16                  QueueNotify
+  VIRTIO_DEVICE_PROTOCOL *This,
+  UINT16                  QueueNotify
   );
 
 EFI_STATUS
 EFIAPI
 VirtioMmioSetQueueSel (
-  IN VIRTIO_DEVICE_PROTOCOL *This,
-  IN UINT16                  Sel
+  VIRTIO_DEVICE_PROTOCOL *This,
+  UINT16                  Sel
   );
 
 EFI_STATUS
 VirtioMmioSetQueueAddress (
-  IN VIRTIO_DEVICE_PROTOCOL  *This,
-  IN VRING                   *Ring,
-  IN UINT64                  RingBaseShift
+  VIRTIO_DEVICE_PROTOCOL *This,
+  UINT32                  Address
   );
 
 EFI_STATUS
 EFIAPI
 VirtioMmioSetQueueAlignment (
-  IN VIRTIO_DEVICE_PROTOCOL *This,
-  IN UINT32                  Alignment
+  VIRTIO_DEVICE_PROTOCOL *This,
+  UINT32                  Alignment
   );
 
 EFI_STATUS
 EFIAPI
 VirtioMmioSetPageSize (
-  IN VIRTIO_DEVICE_PROTOCOL *This,
-  IN UINT32                  PageSize
+  VIRTIO_DEVICE_PROTOCOL *This,
+  UINT32                  PageSize
   );
 
 EFI_STATUS
 EFIAPI
 VirtioMmioSetGuestFeatures (
-  IN VIRTIO_DEVICE_PROTOCOL *This,
-  IN UINT64                  Features
-  );
-
-EFI_STATUS
-EFIAPI
-VirtioMmioAllocateSharedPages (
-  IN  VIRTIO_DEVICE_PROTOCOL        *This,
-  IN  UINTN                         NumPages,
-  OUT VOID                          **HostAddress
-  );
-
-VOID
-EFIAPI
-VirtioMmioFreeSharedPages (
-  IN  VIRTIO_DEVICE_PROTOCOL        *This,
-  IN  UINTN                         NumPages,
-  IN  VOID                          *HostAddress
-  );
-
-EFI_STATUS
-EFIAPI
-VirtioMmioMapSharedBuffer (
-  IN      VIRTIO_DEVICE_PROTOCOL        *This,
-  IN      VIRTIO_MAP_OPERATION          Operation,
-  IN      VOID                          *HostAddress,
-  IN OUT  UINTN                         *NumberOfBytes,
-  OUT     EFI_PHYSICAL_ADDRESS          *DeviceAddress,
-  OUT     VOID                          **Mapping
-  );
-
-EFI_STATUS
-EFIAPI
-VirtioMmioUnmapSharedBuffer (
-  IN  VIRTIO_DEVICE_PROTOCOL        *This,
-  IN  VOID                          *Mapping
+  VIRTIO_DEVICE_PROTOCOL *This,
+  UINT32                  Features
   );
 
 #endif // _VIRTIO_MMIO_DEVICE_INTERNAL_H_

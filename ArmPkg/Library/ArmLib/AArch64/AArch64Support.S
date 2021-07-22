@@ -1,71 +1,119 @@
 #------------------------------------------------------------------------------
 #
 # Copyright (c) 2008 - 2010, Apple Inc. All rights reserved.<BR>
-# Copyright (c) 2011 - 2017, ARM Limited. All rights reserved.
-# Copyright (c) 2016, Linaro Limited. All rights reserved.
+# Copyright (c) 2011 - 2014, ARM Limited. All rights reserved.
 #
-# SPDX-License-Identifier: BSD-2-Clause-Patent
+# This program and the accompanying materials
+# are licensed and made available under the terms and conditions of the BSD License
+# which accompanies this distribution.  The full text of the license may be found at
+# http://opensource.org/licenses/bsd-license.php
+#
+# THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+# WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 #
 #------------------------------------------------------------------------------
 
 #include <Chipset/AArch64.h>
 #include <AsmMacroIoLibV8.h>
 
+.text
+.align 3
+
+GCC_ASM_EXPORT (ArmInvalidateInstructionCache)
+GCC_ASM_EXPORT (ArmInvalidateDataCacheEntryByMVA)
+GCC_ASM_EXPORT (ArmCleanDataCacheEntryByMVA)
+GCC_ASM_EXPORT (ArmCleanInvalidateDataCacheEntryByMVA)
+GCC_ASM_EXPORT (ArmInvalidateDataCacheEntryBySetWay)
+GCC_ASM_EXPORT (ArmCleanDataCacheEntryBySetWay)
+GCC_ASM_EXPORT (ArmCleanInvalidateDataCacheEntryBySetWay)
+GCC_ASM_EXPORT (ArmDrainWriteBuffer)
+GCC_ASM_EXPORT (ArmEnableMmu)
+GCC_ASM_EXPORT (ArmDisableMmu)
+GCC_ASM_EXPORT (ArmDisableCachesAndMmu)
+GCC_ASM_EXPORT (ArmMmuEnabled)
+GCC_ASM_EXPORT (ArmEnableDataCache)
+GCC_ASM_EXPORT (ArmDisableDataCache)
+GCC_ASM_EXPORT (ArmEnableInstructionCache)
+GCC_ASM_EXPORT (ArmDisableInstructionCache)
+GCC_ASM_EXPORT (ArmDisableAlignmentCheck)
+GCC_ASM_EXPORT (ArmEnableAlignmentCheck)
+GCC_ASM_EXPORT (ArmEnableBranchPrediction)
+GCC_ASM_EXPORT (ArmDisableBranchPrediction)
+GCC_ASM_EXPORT (AArch64AllDataCachesOperation)
+GCC_ASM_EXPORT (AArch64PerformPoUDataCacheOperation)
+GCC_ASM_EXPORT (ArmDataMemoryBarrier)
+GCC_ASM_EXPORT (ArmDataSyncronizationBarrier)
+GCC_ASM_EXPORT (ArmInstructionSynchronizationBarrier)
+GCC_ASM_EXPORT (ArmWriteVBar)
+GCC_ASM_EXPORT (ArmReadVBar)
+GCC_ASM_EXPORT (ArmEnableVFP)
+GCC_ASM_EXPORT (ArmCallWFI)
+GCC_ASM_EXPORT (ArmReadMpidr)
+GCC_ASM_EXPORT (ArmReadTpidrurw)
+GCC_ASM_EXPORT (ArmWriteTpidrurw)
+GCC_ASM_EXPORT (ArmIsArchTimerImplemented)
+GCC_ASM_EXPORT (ArmReadIdPfr0)
+GCC_ASM_EXPORT (ArmReadIdPfr1)
+GCC_ASM_EXPORT (ArmWriteHcr)
+GCC_ASM_EXPORT (ArmReadCurrentEL)
+
 .set CTRL_M_BIT,      (1 << 0)
 .set CTRL_A_BIT,      (1 << 1)
 .set CTRL_C_BIT,      (1 << 2)
-.set CTRL_SA_BIT,     (1 << 3)
 .set CTRL_I_BIT,      (1 << 12)
 .set CTRL_V_BIT,      (1 << 12)
 .set CPACR_VFP_BITS,  (3 << 20)
 
-ASM_FUNC(ArmInvalidateDataCacheEntryByMVA)
+ASM_PFX(ArmInvalidateDataCacheEntryByMVA):
   dc      ivac, x0    // Invalidate single data cache line
+  dsb     sy
+  isb
   ret
 
 
-ASM_FUNC(ArmCleanDataCacheEntryByMVA)
+ASM_PFX(ArmCleanDataCacheEntryByMVA):
   dc      cvac, x0    // Clean single data cache line
+  dsb     sy
+  isb
   ret
 
 
-ASM_FUNC(ArmCleanDataCacheEntryToPoUByMVA)
-  dc      cvau, x0    // Clean single data cache line to PoU
-  ret
-
-ASM_FUNC(ArmInvalidateInstructionCacheEntryToPoUByMVA)
-  ic      ivau, x0    // Invalidate single instruction cache line to PoU
-  ret
-
-
-ASM_FUNC(ArmCleanInvalidateDataCacheEntryByMVA)
+ASM_PFX(ArmCleanInvalidateDataCacheEntryByMVA):
   dc      civac, x0   // Clean and invalidate single data cache line
+  dsb     sy
+  isb
   ret
 
 
-ASM_FUNC(ArmInvalidateDataCacheEntryBySetWay)
+ASM_PFX(ArmInvalidateDataCacheEntryBySetWay):
   dc      isw, x0     // Invalidate this line
+  dsb     sy
+  isb
   ret
 
 
-ASM_FUNC(ArmCleanInvalidateDataCacheEntryBySetWay)
+ASM_PFX(ArmCleanInvalidateDataCacheEntryBySetWay):
   dc      cisw, x0    // Clean and Invalidate this line
+  dsb     sy
+  isb
   ret
 
 
-ASM_FUNC(ArmCleanDataCacheEntryBySetWay)
+ASM_PFX(ArmCleanDataCacheEntryBySetWay):
   dc      csw, x0     // Clean this line
+  dsb     sy
+  isb
   ret
 
 
-ASM_FUNC(ArmInvalidateInstructionCache)
+ASM_PFX(ArmInvalidateInstructionCache):
   ic      iallu       // Invalidate entire instruction cache
   dsb     sy
   isb
   ret
 
 
-ASM_FUNC(ArmEnableMmu)
+ASM_PFX(ArmEnableMmu):
    EL1_OR_EL2_OR_EL3(x1)
 1: mrs     x0, sctlr_el1       // Read System control register EL1
    b       4f
@@ -75,24 +123,22 @@ ASM_FUNC(ArmEnableMmu)
 4: orr     x0, x0, #CTRL_M_BIT // Set MMU enable bit
    EL1_OR_EL2_OR_EL3(x1)
 1: tlbi    vmalle1
-   dsb     nsh
    isb
    msr     sctlr_el1, x0       // Write back
    b       4f
 2: tlbi    alle2
-   dsb     nsh
    isb
    msr     sctlr_el2, x0       // Write back
    b       4f
 3: tlbi    alle3
-   dsb     nsh
    isb
    msr     sctlr_el3, x0       // Write back
-4: isb
+4: dsb     sy
+   isb
    ret
 
 
-ASM_FUNC(ArmDisableMmu)
+ASM_PFX(ArmDisableMmu):
    EL1_OR_EL2_OR_EL3(x1)
 1: mrs     x0, sctlr_el1        // Read System Control Register EL1
    b       4f
@@ -114,7 +160,7 @@ ASM_FUNC(ArmDisableMmu)
    ret
 
 
-ASM_FUNC(ArmDisableCachesAndMmu)
+ASM_PFX(ArmDisableCachesAndMmu):
    EL1_OR_EL2_OR_EL3(x1)
 1: mrs     x0, sctlr_el1        // Get control register EL1
    b       4f
@@ -134,7 +180,7 @@ ASM_FUNC(ArmDisableCachesAndMmu)
    ret
 
 
-ASM_FUNC(ArmMmuEnabled)
+ASM_PFX(ArmMmuEnabled):
    EL1_OR_EL2_OR_EL3(x1)
 1: mrs     x0, sctlr_el1        // Get control register EL1
    b       4f
@@ -145,7 +191,7 @@ ASM_FUNC(ArmMmuEnabled)
    ret
 
 
-ASM_FUNC(ArmEnableDataCache)
+ASM_PFX(ArmEnableDataCache):
    EL1_OR_EL2_OR_EL3(x1)
 1: mrs     x0, sctlr_el1        // Get control register EL1
    b       4f
@@ -164,7 +210,7 @@ ASM_FUNC(ArmEnableDataCache)
    ret
 
 
-ASM_FUNC(ArmDisableDataCache)
+ASM_PFX(ArmDisableDataCache):
    EL1_OR_EL2_OR_EL3(x1)
 1: mrs     x0, sctlr_el1        // Get control register EL1
    b       4f
@@ -183,7 +229,7 @@ ASM_FUNC(ArmDisableDataCache)
    ret
 
 
-ASM_FUNC(ArmEnableInstructionCache)
+ASM_PFX(ArmEnableInstructionCache):
    EL1_OR_EL2_OR_EL3(x1)
 1: mrs     x0, sctlr_el1        // Get control register EL1
    b       4f
@@ -202,7 +248,7 @@ ASM_FUNC(ArmEnableInstructionCache)
    ret
 
 
-ASM_FUNC(ArmDisableInstructionCache)
+ASM_PFX(ArmDisableInstructionCache):
    EL1_OR_EL2_OR_EL3(x1)
 1: mrs     x0, sctlr_el1        // Get control register EL1
    b       4f
@@ -221,7 +267,7 @@ ASM_FUNC(ArmDisableInstructionCache)
    ret
 
 
-ASM_FUNC(ArmEnableAlignmentCheck)
+ASM_PFX(ArmEnableAlignmentCheck):
    EL1_OR_EL2(x1)
 1: mrs     x0, sctlr_el1        // Get control register EL1
    b       3f
@@ -236,7 +282,7 @@ ASM_FUNC(ArmEnableAlignmentCheck)
    ret
 
 
-ASM_FUNC(ArmDisableAlignmentCheck)
+ASM_PFX(ArmDisableAlignmentCheck):
    EL1_OR_EL2_OR_EL3(x1)
 1: mrs     x0, sctlr_el1        // Get control register EL1
    b       4f
@@ -254,59 +300,38 @@ ASM_FUNC(ArmDisableAlignmentCheck)
    isb
    ret
 
-ASM_FUNC(ArmEnableStackAlignmentCheck)
-   EL1_OR_EL2(x1)
-1: mrs     x0, sctlr_el1        // Get control register EL1
-   b       3f
-2: mrs     x0, sctlr_el2        // Get control register EL2
-3: orr     x0, x0, #CTRL_SA_BIT // Set SA (stack alignment check) bit
-   EL1_OR_EL2(x1)
-1: msr     sctlr_el1, x0        // Write back control register
-   b       3f
-2: msr     sctlr_el2, x0        // Write back control register
-3: dsb     sy
-   isb
-   ret
-
-
-ASM_FUNC(ArmDisableStackAlignmentCheck)
-   EL1_OR_EL2_OR_EL3(x1)
-1: mrs     x0, sctlr_el1        // Get control register EL1
-   b       4f
-2: mrs     x0, sctlr_el2        // Get control register EL2
-   b       4f
-3: mrs     x0, sctlr_el3        // Get control register EL3
-4: bic     x0, x0, #CTRL_SA_BIT // Clear SA (stack alignment check) bit
-   EL1_OR_EL2_OR_EL3(x1)
-1: msr     sctlr_el1, x0        // Write back control register
-   b       4f
-2: msr     sctlr_el2, x0        // Write back control register
-   b       4f
-3: msr     sctlr_el3, x0        // Write back control register
-4: dsb     sy
-   isb
-   ret
-
 
 // Always turned on in AArch64. Else implementation specific. Leave in for C compatibility for now
-ASM_FUNC(ArmEnableBranchPrediction)
+ASM_PFX(ArmEnableBranchPrediction):
   ret
 
 
 // Always turned on in AArch64. Else implementation specific. Leave in for C compatibility for now.
-ASM_FUNC(ArmDisableBranchPrediction)
+ASM_PFX(ArmDisableBranchPrediction):
   ret
 
 
-ASM_FUNC(AArch64AllDataCachesOperation)
+ASM_PFX(AArch64AllDataCachesOperation):
 // We can use regs 0-7 and 9-15 without having to save/restore.
 // Save our link register on the stack. - The stack must always be quad-word aligned
-  stp   x29, x30, [sp, #-16]!
-  mov   x29, sp
+  str   x30, [sp, #-16]!
   mov   x1, x0                  // Save Function call in x1
   mrs   x6, clidr_el1           // Read EL1 CLIDR
   and   x3, x6, #0x7000000      // Mask out all but Level of Coherency (LoC)
   lsr   x3, x3, #23             // Left align cache level value - the level is shifted by 1 to the
+                                // right to ease the access to CSSELR and the Set/Way operation.
+  cbz   x3, L_Finished          // No need to clean if LoC is 0
+  mov   x10, #0                 // Start clean at cache level 0
+  b     Loop1
+
+ASM_PFX(AArch64PerformPoUDataCacheOperation):
+// We can use regs 0-7 and 9-15 without having to save/restore.
+// Save our link register on the stack. - The stack must always be quad-word aligned
+  str   x30, [sp, #-16]!
+  mov   x1, x0                  // Save Function call in x1
+  mrs   x6, clidr_el1           // Read EL1 CLIDR
+  and   x3, x6, #0x38000000     // Mask out all but Point of Unification (PoU)
+  lsr   x3, x3, #26             // Left align cache level value - the level is shifted by 1 to the
                                 // right to ease the access to CSSELR and the Set/Way operation.
   cbz   x3, L_Finished          // No need to clean if LoC is 0
   mov   x10, #0                 // Start clean at cache level 0
@@ -353,26 +378,27 @@ L_Skip:
 L_Finished:
   dsb   sy
   isb
-  ldp   x29, x30, [sp], #0x10
+  ldr   x30, [sp], #0x10
   ret
 
 
-ASM_FUNC(ArmDataMemoryBarrier)
+ASM_PFX(ArmDataMemoryBarrier):
   dmb   sy
   ret
 
 
-ASM_FUNC(ArmDataSynchronizationBarrier)
+ASM_PFX(ArmDataSyncronizationBarrier):
+ASM_PFX(ArmDrainWriteBuffer):
   dsb   sy
   ret
 
 
-ASM_FUNC(ArmInstructionSynchronizationBarrier)
+ASM_PFX(ArmInstructionSynchronizationBarrier):
   isb
   ret
 
 
-ASM_FUNC(ArmWriteVBar)
+ASM_PFX(ArmWriteVBar):
    EL1_OR_EL2_OR_EL3(x1)
 1: msr   vbar_el1, x0            // Set the Address of the EL1 Vector Table in the VBAR register
    b     4f
@@ -382,7 +408,7 @@ ASM_FUNC(ArmWriteVBar)
 4: isb
    ret
 
-ASM_FUNC(ArmReadVBar)
+ASM_PFX(ArmReadVBar):
    EL1_OR_EL2_OR_EL3(x1)
 1: mrs   x0, vbar_el1            // Set the Address of the EL1 Vector Table in the VBAR register
    ret
@@ -392,16 +418,14 @@ ASM_FUNC(ArmReadVBar)
    ret
 
 
-ASM_FUNC(ArmEnableVFP)
+ASM_PFX(ArmEnableVFP):
   // Check whether floating-point is implemented in the processor.
   mov   x1, x30                 // Save LR
   bl    ArmReadIdPfr0           // Read EL1 Processor Feature Register (PFR0)
   mov   x30, x1                 // Restore LR
-  ubfx  x0, x0, #16, #4         // Extract the FP bits 16:19
-  cmp   x0, #0xF                // Check if FP bits are '1111b',
-                                // i.e. Floating Point not implemented
-  b.eq  4f                      // Exit when VFP is not implemented.
-
+  ands  x0, x0, #AARCH64_PFR0_FP// Extract bits indicating VFP implementation
+  cmp   x0, #0                  // VFP is implemented if '0'.
+  b.ne  4f                      // Exit if VFP not implemented.
   // FVP is implemented.
   // Make sure VFP exceptions are not trapped (to any exception level).
   mrs   x0, cpacr_el1           // Read EL1 Coprocessor Access Control Register (CPACR)
@@ -420,70 +444,55 @@ ASM_FUNC(ArmEnableVFP)
 4:ret
 
 
-ASM_FUNC(ArmCallWFI)
+ASM_PFX(ArmCallWFI):
   wfi
   ret
 
 
-ASM_FUNC(ArmReadMpidr)
+ASM_PFX(ArmReadMpidr):
   mrs   x0, mpidr_el1           // read EL1 MPIDR
   ret
 
 
-// Keep old function names for C compatibility for now. Change later?
-ASM_FUNC(ArmReadTpidrurw)
+// Keep old function names for C compatibilty for now. Change later?
+ASM_PFX(ArmReadTpidrurw):
   mrs   x0, tpidr_el0           // read tpidr_el0 (v7 TPIDRURW) -> (v8 TPIDR_EL0)
   ret
 
 
-// Keep old function names for C compatibility for now. Change later?
-ASM_FUNC(ArmWriteTpidrurw)
+// Keep old function names for C compatibilty for now. Change later?
+ASM_PFX(ArmWriteTpidrurw):
   msr   tpidr_el0, x0           // write tpidr_el0 (v7 TPIDRURW) -> (v8 TPIDR_EL0)
   ret
 
 
 // Arch timers are mandatory on AArch64
-ASM_FUNC(ArmIsArchTimerImplemented)
+ASM_PFX(ArmIsArchTimerImplemented):
   mov   x0, #1
   ret
 
 
-ASM_FUNC(ArmReadIdPfr0)
+ASM_PFX(ArmReadIdPfr0):
   mrs   x0, id_aa64pfr0_el1   // Read ID_AA64PFR0 Register
   ret
 
 
-// Q: id_aa64pfr1_el1 not defined yet. What does this function want to access?
+// Q: id_aa64pfr1_el1 not defined yet. What does this funtion want to access?
 // A: used to setup arch timer. Check if we have security extensions, permissions to set stuff.
 //    See: ArmPkg/Library/ArmArchTimerLib/AArch64/ArmArchTimerLib.c
 //    Not defined yet, but stick in here for now, should read all zeros.
-ASM_FUNC(ArmReadIdPfr1)
+ASM_PFX(ArmReadIdPfr1):
   mrs   x0, id_aa64pfr1_el1   // Read ID_PFR1 Register
   ret
 
 // VOID ArmWriteHcr(UINTN Hcr)
-ASM_FUNC(ArmWriteHcr)
+ASM_PFX(ArmWriteHcr):
   msr   hcr_el2, x0        // Write the passed HCR value
   ret
 
-// UINTN ArmReadHcr(VOID)
-ASM_FUNC(ArmReadHcr)
-  mrs   x0, hcr_el2
-  ret
-
 // UINTN ArmReadCurrentEL(VOID)
-ASM_FUNC(ArmReadCurrentEL)
+ASM_PFX(ArmReadCurrentEL):
   mrs   x0, CurrentEL
-  ret
-
-// UINT32 ArmReadCntHctl(VOID)
-ASM_FUNC(ArmReadCntHctl)
-  mrs   x0, cnthctl_el2
-  ret
-
-// VOID ArmWriteCntHctl(UINT32 CntHctl)
-ASM_FUNC(ArmWriteCntHctl)
-  msr   cnthctl_el2, x0
   ret
 
 ASM_FUNCTION_REMOVE_IF_UNREFERENCED

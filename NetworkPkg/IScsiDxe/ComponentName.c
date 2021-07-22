@@ -1,8 +1,14 @@
 /** @file
   UEFI Component Name(2) protocol implementation for iSCSI.
 
-Copyright (c) 2004 - 2018, Intel Corporation. All rights reserved.<BR>
-SPDX-License-Identifier: BSD-2-Clause-Patent
+Copyright (c) 2004 - 2015, Intel Corporation. All rights reserved.<BR>
+This program and the accompanying materials
+are licensed and made available under the terms and conditions of the BSD License
+which accompanies this distribution.  The full text of the license may be found at
+http://opensource.org/licenses/bsd-license.php
+
+THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
@@ -100,11 +106,11 @@ IScsiComponentNameGetDriverName (
 
   @param[in]  IScsiExtScsiPassThru  A pointer to the EFI_EXT_SCSI_PASS_THRU_PROTOCOL instance.
   @param[in]  Ipv6Flag              TRUE if IP6 network stack is used.
-
+  
   @retval EFI_SUCCESS               Update the ControllerNameTable of this instance successfully.
   @retval EFI_INVALID_PARAMETER     The input parameter is invalid.
   @retval EFI_UNSUPPORTED           Can't get the corresponding NIC info from the Controller handle.
-
+  
 **/
 EFI_STATUS
 UpdateName (
@@ -120,10 +126,10 @@ UpdateName (
   if (IScsiExtScsiPassThru == NULL) {
     return EFI_INVALID_PARAMETER;
   }
-
+  
   Private  = ISCSI_DRIVER_DATA_FROM_EXT_SCSI_PASS_THRU (IScsiExtScsiPassThru);
   NicIndex = Private->Session->ConfigData->NicIndex;
-
+    
   UnicodeSPrint (
     HandleName,
     sizeof (HandleName),
@@ -236,20 +242,20 @@ IScsiComponentNameGetControllerName (
   )
 {
   EFI_STATUS                      Status;
-
+  
   EFI_HANDLE                      IScsiController;
   BOOLEAN                         Ipv6Flag;
   EFI_GUID                        *IScsiPrivateGuid;
   ISCSI_PRIVATE_PROTOCOL          *IScsiIdentifier;
-
+  
   EFI_EXT_SCSI_PASS_THRU_PROTOCOL *IScsiExtScsiPassThru;
-
+  
   if (ControllerHandle == NULL) {
     return EFI_UNSUPPORTED;
   }
 
   //
-  // Get the handle of the controller we are controlling.
+  // Get the handle of the controller we are controling.
   //
   IScsiController = NetLibGetNicHandle (ControllerHandle, &gEfiTcp4ProtocolGuid);
   if (IScsiController != NULL) {
@@ -303,7 +309,7 @@ IScsiComponentNameGetControllerName (
         return Status;
       }
     }
-
+    
     //
     // Retrieve an instance of a produced protocol from ChildHandle
     //
@@ -318,7 +324,7 @@ IScsiComponentNameGetControllerName (
     if (EFI_ERROR (Status)) {
       return Status;
     }
-
+    
     //
     // Update the component name for this child handle.
     //

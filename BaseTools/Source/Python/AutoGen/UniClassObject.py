@@ -4,22 +4,26 @@
 #
 # Copyright (c) 2014 Hewlett-Packard Development Company, L.P.<BR>
 #
-# Copyright (c) 2007 - 2018, Intel Corporation. All rights reserved.<BR>
-# SPDX-License-Identifier: BSD-2-Clause-Patent
+# Copyright (c) 2007 - 2015, Intel Corporation. All rights reserved.<BR>
+# This program and the accompanying materials
+# are licensed and made available under the terms and conditions of the BSD License
+# which accompanies this distribution.  The full text of the license may be found at
+# http://opensource.org/licenses/bsd-license.php
+#
+# THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+# WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 ##
 # Import Modules
 #
-from __future__ import print_function
 import Common.LongFilePathOs as os, codecs, re
 import distutils.util
 import Common.EdkLogger as EdkLogger
-from io import BytesIO
+import StringIO
 from Common.BuildToolError import *
-from Common.StringUtils import GetLineNo
+from Common.String import GetLineNo
 from Common.Misc import PathClass
 from Common.LongFilePathSupport import LongFilePath
-from Common.GlobalData import *
 ##
 # Static definitions
 #
@@ -39,6 +43,18 @@ TAB = u'\t'
 BACK_SLASH_PLACEHOLDER = u'\u0006'
 
 gIncludePattern = re.compile("^#include +[\"<]+([^\"< >]+)[>\"]+$", re.MULTILINE | re.UNICODE)
+
+## Convert a python unicode string to a normal string
+#
+# Convert a python unicode string to a normal string
+# UniToStr(u'I am a string') is 'I am a string'
+#
+# @param Uni:  The python unicode string
+#
+# @retval:     The formatted normal string
+#
+def UniToStr(Uni):
+    return repr(Uni)[2:-1]
 
 ## Convert a unicode string to a Hex list
 #
@@ -93,19 +109,21 @@ LangConvTable = {'eng':'en', 'fra':'fr', \
 ## GetLanguageCode
 #
 # Check the language code read from .UNI file and convert ISO 639-2 codes to RFC 4646 codes if appropriate
-# ISO 639-2 language codes supported in compatibility mode
+# ISO 639-2 language codes supported in compatiblity mode
 # RFC 4646 language codes supported in native mode
 #
 # @param LangName:   Language codes read from .UNI file
 #
-# @retval LangName:  Valid language code in RFC 4646 format or None
+# @retval LangName:  Valid lanugage code in RFC 4646 format or None
 #
 def GetLanguageCode(LangName, IsCompatibleMode, File):
+    global LangConvTable
+
     length = len(LangName)
     if IsCompatibleMode:
         if length == 3 and LangName.isalpha():
             TempLangName = LangConvTable.get(LangName.lower())
-            if TempLangName is not None:
+            if TempLangName != None:
                 return TempLangName
             return LangName
         else:
@@ -117,7 +135,7 @@ def GetLanguageCode(LangName, IsCompatibleMode, File):
         if LangName.isalpha():
             return LangName
     elif length == 3:
-        if LangName.isalpha() and LangConvTable.get(LangName.lower()) is None:
+        if LangName.isalpha() and LangConvTable.get(LangName.lower()) == None:
             return LangName
     elif length == 5:
         if LangName[0:2].isalpha() and LangName[2] == '-':
@@ -125,7 +143,7 @@ def GetLanguageCode(LangName, IsCompatibleMode, File):
     elif length >= 6:
         if LangName[0:2].isalpha() and LangName[2] == '-':
             return LangName
-        if LangName[0:3].isalpha() and LangConvTable.get(LangName.lower()) is None and LangName[3] == '-':
+        if LangName[0:3].isalpha() and LangConvTable.get(LangName.lower()) == None and LangName[3] == '-':
             return LangName
 
     EdkLogger.error("Unicode File Parser", FORMAT_INVALID, "Invalid RFC 4646 language code : %s" % LangName, File)
@@ -176,14 +194,14 @@ class StringDefClassObject(object):
         self.UseOtherLangDef = UseOtherLangDef
         self.Length = 0
 
-        if Name is not None:
+        if Name != None:
             self.StringName = Name
             self.StringNameByteList = UniToHexList(Name)
-        if Value is not None:
+        if Value != None:
             self.StringValue = Value + u'\x00'        # Add a NULL at string tail
             self.StringValueByteList = UniToHexList(self.StringValue)
             self.Length = len(self.StringValueByteList)
-        if Token is not None:
+        if Token != None:
             self.Token = Token
 
     def __str__(self):
@@ -194,23 +212,10 @@ class StringDefClassObject(object):
                repr(self.UseOtherLangDef)
 
     def UpdateValue(self, Value = None):
-        if Value is not None:
+        if Value != None:
             self.StringValue = Value + u'\x00'        # Add a NULL at string tail
             self.StringValueByteList = UniToHexList(self.StringValue)
             self.Length = len(self.StringValueByteList)
-
-def StripComments(Line):
-    Comment = u'//'
-    CommentPos = Line.find(Comment)
-    while CommentPos >= 0:
-    # if there are non matched quotes before the comment header
-    # then we are in the middle of a string
-    # but we need to ignore the escaped quotes and backslashes.
-        if ((Line.count(u'"', 0, CommentPos) - Line.count(u'\\"', 0, CommentPos)) & 1) == 1:
-            CommentPos = Line.find (Comment, CommentPos + 1)
-        else:
-            return Line[:CommentPos].strip()
-    return Line.strip()
 
 ## UniFileClassObject
 #
@@ -236,14 +241,14 @@ class UniFileClassObject(object):
         Lang = distutils.util.split_quoted((Line.split(u"//")[0]))
         if len(Lang) != 3:
             try:
-                FileIn = UniFileClassObject.OpenUniFile(LongFilePath(File.Path))
-            except UnicodeError as X:
+                FileIn = self.OpenUniFile(LongFilePath(File.Path))
+            except UnicodeError, X:
                 EdkLogger.error("build", FILE_READ_FAILURE, "File read failure: %s" % str(X), ExtraData=File);
             except:
                 EdkLogger.error("build", FILE_OPEN_FAILURE, ExtraData=File);
             LineNo = GetLineNo(FileIn, Line, False)
             EdkLogger.error("Unicode File Parser", PARSER_ERROR, "Wrong language definition",
-                            ExtraData="""%s\n\t*Correct format is like '#langdef en-US "English"'""" % Line, File=File, Line=LineNo)
+                            ExtraData="""%s\n\t*Correct format is like '#langdef en-US "English"'""" % Line, File = File, Line = LineNo)
         else:
             LangName = GetLanguageCode(Lang[1], self.IsCompatibleMode, self.File)
             LangPrintName = Lang[2]
@@ -266,7 +271,7 @@ class UniFileClassObject(object):
         if not IsLangInDef:
             #
             # The found STRING tokens will be added into new language string list
-            # so that the unique STRING identifier is reserved for all languages in the package list.
+            # so that the unique STRING identifier is reserved for all languages in the package list. 
             #
             FirstLangName = self.LanguageDef[0][0]
             if LangName != FirstLangName:
@@ -280,8 +285,7 @@ class UniFileClassObject(object):
                     self.OrderedStringDict[LangName][Item.StringName] = len(self.OrderedStringList[LangName]) - 1
         return True
 
-    @staticmethod
-    def OpenUniFile(FileName):
+    def OpenUniFile(self, FileName):
         #
         # Read file
         #
@@ -300,15 +304,14 @@ class UniFileClassObject(object):
             FileIn.startswith(codecs.BOM_UTF16_LE)):
             Encoding = 'utf-16'
 
-        UniFileClassObject.VerifyUcs2Data(FileIn, FileName, Encoding)
+        self.VerifyUcs2Data(FileIn, FileName, Encoding)
 
-        UniFile = BytesIO(FileIn)
+        UniFile = StringIO.StringIO(FileIn)
         Info = codecs.lookup(Encoding)
         (Reader, Writer) = (Info.streamreader, Info.streamwriter)
         return codecs.StreamReaderWriter(UniFile, Reader, Writer)
 
-    @staticmethod
-    def VerifyUcs2Data(FileIn, FileName, Encoding):
+    def VerifyUcs2Data(self, FileIn, FileName, Encoding):
         Ucs2Info = codecs.lookup('ucs-2')
         #
         # Convert to unicode
@@ -317,7 +320,7 @@ class UniFileClassObject(object):
             FileDecoded = codecs.decode(FileIn, Encoding)
             Ucs2Info.encode(FileDecoded)
         except:
-            UniFile = BytesIO(FileIn)
+            UniFile = StringIO.StringIO(FileIn)
             Info = codecs.lookup(Encoding)
             (Reader, Writer) = (Info.streamreader, Info.streamwriter)
             File = codecs.StreamReaderWriter(UniFile, Reader, Writer)
@@ -345,11 +348,11 @@ class UniFileClassObject(object):
         Value = ''
 
         Name = Item.split()[1]
-        # Check the string name
+        # Check the string name is the upper character
         if Name != '':
-            MatchString = gIdentifierPattern.match(Name)
-            if MatchString is None:
-                EdkLogger.error('Unicode File Parser', FORMAT_INVALID, 'The string token name %s defined in UNI file %s contains the invalid character.' % (Name, self.File))
+            MatchString = re.match('[A-Z0-9_]+', Name, re.UNICODE)
+            if MatchString == None or MatchString.end(0) != len(Name):
+                EdkLogger.error('Unicode File Parser', FORMAT_INVALID, 'The string token name %s defined in UNI file %s contains the invalid lower case character.' %(Name, self.File))
         LanguageList = Item.split(u'#language ')
         for IndexI in range(len(LanguageList)):
             if IndexI == 0:
@@ -367,16 +370,31 @@ class UniFileClassObject(object):
         FileName = Item[Item.find(u'#include ') + len(u'#include ') :Item.find(u' ', len(u'#include '))][1:-1]
         self.LoadUniFile(FileName)
 
+    def StripComments(self, Line):
+        Comment = u'//'
+        CommentPos = Line.find(Comment)
+        while CommentPos >= 0:
+        # if there are non matched quotes before the comment header
+        # then we are in the middle of a string
+        # but we need to ignore the escaped quotes and backslashes.
+            if ((Line.count(u'"', 0, CommentPos) - Line.count(u'\\"', 0, CommentPos)) & 1) == 1:
+                CommentPos = Line.find (Comment, CommentPos + 1)
+            else:
+                return Line[:CommentPos].strip()
+        return Line.strip()
+                
+
     #
     # Pre-process before parse .uni file
     #
     def PreProcess(self, File):
-        try:
-            FileIn = UniFileClassObject.OpenUniFile(LongFilePath(File.Path))
-        except UnicodeError as X:
-            EdkLogger.error("build", FILE_READ_FAILURE, "File read failure: %s" % str(X), ExtraData=File.Path);
-        except OSError:
+        if not os.path.exists(File.Path) or not os.path.isfile(File.Path):
             EdkLogger.error("Unicode File Parser", FILE_NOT_FOUND, ExtraData=File.Path)
+
+        try:
+            FileIn = self.OpenUniFile(LongFilePath(File.Path))
+        except UnicodeError, X:
+            EdkLogger.error("build", FILE_READ_FAILURE, "File read failure: %s" % str(X), ExtraData=File.Path);
         except:
             EdkLogger.error("build", FILE_OPEN_FAILURE, ExtraData=File.Path);
 
@@ -387,15 +405,15 @@ class UniFileClassObject(object):
         for Line in FileIn:
             Line = Line.strip()
             Line = Line.replace(u'\\\\', BACK_SLASH_PLACEHOLDER)
-            Line = StripComments(Line)
+            Line = self.StripComments(Line)
 
             #
             # Ignore empty line
             #
-            if len(Line) == 0:
-                continue
-
-
+            if len(Line) == 0: 
+                continue 
+            
+                             
             Line = Line.replace(u'/langdef', u'#langdef')
             Line = Line.replace(u'/string', u'#string')
             Line = Line.replace(u'/language', u'#language')
@@ -410,23 +428,13 @@ class UniFileClassObject(object):
             Line = Line.replace(u'\\r', CR)
             Line = Line.replace(u'\\t', u' ')
             Line = Line.replace(u'\t', u' ')
-            Line = Line.replace(u'\\"', u'"')
-            Line = Line.replace(u"\\'", u"'")
+            Line = Line.replace(u'\\"', u'"') 
+            Line = Line.replace(u"\\'", u"'") 
             Line = Line.replace(BACK_SLASH_PLACEHOLDER, u'\\')
 
-            StartPos = Line.find(u'\\x')
-            while (StartPos != -1):
-                EndPos = Line.find(u'\\', StartPos + 1, StartPos + 7)
-                if EndPos != -1 and EndPos - StartPos == 6 :
-                    if g4HexChar.match(Line[StartPos + 2 : EndPos], re.UNICODE):
-                        EndStr = Line[EndPos: ]
-                        UniStr = Line[StartPos + 2: EndPos]
-                        if EndStr.startswith(u'\\x') and len(EndStr) >= 7:
-                            if EndStr[6] == u'\\' and g4HexChar.match(EndStr[2 : 6], re.UNICODE):
-                                Line = Line[0 : StartPos] + UniStr + EndStr
-                        else:
-                            Line = Line[0 : StartPos] + UniStr + EndStr[1:]
-                StartPos = Line.find(u'\\x', StartPos + 1)
+#           if Line.find(u'\\x'):
+#               hex = Line[Line.find(u'\\x') + 2 : Line.find(u'\\x') + 6]
+#               hex = "u'\\u" + hex + "'"
 
             IncList = gIncludePattern.findall(Line)
             if len(IncList) == 1:
@@ -447,7 +455,7 @@ class UniFileClassObject(object):
     # Load a .uni file
     #
     def LoadUniFile(self, File = None):
-        if File is None:
+        if File == None:
             EdkLogger.error("Unicode File Parser", PARSER_ERROR, 'No unicode file is given')
         self.File = File
         #
@@ -500,11 +508,11 @@ class UniFileClassObject(object):
                         break
                 # Value = Value.replace(u'\r\n', u'')
                 Language = GetLanguageCode(Language, self.IsCompatibleMode, self.File)
-                # Check the string name
+                # Check the string name is the upper character
                 if not self.IsCompatibleMode and Name != '':
-                    MatchString = gIdentifierPattern.match(Name)
-                    if MatchString is None:
-                        EdkLogger.error('Unicode File Parser', FORMAT_INVALID, 'The string token name %s defined in UNI file %s contains the invalid character.' % (Name, self.File))
+                    MatchString = re.match('[A-Z0-9_]+', Name, re.UNICODE)
+                    if MatchString == None or MatchString.end(0) != len(Name):
+                        EdkLogger.error('Unicode File Parser', FORMAT_INVALID, 'The string token name %s defined in UNI file %s contains the invalid lower case character.' %(Name, self.File))
                 self.AddStringToList(Name, Language, Value)
                 continue
 
@@ -551,7 +559,7 @@ class UniFileClassObject(object):
         else:
             EdkLogger.error('Unicode File Parser', FORMAT_NOT_SUPPORTED, "The language '%s' for %s is not defined in Unicode file %s." \
                             % (Language, Name, self.File))
-
+            
         if Language not in self.OrderedStringList:
             self.OrderedStringList[Language] = []
             self.OrderedStringDict[Language] = {}
@@ -559,11 +567,11 @@ class UniFileClassObject(object):
         IsAdded = True
         if Name in self.OrderedStringDict[Language]:
             IsAdded = False
-            if Value is not None:
+            if Value != None:
                 ItemIndexInList = self.OrderedStringDict[Language][Name]
                 Item = self.OrderedStringList[Language][ItemIndexInList]
                 Item.UpdateValue(Value)
-                Item.UseOtherLangDef = ''
+                Item.UseOtherLangDef = ''   
 
         if IsAdded:
             Token = len(self.OrderedStringList[Language])
@@ -573,7 +581,7 @@ class UniFileClassObject(object):
                 for LangName in self.LanguageDef:
                     #
                     # New STRING token will be added into all language string lists.
-                    # so that the unique STRING identifier is reserved for all languages in the package list.
+                    # so that the unique STRING identifier is reserved for all languages in the package list. 
                     #
                     if LangName[0] != Language:
                         if UseOtherLangDef != '':
@@ -666,12 +674,12 @@ class UniFileClassObject(object):
     # Show the instance itself
     #
     def ShowMe(self):
-        print(self.LanguageDef)
+        print self.LanguageDef
         #print self.OrderedStringList
         for Item in self.OrderedStringList:
-            print(Item)
+            print Item
             for Member in self.OrderedStringList[Item]:
-                print(str(Member))
+                print str(Member)
 
 # This acts like the main() function for the script, unless it is 'import'ed into another
 # script.

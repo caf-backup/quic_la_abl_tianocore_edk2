@@ -11,8 +11,14 @@
     PeiMemoryLib
     UefiMemoryLib
 
-Copyright (c) 2006 - 2018, Intel Corporation. All rights reserved.<BR>
-SPDX-License-Identifier: BSD-2-Clause-Patent
+Copyright (c) 2006 - 2010, Intel Corporation. All rights reserved.<BR>
+This program and the accompanying materials
+are licensed and made available under the terms and conditions of the BSD License
+which accompanies this distribution.  The full text of the license may be found at
+http://opensource.org/licenses/bsd-license.php
+
+THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
@@ -25,7 +31,7 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
   If all Length bytes of the two buffers are identical, then 0 is returned.  Otherwise, the
   value returned is the first mismatched byte in SourceBuffer subtracted from the first
   mismatched byte in DestinationBuffer.
-
+  
   If Length > 0 and DestinationBuffer is NULL, then ASSERT().
   If Length > 0 and SourceBuffer is NULL, then ASSERT().
   If Length is greater than (MAX_ADDRESS - DestinationBuffer + 1), then ASSERT().
@@ -38,7 +44,7 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
   @return 0                 All Length bytes of the two buffers are identical.
   @retval Non-zero          The first mismatched byte in SourceBuffer subtracted from the first
                             mismatched byte in DestinationBuffer.
-
+                            
 **/
 INTN
 EFIAPI

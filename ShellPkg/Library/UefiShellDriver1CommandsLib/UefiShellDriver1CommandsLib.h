@@ -1,8 +1,14 @@
 /** @file
   Main file for NULL named library for Profile1 shell command functions.
 
-  Copyright (c) 2010 - 2016, Intel Corporation. All rights reserved.<BR>
-  SPDX-License-Identifier: BSD-2-Clause-Patent
+  Copyright (c) 2010 - 2014, Intel Corporation. All rights reserved.<BR>
+  This program and the accompanying materials
+  are licensed and made available under the terms and conditions of the BSD License
+  which accompanies this distribution.  The full text of the license may be found at
+  http://opensource.org/licenses/bsd-license.php
+
+  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
@@ -10,6 +16,7 @@
 #define _UEFI_SHELL_DRIVER1_COMMANDS_LIB_H_
 
 #include <Uefi.h>
+#include <ShellBase.h>
 
 #include <Guid/GlobalVariable.h>
 #include <Guid/ConsoleInDevice.h>
@@ -18,12 +25,8 @@
 
 #include <IndustryStandard/Pci.h>
 
-#include <Pi/PiFirmwareVolume.h>
-#include <Pi/PiFirmwareFile.h>
-#include <Protocol/FirmwareVolume2.h>
-
-#include <Protocol/Shell.h>
-#include <Protocol/ShellParameters.h>
+#include <Protocol/EfiShell.h>
+#include <Protocol/EfiShellParameters.h>
 #include <Protocol/DevicePath.h>
 #include <Protocol/LoadedImage.h>
 #include <Protocol/UnicodeCollation.h>
@@ -58,7 +61,7 @@
 #include <Library/HandleParsingLib.h>
 
 
-extern        EFI_HII_HANDLE                    gShellDriver1HiiHandle;
+extern        EFI_HANDLE                        gShellDriver1HiiHandle;
 extern        BOOLEAN                           gInReconnect;
 
 /**
@@ -212,6 +215,7 @@ ShellCommandRunUnload (
   @retval EFI_SUCCESS   The operation was successful.
 **/
 EFI_STATUS
+EFIAPI
 ShellConnectFromDevPaths (
   IN CONST CHAR16 *Key
   );

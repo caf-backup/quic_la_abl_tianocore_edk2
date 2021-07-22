@@ -1,9 +1,14 @@
 ##  @file
 #  Provides interface to shell internal functions for shell commands.
 #
-#  Copyright (c) 2006 - 2018, Intel Corporation. All rights reserved.<BR>
+#  Copyright (c) 2006 - 2015, Intel Corporation. All rights reserved. <BR>
 #
-#  SPDX-License-Identifier: BSD-2-Clause-Patent
+#  This program and the accompanying materials
+#  are licensed and made available under the terms and conditions of the BSD License
+#  which accompanies this distribution. The full text of the license may be found at
+#  http://opensource.org/licenses/bsd-license.php
+#  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 #
 #
 ##
@@ -13,13 +18,13 @@
   BASE_NAME                      = UefiShellCommandLib
   FILE_GUID                      = 5C12F31F-EBAC-466e-A400-FCA8C9EA3A05
   MODULE_TYPE                    = UEFI_DRIVER
-  VERSION_STRING                 = 1.1
+  VERSION_STRING                 = 1.0
   LIBRARY_CLASS                  = ShellCommandLib|UEFI_APPLICATION UEFI_DRIVER DXE_RUNTIME_DRIVER
   CONSTRUCTOR                    = ShellCommandLibConstructor
   DESTRUCTOR                     = ShellCommandLibDestructor
 
 #
-#  VALID_ARCHITECTURES           = IA32 X64 EBC
+#  VALID_ARCHITECTURES           = IA32 X64 IPF EBC
 #
 
 [Sources.common]
@@ -51,7 +56,7 @@
   gEfiUsbIoProtocolGuid                                   ## SOMETIMES_CONSUMES
 
 [Guids]
-  gEfiSasDevicePathGuid                                   ## SOMETIMES_CONSUMES ## GUID
+  gEfiSasDevicePathGuid                                   ## CONSUMES ## GUID
 
 [Pcd.common]
   gEfiShellPkgTokenSpaceGuid.PcdShellSupportLevel         ## CONSUMES

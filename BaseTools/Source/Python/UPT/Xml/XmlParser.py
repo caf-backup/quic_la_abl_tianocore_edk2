@@ -1,9 +1,15 @@
 ## @file
 # This file is used to parse a xml file of .PKG file
 #
-# Copyright (c) 2011 - 2018, Intel Corporation. All rights reserved.<BR>
+# Copyright (c) 2011 - 2014, Intel Corporation. All rights reserved.<BR>
 #
-# SPDX-License-Identifier: BSD-2-Clause-Patent
+# This program and the accompanying materials are licensed and made available 
+# under the terms and conditions of the BSD License which accompanies this 
+# distribution. The full text of the license may be found at 
+# http://opensource.org/licenses/bsd-license.php
+#
+# THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+# WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 #
 
 '''
@@ -83,7 +89,7 @@ class DistributionPackageXml(object):
                     DPLicense = DpHeader.GetLicense()[0][1]
                 else:
                     DPLicense = ''
-
+                
                 CheckDict['Name'] = DpHeader.GetName()
                 CheckDict['GUID'] = DpHeader.GetGuid()
                 CheckDict['Version'] = DpHeader.GetVersion()
@@ -97,7 +103,7 @@ class DistributionPackageXml(object):
                 IsRequiredItemListNull(CheckDict, XmlTreeLevel)
             else:
                 XmlTreeLevel = ['DistributionPackage', 'DistributionHeader']
-                CheckDict = CheckDict = {'DistributionHeader': '', }
+                CheckDict = CheckDict = {'DistributionHeader':'', }
                 IsRequiredItemListNull(CheckDict, XmlTreeLevel)
 
             #
@@ -113,20 +119,20 @@ class DistributionPackageXml(object):
                 ValidateMS(self.DistP.ModuleSurfaceArea[Key], ['DistributionPackage', 'ModuleSurfaceArea'])
 
             #
-            # Check Each Tool
+            # Check Each Tool   
             #
             if self.DistP.Tools:
                 XmlTreeLevel = ['DistributionPackage', 'Tools', 'Header']
-                CheckDict = {'Name': self.DistP.Tools.GetName(), }
+                CheckDict = {'Name':self.DistP.Tools.GetName(), }
                 IsRequiredItemListNull(CheckDict, XmlTreeLevel)
 
                 if not self.DistP.Tools.GetFileList():
                     XmlTreeLevel = ['DistributionPackage', 'Tools']
-                    CheckDict = {'FileName': None, }
+                    CheckDict = {'FileName':None, }
                     IsRequiredItemListNull(CheckDict, XmlTreeLevel)
                 for Item in self.DistP.Tools.GetFileList():
                     XmlTreeLevel = ['DistributionPackage', 'Tools']
-                    CheckDict = {'FileName': Item.GetURI(), }
+                    CheckDict = {'FileName':Item.GetURI(), }
                     IsRequiredItemListNull(CheckDict, XmlTreeLevel)
 
             #
@@ -134,16 +140,16 @@ class DistributionPackageXml(object):
             #
             if self.DistP.MiscellaneousFiles:
                 XmlTreeLevel = ['DistributionPackage', 'MiscellaneousFiles', 'Header']
-                CheckDict = {'Name': self.DistP.MiscellaneousFiles.GetName(), }
+                CheckDict = {'Name':self.DistP.MiscellaneousFiles.GetName(), }
                 IsRequiredItemListNull(CheckDict, XmlTreeLevel)
 
                 if not self.DistP.MiscellaneousFiles.GetFileList():
                     XmlTreeLevel = ['DistributionPackage', 'MiscellaneousFiles']
-                    CheckDict = {'FileName': None, }
+                    CheckDict = {'FileName':None, }
                     IsRequiredItemListNull(CheckDict, XmlTreeLevel)
                 for Item in self.DistP.MiscellaneousFiles.GetFileList():
                     XmlTreeLevel = ['DistributionPackage', 'MiscellaneousFiles']
-                    CheckDict = {'FileName': Item.GetURI(), }
+                    CheckDict = {'FileName':Item.GetURI(), }
                     IsRequiredItemListNull(CheckDict, XmlTreeLevel)
 
             #
@@ -151,12 +157,12 @@ class DistributionPackageXml(object):
             #
             for Item in self.DistP.UserExtensions:
                 XmlTreeLevel = ['DistributionPackage', 'UserExtensions']
-                CheckDict = {'UserId': Item.GetUserID(), }
+                CheckDict = {'UserId':Item.GetUserID(), }
                 IsRequiredItemListNull(CheckDict, XmlTreeLevel)
 
 
     def FromXml(self, Filename=None):
-        if Filename is not None:
+        if Filename != None:
             self.DistP = DistributionPackageClass()
             #
             # Load to XML
@@ -189,7 +195,7 @@ class DistributionPackageXml(object):
                 ModuleKey = (Module.GetGuid(), Module.GetVersion(), Module.GetName(), Module.GetModulePath())
                 self.DistP.ModuleSurfaceArea[ModuleKey] = Module
 
-            #
+            #    
             # Parse Tools
             #
             Tmp = MiscellaneousFileXml()
@@ -221,7 +227,7 @@ class DistributionPackageXml(object):
     def ToXml(self, DistP):
         if self.DistP:
             pass
-        if DistP is not None:
+        if DistP != None:
             #
             # Parse DistributionPackageHeader
             #
@@ -246,7 +252,7 @@ class DistributionPackageXml(object):
                 Msa = ModuleSurfaceAreaXml()
                 DomModule = Msa.ToXml(Module)
                 Root.appendChild(DomModule)
-            #
+            #    
             # Parse Tools
             #
             Tmp = MiscellaneousFileXml()
@@ -301,7 +307,7 @@ class DistributionPackageXml(object):
 
             #
             # Remove SupModList="COMMON" or "common"
-            #
+            #            
             XmlContent = \
             re.sub(r'[\s\r\n]*SupModList[\s\r\n]*=[\s\r\n]*"[\s\r\n]*COMMON'
             '[\s\r\n]*"', '', XmlContent)
@@ -318,7 +324,7 @@ class DistributionPackageXml(object):
 # Check if any required item is missing in ModuleSurfaceArea
 #
 # @param Module: The ModuleSurfaceArea to be checked
-# @param XmlTreeLevel: The top level of Module
+# @param XmlTreeLevel: The top level of Module 
 #
 def ValidateMS(Module, TopXmlTreeLevel):
     ValidateMS1(Module, TopXmlTreeLevel)
@@ -330,7 +336,7 @@ def ValidateMS(Module, TopXmlTreeLevel):
 # Check if any required item is missing in ModuleSurfaceArea
 #
 # @param Module: The ModuleSurfaceArea to be checked
-# @param XmlTreeLevel: The top level of Module
+# @param XmlTreeLevel: The top level of Module 
 #
 def ValidateMS1(Module, TopXmlTreeLevel):
     #
@@ -338,7 +344,7 @@ def ValidateMS1(Module, TopXmlTreeLevel):
     #
     XmlTreeLevel = TopXmlTreeLevel + ['Guids']
     for Item in Module.GetGuidList():
-        if Item is None:
+        if Item == None:
             CheckDict = {'GuidCName':''}
             IsRequiredItemListNull(CheckDict, XmlTreeLevel)
 
@@ -363,7 +369,7 @@ def ValidateMS1(Module, TopXmlTreeLevel):
     #
     XmlTreeLevel = TopXmlTreeLevel + ['Protocols']
     for Item in Module.GetProtocolList():
-        if Item is None:
+        if Item == None:
             CheckDict = {'Protocol':''}
             IsRequiredItemListNull(CheckDict, XmlTreeLevel)
 
@@ -378,7 +384,7 @@ def ValidateMS1(Module, TopXmlTreeLevel):
     #
     XmlTreeLevel = TopXmlTreeLevel + ['PPIs']
     for Item in Module.GetPpiList():
-        if Item is None:
+        if Item == None:
             CheckDict = {'Ppi':''}
             IsRequiredItemListNull(CheckDict, XmlTreeLevel)
 
@@ -393,7 +399,7 @@ def ValidateMS1(Module, TopXmlTreeLevel):
     #
     XmlTreeLevel = TopXmlTreeLevel + ['PcdCoded']
     for Item in Module.GetPcdList():
-        if Item is None:
+        if Item == None:
             CheckDict = {'PcdEntry':''}
             IsRequiredItemListNull(CheckDict, XmlTreeLevel)
 
@@ -410,15 +416,15 @@ def ValidateMS1(Module, TopXmlTreeLevel):
     #
     XmlTreeLevel = TopXmlTreeLevel + ['Externs']
     for Item in Module.GetExternList():
-        if Item is None:
+        if Item == None:
             CheckDict = {'Extern':''}
             IsRequiredItemListNull(CheckDict, XmlTreeLevel)
 
     #
-    # If SupArchList is used to identify different EntryPoint, UnloadImage, Constructor/Destructor elements and
+    # If SupArchList is used to identify different EntryPoint, UnloadImage, Constructor/Destructor elements and 
     # that SupArchList does not match ModuleSurfaceArea.ModuleProperties:SupArchList, the tool must exit gracefully,
-    # informing the user that the EDK II Build system does not support different EntryPoint, UnloadImage,
-    # Constructor or Destructor elements based on Architecture type.  Two SupArchList attributes are considered
+    # informing the user that the EDK II Build system does not support different EntryPoint, UnloadImage, 
+    # Constructor or Destructor elements based on Architecture type.  Two SupArchList attributes are considered 
     # identical if it lists the same CPU architectures in any order.
     #
     for Item in Module.GetExternList():
@@ -443,17 +449,17 @@ def ValidateMS1(Module, TopXmlTreeLevel):
     XmlTreeLevel = TopXmlTreeLevel + ['MiscellaneousFiles']
     for Item in Module.GetMiscFileList():
         if not Item.GetFileList():
-            CheckDict = {'Filename': '', }
+            CheckDict = {'Filename':'', }
             IsRequiredItemListNull(CheckDict, XmlTreeLevel)
         for File in Item.GetFileList():
-            CheckDict = {'Filename': File.GetURI(), }
+            CheckDict = {'Filename':File.GetURI(), }
 
 ## ValidateMS2
 #
 # Check if any required item is missing in ModuleSurfaceArea
 #
 # @param Module: The ModuleSurfaceArea to be checked
-# @param XmlTreeLevel: The top level of Module
+# @param XmlTreeLevel: The top level of Module 
 #
 def ValidateMS2(Module, TopXmlTreeLevel):
     #
@@ -479,7 +485,7 @@ def ValidateMS2(Module, TopXmlTreeLevel):
         Logger.Error("UPT", FORMAT_INVALID, ERR_FILE_NAME_INVALIDE % Module.GetModulePath())
 
     #
-    # Check ModuleProperties->BootMode
+    # Check ModuleProperties->BootMode 
     #
     XmlTreeLevel = TopXmlTreeLevel + ['ModuleProperties'] + ['BootMode']
     for Item in Module.GetBootModeList():
@@ -488,7 +494,7 @@ def ValidateMS2(Module, TopXmlTreeLevel):
         IsRequiredItemListNull(CheckDict, XmlTreeLevel)
 
     #
-    # Check ModuleProperties->Event
+    # Check ModuleProperties->Event 
     #
     XmlTreeLevel = TopXmlTreeLevel + ['ModuleProperties'] + ['Event']
     for Item in Module.GetEventList():
@@ -497,7 +503,7 @@ def ValidateMS2(Module, TopXmlTreeLevel):
         IsRequiredItemListNull(CheckDict, XmlTreeLevel)
 
     #
-    # Check ModuleProperties->Hob
+    # Check ModuleProperties->Hob 
     #
     XmlTreeLevel = TopXmlTreeLevel + ['ModuleProperties'] + ['HOB']
     for Item in Module.GetHobList():
@@ -506,8 +512,8 @@ def ValidateMS2(Module, TopXmlTreeLevel):
         IsRequiredItemListNull(CheckDict, XmlTreeLevel)
 
     #
-    # The UDP Specification supports the module type of UEFI_RUNTIME_DRIVER, which is not present in the EDK II INF
-    # File Specification v. 1.23, so UPT must perform the following translation that include the generation of a
+    # The UDP Specification supports the module type of UEFI_RUNTIME_DRIVER, which is not present in the EDK II INF 
+    # File Specification v. 1.23, so UPT must perform the following translation that include the generation of a 
     # [Depex] section.
     #
     if Module.ModuleType == "UEFI_RUNTIME_DRIVER":
@@ -530,7 +536,7 @@ def ValidateMS2(Module, TopXmlTreeLevel):
     #
     XmlTreeLevel = TopXmlTreeLevel + ['LibraryClassDefinitions']
     for Item in Module.GetLibraryClassList():
-        if Item is None:
+        if Item == None:
             CheckDict = {'LibraryClass':''}
             IsRequiredItemListNull(CheckDict, XmlTreeLevel)
 
@@ -543,7 +549,7 @@ def ValidateMS2(Module, TopXmlTreeLevel):
                      'Usage':Item.GetUsage()}
         IsRequiredItemListNull(CheckDict, XmlTreeLevel)
         #
-        # If the LibraryClass:SupModList is not "UNDEFINED" the LIBRARY_CLASS entry must have the list
+        # If the LibraryClass:SupModList is not "UNDEFINED" the LIBRARY_CLASS entry must have the list 
         # appended using the format:
         # LIBRARY_CLASS = <ClassName> ["|" <Edk2ModuleTypeList>]
         #
@@ -568,10 +574,10 @@ def ValidateMS2(Module, TopXmlTreeLevel):
 
 
     #
-    # For Library modules (indicated by a LIBRARY_CLASS statement in the [Defines] section)
-    # If the SupModList attribute of the CONSTRUCTOR or DESTRUCTOR element does not match the Supported Module
-    # Types listed after "LIBRARY_CLASS = <Keyword> |", the tool should gracefully exit with an error message
-    # stating that there is a conflict in the module types the CONSTRUCTOR/DESTRUCTOR is to be used with and
+    # For Library modules (indicated by a LIBRARY_CLASS statement in the [Defines] section)                  
+    # If the SupModList attribute of the CONSTRUCTOR or DESTRUCTOR element does not match the Supported Module 
+    # Types listed after "LIBRARY_CLASS = <Keyword> |", the tool should gracefully exit with an error message 
+    # stating that there is a conflict in the module types the CONSTRUCTOR/DESTRUCTOR is to be used with and 
     # the Module types this Library supports.
     #
     if IsLibraryModule:
@@ -585,10 +591,10 @@ def ValidateMS2(Module, TopXmlTreeLevel):
                          RaiseError=True)
 
     #
-    # If the module is not a library module, the MODULE_TYPE listed in the ModuleSurfaceArea.Header must match the
-    # SupModList attribute.  If these conditions cannot be met, the tool must exit gracefully, informing the user
+    # If the module is not a library module, the MODULE_TYPE listed in the ModuleSurfaceArea.Header must match the 
+    # SupModList attribute.  If these conditions cannot be met, the tool must exit gracefully, informing the user 
     # that the EDK II Build system does not currently support the features required by this Module.
-    #
+    #                   
     if not IsLibraryModule:
         for Item in Module.GetExternList():
             if hasattr(Item, 'SupModList') and len(Item.SupModList) > 0 and \
@@ -602,7 +608,7 @@ def ValidateMS2(Module, TopXmlTreeLevel):
     #
     XmlTreeLevel = TopXmlTreeLevel + ['SourceFiles']
     for Item in Module.GetSourceFileList():
-        if Item is None:
+        if Item == None:
             CheckDict = {'Filename':''}
             IsRequiredItemListNull(CheckDict, XmlTreeLevel)
 
@@ -622,7 +628,7 @@ def ValidateMS2(Module, TopXmlTreeLevel):
 # Check if any required item is missing in ModuleSurfaceArea
 #
 # @param Module: The ModuleSurfaceArea to be checked
-# @param XmlTreeLevel: The top level of Module
+# @param XmlTreeLevel: The top level of Module 
 #
 def ValidateMS3(Module, TopXmlTreeLevel):
     #
@@ -630,7 +636,7 @@ def ValidateMS3(Module, TopXmlTreeLevel):
     #
     XmlTreeLevel = TopXmlTreeLevel + ['PackageDependencies']
     for Item in Module.GetPackageDependencyList():
-        if Item is None:
+        if Item == None:
             CheckDict = {'Package':''}
             IsRequiredItemListNull(CheckDict, XmlTreeLevel)
 
@@ -643,7 +649,7 @@ def ValidateMS3(Module, TopXmlTreeLevel):
     # Check BinaryFiles -> BinaryFile
     #
     for Item in Module.GetBinaryFileList():
-        if Item is None:
+        if Item == None:
             XmlTreeLevel = TopXmlTreeLevel + ['BinaryFiles']
             CheckDict = {'BinaryFile':''}
             IsRequiredItemListNull(CheckDict, XmlTreeLevel)
@@ -660,12 +666,12 @@ def ValidateMS3(Module, TopXmlTreeLevel):
         for AsBuilt in Item.GetAsBuiltList():
             #
             # Check LibInstance
-            #
+            #                        
             if len(AsBuilt.LibraryInstancesList) == 1 and not AsBuilt.LibraryInstancesList[0]:
                 CheckDict = {'GUID':''}
                 XmlTreeLevel = TopXmlTreeLevel + ['BinaryFiles', 'BinaryFile', 'AsBuilt', 'LibraryInstances']
                 IsRequiredItemListNull(CheckDict, XmlTreeLevel)
-
+                            
             for LibItem in AsBuilt.LibraryInstancesList:
                 CheckDict = {'Guid':LibItem.Guid,
                              'Version':LibItem.Version}
@@ -766,7 +772,7 @@ def ValidatePS1(Package):
     #
     XmlTreeLevel = ['DistributionPackage', 'PackageSurfaceArea', 'ClonedFrom']
     for Item in Package.GetClonedFromList():
-        if Item is None:
+        if Item == None:
             CheckDict = Sdict()
             CheckDict['GUID'] = ''
             IsRequiredItemListNull(CheckDict, XmlTreeLevel)
@@ -781,7 +787,7 @@ def ValidatePS1(Package):
     #
     XmlTreeLevel = ['DistributionPackage', 'PackageSurfaceArea', 'LibraryClassDeclarations']
     for Item in Package.GetLibraryClassList():
-        if Item is None:
+        if Item == None:
             CheckDict = {'LibraryClass':''}
             IsRequiredItemListNull(CheckDict, XmlTreeLevel)
 
@@ -796,7 +802,7 @@ def ValidatePS1(Package):
     #
     XmlTreeLevel = ['DistributionPackage', 'PackageSurfaceArea', 'IndustryStandardIncludes']
     for Item in Package.GetStandardIncludeFileList():
-        if Item is None:
+        if Item == None:
             CheckDict = {'IndustryStandardHeader':''}
             IsRequiredItemListNull(CheckDict, XmlTreeLevel)
 
@@ -810,7 +816,7 @@ def ValidatePS1(Package):
     #
     XmlTreeLevel = ['DistributionPackage', 'PackageSurfaceArea', 'PackageIncludes']
     for Item in Package.GetPackageIncludeFileList():
-        if Item is None:
+        if Item == None:
             CheckDict = {'PackageHeader':''}
             IsRequiredItemListNull(CheckDict, XmlTreeLevel)
 
@@ -836,7 +842,7 @@ def ValidatePS2(Package):
     #
     XmlTreeLevel = ['DistributionPackage', 'PackageSurfaceArea', 'GuidDeclarations']
     for Item in Package.GetGuidList():
-        if Item is None:
+        if Item == None:
             CheckDict = {'Entry':''}
             IsRequiredItemListNull(CheckDict, XmlTreeLevel)
 
@@ -851,7 +857,7 @@ def ValidatePS2(Package):
     #
     XmlTreeLevel = ['DistributionPackage', 'PackageSurfaceArea', 'ProtocolDeclarations']
     for Item in Package.GetProtocolList():
-        if Item is None:
+        if Item == None:
             CheckDict = {'Entry':''}
             IsRequiredItemListNull(CheckDict, XmlTreeLevel)
 
@@ -866,7 +872,7 @@ def ValidatePS2(Package):
     #
     XmlTreeLevel = ['DistributionPackage', 'PackageSurfaceArea', 'PpiDeclarations']
     for Item in Package.GetPpiList():
-        if Item is None:
+        if Item == None:
             CheckDict = {'Entry':''}
             IsRequiredItemListNull(CheckDict, XmlTreeLevel)
 
@@ -881,7 +887,7 @@ def ValidatePS2(Package):
     #
     XmlTreeLevel = ['DistributionPackage', 'PackageSurfaceArea', 'PcdDeclarations']
     for Item in Package.GetPcdList():
-        if Item is None:
+        if Item == None:
             CheckDict = {'PcdEntry':''}
             IsRequiredItemListNull(CheckDict, XmlTreeLevel)
 
@@ -909,17 +915,17 @@ def ValidatePS2(Package):
     XmlTreeLevel = ['DistributionPackage', 'PackageSurfaceArea', 'MiscellaneousFiles']
     for Item in Package.GetMiscFileList():
         if not Item.GetFileList():
-            CheckDict = {'Filename': '', }
+            CheckDict = {'Filename':'', }
             IsRequiredItemListNull(CheckDict, XmlTreeLevel)
         for File in Item.GetFileList():
-            CheckDict = {'Filename': File.GetURI(), }
+            CheckDict = {'Filename':File.GetURI(), }
             IsRequiredItemListNull(CheckDict, XmlTreeLevel)
 
 ## ValidatePackageSurfaceArea
 #
 # Check if any required item is missing in  PackageSurfaceArea
 #
-# @param Package: The PackageSurfaceArea to be checked
+# @param Package: The PackageSurfaceArea to be checked 
 #
 def ValidatePackageSurfaceArea(Package):
     ValidatePS1(Package)

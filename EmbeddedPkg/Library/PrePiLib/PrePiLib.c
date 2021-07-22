@@ -2,7 +2,13 @@
 
   Copyright (c) 2008 - 2009, Apple Inc. All rights reserved.<BR>
 
-  SPDX-License-Identifier: BSD-2-Clause-Patent
+  This program and the accompanying materials
+  are licensed and made available under the terms and conditions of the BSD License
+  which accompanies this distribution.  The full text of the license may be found at
+  http://opensource.org/licenses/bsd-license.php
+
+  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
@@ -21,37 +27,6 @@ SecWinNtPeiLoadFile (
   IN  UINT64                  *ImageSize,
   IN  EFI_PHYSICAL_ADDRESS    *EntryPoint
   );
-
-STATIC
-VOID*
-EFIAPI
-AllocateCodePages (
-  IN  UINTN     Pages
-  )
-{
-  VOID                    *Alloc;
-  EFI_PEI_HOB_POINTERS    Hob;
-
-  Alloc = AllocatePages (Pages);
-  if (Alloc == NULL) {
-    return NULL;
-  }
-
-  // find the HOB we just created, and change the type to EfiBootServicesCode
-  Hob.Raw = GetFirstHob (EFI_HOB_TYPE_MEMORY_ALLOCATION);
-  while (Hob.Raw != NULL) {
-    if (Hob.MemoryAllocation->AllocDescriptor.MemoryBaseAddress == (UINTN)Alloc) {
-      Hob.MemoryAllocation->AllocDescriptor.MemoryType = EfiBootServicesCode;
-      return Alloc;
-    }
-    Hob.Raw = GetNextHob (EFI_HOB_TYPE_MEMORY_ALLOCATION, GET_NEXT_HOB (Hob));
-  }
-
-  ASSERT (FALSE);
-
-  FreePages (Alloc, Pages);
-  return NULL;
-}
 
 
 EFI_STATUS
@@ -79,7 +54,7 @@ LoadPeCoffImage (
   //
   // Allocate Memory for the image
   //
-  Buffer = AllocateCodePages (EFI_SIZE_TO_PAGES((UINT32)ImageContext.ImageSize));
+  Buffer = AllocatePages (EFI_SIZE_TO_PAGES((UINT32)ImageContext.ImageSize));
   ASSERT (Buffer != 0);
 
 

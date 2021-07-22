@@ -2,8 +2,13 @@
  POSIX Pthreads to emulate APs and implement threads
 
 Copyright (c) 2011, Apple Inc. All rights reserved.
-Copyright (c) 2019, Intel Corporation. All rights reserved.<BR>
-SPDX-License-Identifier: BSD-2-Clause-Patent
+This program and the accompanying materials
+are licensed and made available under the terms and conditions of the BSD License
+which accompanies this distribution.  The full text of the license may be found at
+http://opensource.org/licenses/bsd-license.php
+
+THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 
 **/
@@ -127,11 +132,7 @@ PosixOpenVolume (
   if (PrivateFile->FileName == NULL) {
     goto Done;
   }
-  AsciiStrCpyS (
-    PrivateFile->FileName,
-    AsciiStrSize (Private->FilePath),
-    Private->FilePath
-    );
+  AsciiStrCpy (PrivateFile->FileName, Private->FilePath);
 
   PrivateFile->Signature            = EMU_EFI_FILE_PRIVATE_SIGNATURE;
   PrivateFile->Thunk                = Private->Thunk;
@@ -225,7 +226,7 @@ PosixSystemTimeToEfiTime (
   Time->Second = tm->tm_sec;
   Time->Nanosecond = 0;
 
-  Time->TimeZone = timezone / 60;
+  Time->TimeZone = timezone;
   Time->Daylight = (daylight ? EFI_TIME_ADJUST_DAYLIGHT : 0) | (tm->tm_isdst > 0 ? EFI_TIME_IN_DAYLIGHT : 0);
 }
 
@@ -381,7 +382,7 @@ PosixFileOpen (
   EFI_FILE_INFO                     *Info;
   struct stat                       finfo;
   int                               res;
-  UINTN                             Size;
+
 
   PrivateFile     = EMU_EFI_FILE_PRIVATE_DATA_FROM_THIS (This);
   PrivateRoot     = EMU_SIMPLE_FILE_SYSTEM_PRIVATE_DATA_FROM_THIS (PrivateFile->SimpleFileSystem);
@@ -416,18 +417,17 @@ OpenRoot:
 
   CopyMem (NewPrivateFile, PrivateFile, sizeof (EMU_EFI_FILE_PRIVATE));
 
-  Size = AsciiStrSize (PrivateFile->FileName) + 1 + StrLen (FileName) + 1;
-  NewPrivateFile->FileName = malloc (Size);
+  NewPrivateFile->FileName = malloc (AsciiStrSize (PrivateFile->FileName) + 1 + StrLen (FileName) + 1);
   if (NewPrivateFile->FileName == NULL) {
     goto Done;
   }
 
   if (*FileName == L'\\') {
-    AsciiStrCpyS (NewPrivateFile->FileName, Size, PrivateRoot->FilePath);
+    AsciiStrCpy (NewPrivateFile->FileName, PrivateRoot->FilePath);
     // Skip first '\'.
     Src = FileName + 1;
   } else {
-    AsciiStrCpyS (NewPrivateFile->FileName, Size, PrivateFile->FileName);
+    AsciiStrCpy (NewPrivateFile->FileName, PrivateFile->FileName);
     Src = FileName;
   }
   Dst = NewPrivateFile->FileName + AsciiStrLen (NewPrivateFile->FileName);
@@ -753,7 +753,7 @@ PosixFileRead (
   UINTN                   NameSize;
   UINTN                   ResultSize;
   CHAR8                   *FullFileName;
-  UINTN                   FullFileNameSize;
+
 
   PrivateFile = EMU_EFI_FILE_PRIVATE_DATA_FROM_THIS (This);
 
@@ -803,16 +803,15 @@ PosixFileRead (
 
   *BufferSize = ResultSize;
 
-  FullFileNameSize = AsciiStrLen(PrivateFile->FileName) + 1 + NameSize;
-  FullFileName = malloc (FullFileNameSize);
+  FullFileName = malloc (AsciiStrLen(PrivateFile->FileName) + 1 + NameSize);
   if (FullFileName == NULL) {
     Status = EFI_OUT_OF_RESOURCES;
     goto Done;
   }
 
-  AsciiStrCpyS (FullFileName, FullFileNameSize, PrivateFile->FileName);
-  AsciiStrCatS (FullFileName, FullFileNameSize, "/");
-  AsciiStrCatS (FullFileName, FullFileNameSize, PrivateFile->Dirent->d_name);
+  AsciiStrCpy (FullFileName, PrivateFile->FileName);
+  AsciiStrCat (FullFileName, "/");
+  AsciiStrCat (FullFileName, PrivateFile->Dirent->d_name);
   Status = UnixSimpleFileSystemFileInfo (
             PrivateFile,
             FullFileName,
@@ -1023,11 +1022,7 @@ PosixFileGetInfo (
     FileSystemInfoBuffer->BlockSize   = buf.f_bsize;
 
 
-    StrCpyS (
-      (CHAR16 *) FileSystemInfoBuffer->VolumeLabel,
-      (*BufferSize - SIZE_OF_EFI_FILE_SYSTEM_INFO) / sizeof (CHAR16),
-      PrivateRoot->VolumeLabel
-      );
+    StrCpy ((CHAR16 *) FileSystemInfoBuffer->VolumeLabel, PrivateRoot->VolumeLabel);
     *BufferSize = SIZE_OF_EFI_FILE_SYSTEM_INFO + StrSize (PrivateRoot->VolumeLabel);
 
   } else if (CompareGuid (InformationType, &gEfiFileSystemVolumeLabelInfoIdGuid)) {
@@ -1036,11 +1031,7 @@ PosixFileGetInfo (
       return EFI_BUFFER_TOO_SMALL;
     }
 
-    StrCpyS (
-      (CHAR16 *) Buffer,
-      *BufferSize / sizeof (CHAR16),
-      PrivateRoot->VolumeLabel
-      );
+    StrCpy ((CHAR16 *) Buffer, PrivateRoot->VolumeLabel);
     *BufferSize = StrSize (PrivateRoot->VolumeLabel);
 
   }
@@ -1096,7 +1087,7 @@ PosixFileSetInfo (
   CHAR16                            *UnicodeFilePtr;
   int                               UnixStatus;
   struct utimbuf                    Utime;
-  UINTN                             Size;
+
 
   PrivateFile = EMU_EFI_FILE_PRIVATE_DATA_FROM_THIS (This);
   PrivateRoot = EMU_SIMPLE_FILE_SYSTEM_PRIVATE_DATA_FROM_THIS (PrivateFile->SimpleFileSystem);
@@ -1124,11 +1115,7 @@ PosixFileSetInfo (
       goto Done;
     }
 
-    StrCpyS (
-      PrivateRoot->VolumeLabel,
-      StrSize (NewFileSystemInfo->VolumeLabel) / sizeof (CHAR16),
-      NewFileSystemInfo->VolumeLabel
-      );
+    StrCpy (PrivateRoot->VolumeLabel, NewFileSystemInfo->VolumeLabel);
 
     Status = EFI_SUCCESS;
     goto Done;
@@ -1143,11 +1130,7 @@ PosixFileSetInfo (
       goto Done;
     }
 
-    StrCpyS (
-      PrivateRoot->VolumeLabel,
-      StrSize (PrivateRoot->VolumeLabel) / sizeof (CHAR16),
-      (CHAR16 *) Buffer
-      );
+    StrCpy (PrivateRoot->VolumeLabel, (CHAR16 *) Buffer);
 
     Status = EFI_SUCCESS;
     goto Done;
@@ -1205,34 +1188,28 @@ PosixFileSetInfo (
     goto Done;
   }
 
-  AsciiStrCpyS (
-    OldFileName,
-    AsciiStrSize (PrivateFile->FileName),
-    PrivateFile->FileName
-    );
+  AsciiStrCpy (OldFileName, PrivateFile->FileName);
 
   //
   // Make full pathname from new filename and rootpath.
   //
   if (NewFileInfo->FileName[0] == '\\') {
-    Size = AsciiStrLen (PrivateRoot->FilePath) + 1 + StrLen (NewFileInfo->FileName) + 1;
-    NewFileName = malloc (Size);
+    NewFileName = malloc (AsciiStrLen (PrivateRoot->FilePath) + 1 + StrLen (NewFileInfo->FileName) + 1);
     if (NewFileName == NULL) {
       goto Done;
     }
 
-    AsciiStrCpyS (NewFileName, Size, PrivateRoot->FilePath);
+    AsciiStrCpy (NewFileName, PrivateRoot->FilePath);
     AsciiFilePtr = NewFileName + AsciiStrLen(NewFileName);
     UnicodeFilePtr = NewFileInfo->FileName + 1;
     *AsciiFilePtr++ ='/';
   } else {
-    Size = AsciiStrLen (PrivateFile->FileName) + 2 + StrLen (NewFileInfo->FileName) + 1;
-    NewFileName = malloc (Size);
+    NewFileName = malloc (AsciiStrLen (PrivateFile->FileName) + 2 + StrLen (NewFileInfo->FileName) + 1);
     if (NewFileName == NULL) {
       goto Done;
     }
 
-    AsciiStrCpyS (NewFileName, Size, PrivateRoot->FilePath);
+    AsciiStrCpy (NewFileName, PrivateRoot->FilePath);
     AsciiFilePtr = NewFileName + AsciiStrLen(NewFileName);
     if ((AsciiFilePtr[-1] != '/') && (NewFileInfo->FileName[0] != '/')) {
       // make sure there is a / between Root FilePath and NewFileInfo Filename
@@ -1340,11 +1317,7 @@ PosixFileSetInfo (
         goto Done;
       }
 
-      AsciiStrCpyS (
-        PrivateFile->FileName,
-        AsciiStrSize (NewFileName),
-        NewFileName
-        );
+      AsciiStrCpy (PrivateFile->FileName, NewFileName);
     } else {
       Status    = EFI_DEVICE_ERROR;
       goto Done;
@@ -1525,11 +1498,7 @@ PosixFileSystmeThunkOpen (
     free (Private);
     return EFI_OUT_OF_RESOURCES;
   }
-  StrCpyS (
-    Private->VolumeLabel,
-    StrSize (L"EFI_EMULATED") / sizeof (CHAR16),
-    L"EFI_EMULATED"
-    );
+  StrCpy (Private->VolumeLabel, L"EFI_EMULATED");
 
   Private->Signature = EMU_SIMPLE_FILE_SYSTEM_PRIVATE_SIGNATURE;
   Private->Thunk     = This;

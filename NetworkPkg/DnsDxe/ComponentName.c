@@ -1,8 +1,14 @@
 /** @file
 Implementation of EFI_COMPONENT_NAME_PROTOCOL and EFI_COMPONENT_NAME2_PROTOCOL protocol.
 
-Copyright (c) 2016 - 2018, Intel Corporation. All rights reserved.<BR>
-SPDX-License-Identifier: BSD-2-Clause-Patent
+Copyright (c) 2015, Intel Corporation. All rights reserved.<BR>
+This program and the accompanying materials
+are licensed and made available under the terms and conditions of the BSD License
+which accompanies this distribution.  The full text of the license may be found at
+http://opensource.org/licenses/bsd-license.php
+
+THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
@@ -95,7 +101,7 @@ DnsComponentNameGetControllerName (
 ///
 /// Component Name Protocol instance
 ///
-GLOBAL_REMOVE_IF_UNREFERENCED
+GLOBAL_REMOVE_IF_UNREFERENCED 
 EFI_COMPONENT_NAME_PROTOCOL  gDnsComponentName = {
   DnsComponentNameGetDriverName,
   DnsComponentNameGetControllerName,
@@ -105,7 +111,7 @@ EFI_COMPONENT_NAME_PROTOCOL  gDnsComponentName = {
 ///
 /// Component Name 2 Protocol instance
 ///
-GLOBAL_REMOVE_IF_UNREFERENCED
+GLOBAL_REMOVE_IF_UNREFERENCED 
 EFI_COMPONENT_NAME2_PROTOCOL  gDnsComponentName2 = {
   (EFI_COMPONENT_NAME2_GET_DRIVER_NAME)     DnsComponentNameGetDriverName,
   (EFI_COMPONENT_NAME2_GET_CONTROLLER_NAME) DnsComponentNameGetControllerName,
@@ -115,7 +121,7 @@ EFI_COMPONENT_NAME2_PROTOCOL  gDnsComponentName2 = {
 ///
 /// Table of driver names
 ///
-GLOBAL_REMOVE_IF_UNREFERENCED
+GLOBAL_REMOVE_IF_UNREFERENCED 
 EFI_UNICODE_STRING_TABLE mDnsDriverNameTable[] = {
   { "eng;en", (CHAR16 *)L"DNS Network Service Driver" },
   { NULL, NULL }
@@ -167,10 +173,10 @@ DnsComponentNameGetDriverName (
 
   @param  Dns4                       A pointer to the EFI_DNS4_PROTOCOL.
 
-
+  
   @retval EFI_SUCCESS                Update the ControllerNameTable of this instance successfully.
   @retval EFI_INVALID_PARAMETER      The input parameter is invalid.
-
+  
 **/
 EFI_STATUS
 UpdateDns4Name (
@@ -184,7 +190,7 @@ UpdateDns4Name (
   if (Dns4 == NULL) {
     return EFI_INVALID_PARAMETER;
   }
-
+  
   //
   // Format the child name into the string buffer as:
   // DNSv4 (StationIp=?, LocalPort=?)
@@ -193,7 +199,7 @@ UpdateDns4Name (
   if (EFI_ERROR (Status)) {
     return Status;
   }
-
+  
   UnicodeSPrint (
     HandleName,
     sizeof (HandleName),
@@ -205,18 +211,11 @@ UpdateDns4Name (
     ModeData.DnsConfigData.LocalPort
     );
 
-  if (ModeData.DnsCacheList != NULL) {
-    FreePool (ModeData.DnsCacheList);
-  }
-  if (ModeData.DnsServerList != NULL) {
-    FreePool (ModeData.DnsServerList);
-  }
-
   if (gDnsControllerNameTable != NULL) {
     FreeUnicodeStringTable (gDnsControllerNameTable);
     gDnsControllerNameTable = NULL;
   }
-
+  
   Status = AddUnicodeString2 (
              "eng",
              gDnsComponentName.SupportedLanguages,
@@ -227,7 +226,7 @@ UpdateDns4Name (
   if (EFI_ERROR (Status)) {
     return Status;
   }
-
+  
   return AddUnicodeString2 (
            "en",
            gDnsComponentName2.SupportedLanguages,
@@ -242,10 +241,10 @@ UpdateDns4Name (
 
   @param  Dns6                       A pointer to the EFI_DNS6_PROTOCOL.
 
-
+  
   @retval EFI_SUCCESS                Update the ControllerNameTable of this instance successfully.
   @retval EFI_INVALID_PARAMETER      The input parameter is invalid.
-
+  
 **/
 EFI_STATUS
 UpdateDns6Name (
@@ -260,7 +259,7 @@ UpdateDns6Name (
   if (Dns6 == NULL) {
     return EFI_INVALID_PARAMETER;
   }
-
+  
   //
   // Format the child name into the string buffer as:
   // DNSv6 (StationIp=?, LocalPort=?)
@@ -276,24 +275,17 @@ UpdateDns6Name (
   }
   UnicodeSPrint (
     HandleName,
-    sizeof (HandleName),
+    sizeof (HandleName), 
     L"DNSv6 (StationIp=%s, LocalPort=%d)",
     Address,
     ModeData.DnsConfigData.LocalPort
     );
 
-  if (ModeData.DnsCacheList != NULL) {
-    FreePool (ModeData.DnsCacheList);
-  }
-  if (ModeData.DnsServerList != NULL) {
-    FreePool (ModeData.DnsServerList);
-  }
-
   if (gDnsControllerNameTable != NULL) {
     FreeUnicodeStringTable (gDnsControllerNameTable);
     gDnsControllerNameTable = NULL;
   }
-
+  
   Status = AddUnicodeString2 (
              "eng",
              gDnsComponentName.SupportedLanguages,
@@ -304,7 +296,7 @@ UpdateDns6Name (
   if (EFI_ERROR (Status)) {
     return Status;
   }
-
+  
   return AddUnicodeString2 (
            "en",
            gDnsComponentName2.SupportedLanguages,
@@ -367,7 +359,7 @@ DnsComponentNameGetControllerName (
   EFI_STATUS                    Status;
   EFI_DNS4_PROTOCOL             *Dns4;
   EFI_DNS6_PROTOCOL             *Dns6;
-
+  
   //
   // ChildHandle must be NULL for a Device Driver
   //

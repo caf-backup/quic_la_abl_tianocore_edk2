@@ -1,8 +1,14 @@
 /** @file
   HMAC-MD5 Wrapper Implementation over OpenSSL.
 
-Copyright (c) 2010 - 2020, Intel Corporation. All rights reserved.<BR>
-SPDX-License-Identifier: BSD-2-Clause-Patent
+Copyright (c) 2010 - 2012, Intel Corporation. All rights reserved.<BR>
+This program and the accompanying materials
+are licensed and made available under the terms and conditions of the BSD License
+which accompanies this distribution.  The full text of the license may be found at
+http://opensource.org/licenses/bsd-license.php
+
+THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
@@ -10,59 +16,40 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
 #include <openssl/hmac.h>
 
 /**
-  Allocates and initializes one HMAC_CTX context for subsequent HMAC-MD5 use.
+  Retrieves the size, in bytes, of the context buffer required for HMAC-MD5 operations.
 
-  @return  Pointer to the HMAC_CTX context that has been initialized.
-           If the allocations fails, HmacMd5New() returns NULL.
+  @return  The size, in bytes, of the context buffer required for HMAC-MD5 operations.
 
 **/
-VOID *
+UINTN
 EFIAPI
-HmacMd5New (
+HmacMd5GetContextSize (
   VOID
   )
 {
   //
-  // Allocates & Initializes HMAC_CTX Context by OpenSSL HMAC_CTX_new()
+  // Retrieves the OpenSSL HMAC-MD5 Context Size
   //
-  return (VOID *) HMAC_CTX_new ();
+  return (UINTN) (sizeof (HMAC_CTX));
 }
 
 /**
-  Release the specified HMAC_CTX context.
-
-  @param[in]  HmacMd5Ctx  Pointer to the HMAC_CTX context to be released.
-
-**/
-VOID
-EFIAPI
-HmacMd5Free (
-  IN  VOID  *HmacMd5Ctx
-  )
-{
-  //
-  // Free OpenSSL HMAC_CTX Context
-  //
-  HMAC_CTX_free ((HMAC_CTX *)HmacMd5Ctx);
-}
-
-/**
-  Set user-supplied key for subsequent use. It must be done before any
-  calling to HmacMd5Update().
+  Initializes user-supplied memory pointed by HmacMd5Context as HMAC-MD5 context for
+  subsequent use.
 
   If HmacMd5Context is NULL, then return FALSE.
 
-  @param[out]  HmacMd5Context  Pointer to HMAC-MD5 context.
+  @param[out]  HmacMd5Context  Pointer to HMAC-MD5 context being initialized.
   @param[in]   Key             Pointer to the user-supplied key.
   @param[in]   KeySize         Key size in bytes.
 
-  @retval TRUE   Key is set successfully.
-  @retval FALSE  Key is set unsuccessfully.
+  @retval TRUE   HMAC-MD5 context initialization succeeded.
+  @retval FALSE  HMAC-MD5 context initialization failed.
 
 **/
 BOOLEAN
 EFIAPI
-HmacMd5SetKey (
+HmacMd5Init (
   OUT  VOID         *HmacMd5Context,
   IN   CONST UINT8  *Key,
   IN   UINTN        KeySize
@@ -75,9 +62,11 @@ HmacMd5SetKey (
     return FALSE;
   }
 
-  if (HMAC_Init_ex ((HMAC_CTX *)HmacMd5Context, Key, (UINT32) KeySize, EVP_md5(), NULL) != 1) {
-    return FALSE;
-  }
+  //
+  // OpenSSL HMAC-MD5 Context Initialization
+  //
+  HMAC_CTX_init (HmacMd5Context);
+  HMAC_Init_ex (HmacMd5Context, Key, (UINT32) KeySize, EVP_md5(), NULL);
 
   return TRUE;
 }
@@ -108,10 +97,8 @@ HmacMd5Duplicate (
   if (HmacMd5Context == NULL || NewHmacMd5Context == NULL) {
     return FALSE;
   }
-
-  if (HMAC_CTX_copy ((HMAC_CTX *)NewHmacMd5Context, (HMAC_CTX *)HmacMd5Context) != 1) {
-    return FALSE;
-  }
+  
+  CopyMem (NewHmacMd5Context, HmacMd5Context, sizeof (HMAC_CTX));
 
   return TRUE;
 }
@@ -121,8 +108,8 @@ HmacMd5Duplicate (
 
   This function performs HMAC-MD5 digest on a data buffer of the specified size.
   It can be called multiple times to compute the digest of long or discontinuous data streams.
-  HMAC-MD5 context should be initialized by HmacMd5New(), and should not be finalized by
-  HmacMd5Final(). Behavior with invalid context is undefined.
+  HMAC-MD5 context should be already correctly intialized by HmacMd5Init(), and should not be
+  finalized by HmacMd5Final(). Behavior with invalid context is undefined.
 
   If HmacMd5Context is NULL, then return FALSE.
 
@@ -159,9 +146,7 @@ HmacMd5Update (
   //
   // OpenSSL HMAC-MD5 digest update
   //
-  if (HMAC_Update ((HMAC_CTX *)HmacMd5Context, Data, DataSize) != 1) {
-    return FALSE;
-  }
+  HMAC_Update (HmacMd5Context, Data, DataSize);
 
   return TRUE;
 }
@@ -172,8 +157,8 @@ HmacMd5Update (
   This function completes HMAC-MD5 digest computation and retrieves the digest value into
   the specified memory. After this function has been called, the HMAC-MD5 context cannot
   be used again.
-  HMAC-MD5 context should be initialized by HmacMd5New(), and should not be finalized by
-  HmacMd5Final(). Behavior with invalid HMAC-MD5 context is undefined.
+  HMAC-MD5 context should be already correctly intialized by HmacMd5Init(), and should not be
+  finalized by HmacMd5Final(). Behavior with invalid HMAC-MD5 context is undefined.
 
   If HmacMd5Context is NULL, then return FALSE.
   If HmacValue is NULL, then return FALSE.
@@ -205,12 +190,8 @@ HmacMd5Final (
   //
   // OpenSSL HMAC-MD5 digest finalization
   //
-  if (HMAC_Final ((HMAC_CTX *)HmacMd5Context, HmacValue, &Length) != 1) {
-    return FALSE;
-  }
-  if (HMAC_CTX_reset ((HMAC_CTX *)HmacMd5Context) != 1) {
-    return FALSE;
-  }
+  HMAC_Final (HmacMd5Context, HmacValue, &Length);
+  HMAC_CTX_cleanup (HmacMd5Context);
 
   return TRUE;
 }

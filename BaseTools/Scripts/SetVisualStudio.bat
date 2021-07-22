@@ -11,7 +11,13 @@
 @REM This script can also be used to build the Win32 binaries
 @REM
 @REM Copyright (c) 2014, Intel Corporation. All rights reserved.<BR>
-@REM SPDX-License-Identifier: BSD-2-Clause-Patent
+@REM This program and the accompanying materials
+@REM are licensed and made available under the terms and conditions of the BSD License
+@REM which accompanies this distribution.  The full text of the license may be found at
+@REM http://opensource.org/licenses/bsd-license.php
+@REM
+@REM THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+@REM WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 @REM
 @echo off
 @if defined NT32_X64 @goto CheckLatest
@@ -19,11 +25,6 @@
 
 :CheckLatest
 echo.
-@if defined VS140COMNTOOLS (
-   @set "COMMONTOOLSx64=C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\bin\x86_amd64"
-   @goto SetVs
-)
-
 @if defined VS120COMNTOOLS (
    @set "COMMONTOOLSx64=C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\x86_amd64"
    @goto SetVs

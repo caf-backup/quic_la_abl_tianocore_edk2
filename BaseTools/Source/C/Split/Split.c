@@ -2,8 +2,14 @@
 
   Split a file into two pieces at the request offset.
 
-Copyright (c) 1999 - 2017, Intel Corporation. All rights reserved.<BR>
-SPDX-License-Identifier: BSD-2-Clause-Patent
+Copyright (c) 1999 - 2015, Intel Corporation. All rights reserved.<BR>
+This program and the accompanying materials are licensed and made available
+under the terms and conditions of the BSD License which accompanies this
+distribution.  The full text of the license may be found at
+http://opensource.org/licenses/bsd-license.php
+
+THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
@@ -28,8 +34,8 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
 //
 // Utility version information
 //
-#define UTILITY_MAJOR_VERSION 1
-#define UTILITY_MINOR_VERSION 0
+#define UTILITY_MAJOR_VERSION 0
+#define UTILITY_MINOR_VERSION 1
 
 void
 Version (
@@ -51,7 +57,10 @@ Returns:
 
 --*/
 {
-  printf ("%s Version %d.%d Build %s\n", UTILITY_NAME, UTILITY_MAJOR_VERSION, UTILITY_MINOR_VERSION, __BUILD_VERSION);
+  printf ("%s Version %d.%d %s\n", UTILITY_NAME, UTILITY_MAJOR_VERSION, UTILITY_MINOR_VERSION, __BUILD_VERSION);
+  printf ("Copyright (c) 1999-2015 Intel Corporation. All rights reserved.\n");
+  printf ("\n  SplitFile creates two Binary files either in the same directory as the current working\n");
+  printf ("  directory or in the specified directory.\n");
 }
 
 void
@@ -74,9 +83,6 @@ Returns:
 --*/
 {
   Version();
-  printf ("Copyright (c) 1999-2017 Intel Corporation. All rights reserved.\n");
-  printf ("\n  SplitFile creates two Binary files either in the same directory as the current working\n");
-  printf ("  directory or in the specified directory.\n");
   printf ("\nUsage: \n\
    Split\n\
      -f, --filename inputFile to split\n\
@@ -97,16 +103,12 @@ GetSplitValue (
   OUT UINT64 *ReturnValue
 )
 {
-  UINT64 len = 0;
+  UINT64 len = strlen(SplitValueString);
   UINT64 base = 1;
   UINT64 index = 0;
   UINT64 number = 0;
   CHAR8 lastCHAR = 0;
   EFI_STATUS Status = EFI_SUCCESS;
-
-  if (SplitValueString != NULL){
-    len = strlen(SplitValueString);
-  }
 
   if (len == 0) {
     return EFI_ABORTED;
@@ -221,15 +223,14 @@ Returns:
 --*/
 {
   EFI_STATUS    Status = EFI_SUCCESS;
-  INTN          ReturnStatus = STATUS_SUCCESS;
   FILE          *In;
   CHAR8         *InputFileName = NULL;
   CHAR8         *OutputDir = NULL;
   CHAR8         *OutFileName1 = NULL;
   CHAR8         *OutFileName2 = NULL;
   UINT64        SplitValue = (UINT64) -1;
-  FILE          *Out1 = NULL;
-  FILE          *Out2 = NULL;
+  FILE          *Out1;
+  FILE          *Out2;
   CHAR8         *OutName1 = NULL;
   CHAR8         *OutName2 = NULL;
   CHAR8         *CurrentDir = NULL;
@@ -322,7 +323,7 @@ Returns:
       if (strlen(argv[0]) > 2) {
         Status = CountVerboseLevel (&argv[0][2], strlen(argv[0]) - 2, &VerboseLevel);
         if (EFI_ERROR (Status)) {
-          Error (NULL, 0, 0x1003, NULL, "%s is invalid parameter!", argv[0]);
+          Error (NULL, 0, 0x1003, NULL, "%s is invaild paramter!", argv[0]);
           return STATUS_ERROR;
         }
       }
@@ -343,9 +344,9 @@ Returns:
       continue;
     }
     //
-    // Don't recognize the parameter.
+    // Don't recognize the paramter.
     //
-    Error (NULL, 0, 0x1003, NULL, "%s is invalid parameter!", argv[0]);
+    Error (NULL, 0, 0x1003, NULL, "%s is invaild paramter!", argv[0]);
     return STATUS_ERROR;
   }
 
@@ -365,8 +366,7 @@ Returns:
     OutName1 = (CHAR8*)malloc(strlen(InputFileName) + 16);
     if (OutName1 == NULL) {
       Warning (NULL, 0, 0, NULL, "Memory Allocation Fail.");
-      ReturnStatus = STATUS_ERROR;
-      goto Finish;
+      return STATUS_ERROR;
     }
     strcpy (OutName1, InputFileName);
     strcat (OutName1, "1");
@@ -377,8 +377,7 @@ Returns:
     OutName2 = (CHAR8*)malloc(strlen(InputFileName) + 16);
     if (OutName2 == NULL) {
       Warning (NULL, 0, 0, NULL, "Memory Allocation Fail.");
-      ReturnStatus = STATUS_ERROR;
-      goto Finish;
+      return STATUS_ERROR;
     }
     strcpy (OutName2, InputFileName);
     strcat (OutName2, "2");
@@ -390,23 +389,20 @@ Returns:
     //OutputDirSpecified = TRUE;
     if (chdir(OutputDir) != 0) {
       Warning (NULL, 0, 0, NULL, "Change dir to OutputDir Fail.");
-      ReturnStatus = STATUS_ERROR;
-      goto Finish;
+      return STATUS_ERROR;
     }
   }
 
   CurrentDir = (CHAR8*)getcwd((CHAR8*)0, 0);
   if (EFI_ERROR(CreateDir(&OutFileName1))) {
       Error (OutFileName1, 0, 5, "Create Dir for File1 Fail.", NULL);
-      ReturnStatus = STATUS_ERROR;
-      goto Finish;
+      return STATUS_ERROR;
   }
   chdir(CurrentDir);
 
   if (EFI_ERROR(CreateDir(&OutFileName2))) {
       Error (OutFileName2, 0, 5, "Create Dir for File2 Fail.", NULL);
-      ReturnStatus = STATUS_ERROR;
-      goto Finish;
+      return STATUS_ERROR;
   }
   chdir(CurrentDir);
   free(CurrentDir);
@@ -415,16 +411,14 @@ Returns:
   if (Out1 == NULL) {
     // ("Unable to open file \"%s\"\n", OutFileName1);
     Error (OutFileName1, 0, 1, "File open failure", NULL);
-    ReturnStatus = STATUS_ERROR;
-    goto Finish;
+    return STATUS_ERROR;
   }
 
   Out2 = fopen (LongFilePath (OutFileName2), "wb");
   if (Out2 == NULL) {
     // ("Unable to open file \"%s\"\n", OutFileName2);
     Error (OutFileName2, 0, 1, "File open failure", NULL);
-    ReturnStatus = STATUS_ERROR;
-    goto Finish;
+    return STATUS_ERROR;
   }
 
   for (Index = 0; Index < SplitValue; Index++) {
@@ -445,22 +439,15 @@ Returns:
     fputc (CharC, Out2);
   }
 
-Finish:
   if (OutName1 != NULL) {
     free(OutName1);
   }
   if (OutName2 != NULL) {
     free(OutName2);
   }
-  if (In != NULL) {
-    fclose (In);
-  }
-  if (Out1 != NULL) {
-    fclose (Out1);
-  }
-  if (Out2 != NULL) {
-    fclose (Out2);
-  }
+  fclose (In);
+  fclose (Out1);
+  fclose (Out2);
 
-  return ReturnStatus;
+  return STATUS_SUCCESS;
 }

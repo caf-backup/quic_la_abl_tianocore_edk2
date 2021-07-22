@@ -2,8 +2,14 @@
   X.509 Certificate Handler Wrapper Implementation which does not provide
   real capabilities.
 
-Copyright (c) 2012 - 2020, Intel Corporation. All rights reserved.<BR>
-SPDX-License-Identifier: BSD-2-Clause-Patent
+Copyright (c) 2012 - 2014, Intel Corporation. All rights reserved.<BR>
+This program and the accompanying materials
+are licensed and made available under the terms and conditions of the BSD License
+which accompanies this distribution.  The full text of the license may be found at
+http://opensource.org/licenses/bsd-license.php
+
+THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
@@ -36,36 +42,6 @@ X509ConstructCertificate (
 /**
   Construct a X509 stack object from a list of DER-encoded certificate data.
 
-  If X509Stack is NULL, then return FALSE.
-  If this interface is not supported, then return FALSE.
-
-  @param[in, out]  X509Stack  On input, pointer to an existing or NULL X509 stack object.
-                              On output, pointer to the X509 stack object with new
-                              inserted X509 certificate.
-  @param[in]       Args       VA_LIST marker for the variable argument list.
-                              A list of DER-encoded single certificate data followed
-                              by certificate size. A NULL terminates the list. The
-                              pairs are the arguments to X509ConstructCertificate().
-
-  @retval     TRUE            The X509 stack construction succeeded.
-  @retval     FALSE           The construction operation failed.
-  @retval     FALSE           This interface is not supported.
-
-**/
-BOOLEAN
-EFIAPI
-X509ConstructCertificateStackV (
-  IN OUT  UINT8    **X509Stack,
-  IN      VA_LIST  Args
-  )
-{
-  ASSERT (FALSE);
-  return FALSE;
-}
-
-/**
-  Construct a X509 stack object from a list of DER-encoded certificate data.
-
   Return FALSE to indicate this interface is not supported.
 
   @param[in, out]  X509Stack  On input, pointer to an existing or NULL X509 stack object.
@@ -74,7 +50,7 @@ X509ConstructCertificateStackV (
   @param           ...        A list of DER-encoded single certificate data followed
                               by certificate size. A NULL terminates the list. The
                               pairs are the arguments to X509ConstructCertificate().
-
+                                 
   @retval FALSE  This interface is not supported.
 
 **/
@@ -82,7 +58,7 @@ BOOLEAN
 EFIAPI
 X509ConstructCertificateStack (
   IN OUT  UINT8  **X509Stack,
-  ...
+  ...  
   )
 {
   ASSERT (FALSE);
@@ -102,7 +78,7 @@ EFIAPI
 X509Free (
   IN  VOID  *X509Cert
   )
-{
+{ 
   ASSERT (FALSE);
 }
 
@@ -152,70 +128,6 @@ X509GetSubjectName (
 }
 
 /**
-  Retrieve the common name (CN) string from one X.509 certificate.
-
-  Return RETURN_UNSUPPORTED to indicate this interface is not supported.
-
-  @param[in]      Cert             Pointer to the DER-encoded X509 certificate.
-  @param[in]      CertSize         Size of the X509 certificate in bytes.
-  @param[out]     CommonName       Buffer to contain the retrieved certificate common
-                                   name string (UTF8). At most CommonNameSize bytes will be
-                                   written and the string will be null terminated. May be
-                                   NULL in order to determine the size buffer needed.
-  @param[in,out]  CommonNameSize   The size in bytes of the CommonName buffer on input,
-                                   and the size of buffer returned CommonName on output.
-                                   If CommonName is NULL then the amount of space needed
-                                   in buffer (including the final null) is returned.
-
-  @retval RETURN_UNSUPPORTED       The operation is not supported.
-
-**/
-RETURN_STATUS
-EFIAPI
-X509GetCommonName (
-  IN      CONST UINT8  *Cert,
-  IN      UINTN        CertSize,
-  OUT     CHAR8        *CommonName,  OPTIONAL
-  IN OUT  UINTN        *CommonNameSize
-  )
-{
-  ASSERT (FALSE);
-  return RETURN_UNSUPPORTED;
-}
-
-/**
-  Retrieve the organization name (ON) string from one X.509 certificate.
-
-  Return RETURN_UNSUPPORTED to indicate this interface is not supported.
-
-  @param[in]      Cert             Pointer to the DER-encoded X509 certificate.
-  @param[in]      CertSize         Size of the X509 certificate in bytes.
-  @param[out]     NameBuffer       Buffer to contain the retrieved certificate organization
-                                   name string. At most NameBufferSize bytes will be
-                                   written and the string will be null terminated. May be
-                                   NULL in order to determine the size buffer needed.
-  @param[in,out]  NameBufferSize   The size in bytes of the Name buffer on input,
-                                   and the size of buffer returned Name on output.
-                                   If NameBuffer is NULL then the amount of space needed
-                                   in buffer (including the final null) is returned.
-
-  @retval RETURN_UNSUPPORTED       The operation is not supported.
-
-**/
-RETURN_STATUS
-EFIAPI
-X509GetOrganizationName (
-  IN      CONST UINT8   *Cert,
-  IN      UINTN         CertSize,
-  OUT     CHAR8         *NameBuffer,  OPTIONAL
-  IN OUT  UINTN         *NameBufferSize
-  )
-{
-  ASSERT (FALSE);
-  return RETURN_UNSUPPORTED;
-}
-
-/**
   Retrieve the RSA Public Key from one DER-encoded X509 certificate.
 
   Return FALSE to indicate this interface is not supported.
@@ -252,7 +164,7 @@ RsaGetPublicKeyFromX509 (
   @param[in]      CACertSize   Size of the CA Certificate in bytes.
 
   @retval FALSE  This interface is not supported.
-
+ 
 **/
 BOOLEAN
 EFIAPI

@@ -1,8 +1,14 @@
 /** @file
   Functions to deal with file buffer.
 
-  Copyright (c) 2005 - 2018, Intel Corporation. All rights reserved. <BR>
-  SPDX-License-Identifier: BSD-2-Clause-Patent
+  Copyright (c) 2005 - 2015, Intel Corporation. All rights reserved. <BR>
+  This program and the accompanying materials
+  are licensed and made available under the terms and conditions of the BSD License
+  which accompanies this distribution.  The full text of the license may be found at
+  http://opensource.org/licenses/bsd-license.php
+
+  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
@@ -31,7 +37,7 @@ HEFI_EDITOR_BUFFER_IMAGE          HFileImageConst = {
 
 /**
   Initialization function for HFileImage
-
+ 
   @retval EFI_SUCCESS     The operation was successful.
 **/
 EFI_STATUS
@@ -54,7 +60,7 @@ HFileImageInit (
 }
 
 /**
-  Backup function for HFileImage. Only a few fields need to be backup.
+  Backup function for HFileImage. Only a few fields need to be backup. 
   This is for making the file buffer refresh as few as possible.
 
   @retval EFI_SUCCESS           The operation was successful.
@@ -104,21 +110,26 @@ HFileImageSetFileName (
   IN CONST CHAR16 *Str
   )
 {
-  if (Str == HFileImage.FileName) {
-    //
-    // This function might be called using HFileImage.FileName as Str.
-    // Directly return without updating HFileImage.FileName.
-    //
-    return EFI_SUCCESS;
-  }
+  UINTN Size;
+  UINTN Index;
+
   //
   // free the old file name
   //
   SHELL_FREE_NON_NULL (HFileImage.FileName);
-  HFileImage.FileName = AllocateCopyPool (StrSize (Str), Str);
+
+  Size                = StrLen (Str);
+
+  HFileImage.FileName = AllocateZeroPool (2 * (Size + 1));
   if (HFileImage.FileName == NULL) {
     return EFI_OUT_OF_RESOURCES;
   }
+
+  for (Index = 0; Index < Size; Index++) {
+    HFileImage.FileName[Index] = Str[Index];
+  }
+
+  HFileImage.FileName[Size] = L'\0';
 
   return EFI_SUCCESS;
 }
@@ -368,7 +379,7 @@ HFileImageSave (
   //
   // set status string
   //
-  Str = CatSPrint(NULL, L"%d Lines Written", NumLines);
+  Str = CatSPrint(NULL, L"%d Lines Wrote", NumLines);
   StatusBarSetStatusString (Str);
   FreePool (Str);
 

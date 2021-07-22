@@ -2,7 +2,7 @@
  * Copyright (c) 2009, Google Inc.
  * All rights reserved.
  *
- * Copyright (c) 2009-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2020, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -39,7 +39,6 @@
 #include <Protocol/EFIMdtp.h>
 #include <Protocol/EFIScmModeSwitch.h>
 #include <libufdt_sysdeps.h>
-#include <Protocol/EFIKernelInterface.h>
 
 #include "AutoGen.h"
 #include "BootImage.h"
@@ -104,7 +103,6 @@ UpdateBootParams (BootParamlist *BootParamlistPtr)
 {
   UINT64 KernelSizeReserved;
   UINT64 KernelLoadAddr;
-  Kernel64Hdr *Kptr = NULL;
 
   if (BootParamlistPtr == NULL ) {
     DEBUG ((EFI_D_ERROR, "Invalid input parameters\n"));
@@ -117,16 +115,11 @@ UpdateBootParams (BootParamlist *BootParamlistPtr)
   if (QueryBootParams (&KernelLoadAddr, &KernelSizeReserved)) {
     BootParamlistPtr->KernelLoadAddr = KernelLoadAddr;
     if (BootParamlistPtr->BootingWith32BitKernel) {
-      BootParamlistPtr->KernelLoadAddr += KERNEL_32BIT_LOAD_OFFSET;
+         BootParamlistPtr->KernelLoadAddr += KERNEL_32BIT_LOAD_OFFSET;
     } else {
-      Kptr = (Kernel64Hdr *) (BootParamlistPtr->ImageBuffer +
-                                BootParamlistPtr->PageSize);
-      if (Kptr->ImageSize) {
-          BootParamlistPtr->KernelLoadAddr += Kptr->TextOffset;
-      } else {
-        BootParamlistPtr->KernelLoadAddr += KERNEL_64BIT_LOAD_OFFSET;
-      }
+         BootParamlistPtr->KernelLoadAddr += KERNEL_64BIT_LOAD_OFFSET;
     }
+
     BootParamlistPtr->KernelEndAddr = KernelLoadAddr + KernelSizeReserved;
   } else {
     DEBUG ((EFI_D_VERBOSE, "QueryBootParams Failed: "));
@@ -658,8 +651,6 @@ GZipPkgCheck (BootParamlist *BootParamlistPtr)
       BootParamlistPtr->PatchedKernelHdrSize = PATCHED_KERNEL_HEADER_SIZE;
       Kptr = (struct kernel64_hdr *)((VOID *)Kptr +
                  BootParamlistPtr->PatchedKernelHdrSize);
-      gBS->CopyMem ((VOID *)BootParamlistPtr->KernelLoadAddr, (VOID *)Kptr,
-                 BootParamlistPtr->KernelSize);
     }
 
     if (Kptr->magic_64 != KERNEL64_HDR_MAGIC) {
@@ -871,11 +862,6 @@ BootLinux (BootInfo *Info)
 
   BootParamlist BootParamlistPtr = {0};
 
-  EFI_KERNEL_PROTOCOL *KernIntf = NULL;
-  Thread *ThreadNum;
-  VOID *StackBase;
-  VOID **StackCurrent;
-
   if (Info == NULL) {
     DEBUG ((EFI_D_ERROR, "BootLinux: invalid parameter Info\n"));
     return EFI_INVALID_PARAMETER;
@@ -1009,8 +995,7 @@ BootLinux (BootInfo *Info)
    */
   Status = UpdateCmdLine (BootParamlistPtr.CmdLine, FfbmStr, Recovery,
                    AlarmBoot, Info->VBCmdLine, &BootParamlistPtr.FinalCmdLine,
-                   Info->HeaderVersion,
-                   (VOID *)BootParamlistPtr.DeviceTreeLoadAddr);
+                   Info->HeaderVersion);
   if (EFI_ERROR (Status)) {
     DEBUG ((EFI_D_ERROR, "Error updating cmdline. Device Error %r\n", Status));
     return Status;
@@ -1021,33 +1006,16 @@ BootLinux (BootInfo *Info)
        return Status;
   }
 
-#ifdef VERFIEID_BOOT_LE
   FreeVerifiedBootResource (Info);
-#endif
 
   /* Free the boot logo blt buffer before starting kernel */
   FreeBootLogoBltBuffer ();
-  if (BootParamlistPtr.BootingWith32BitKernel &&
-      sizeof (UINTN) != 4) {
+  if (BootParamlistPtr.BootingWith32BitKernel) {
     Status = gBS->LocateProtocol (&gQcomScmModeSwithProtocolGuid, NULL,
                                   (VOID **)&pQcomScmModeSwitchProtocol);
     if (!EFI_ERROR (Status))
       IsModeSwitch = TRUE;
   }
-
-  Status = gBS->LocateProtocol (&gEfiKernelProtocolGuid, NULL,
-        (VOID **)&KernIntf);
-
-  if ((Status != EFI_SUCCESS) ||
-      (KernIntf == NULL)) {
-    DEBUG ((EFI_D_ERROR, "Error getting kernel stack protocol. Error %r\n",
-           Status));
-    goto Exit;
-  }
-
-  ThreadNum = KernIntf->Thread->GetCurrentThread ();
-  StackBase = KernIntf->Thread->ThreadGetUnsafeSPBase (ThreadNum);
-  StackCurrent = KernIntf->Thread->ThreadGetUnsafeSPCurrent (ThreadNum);
 
   DEBUG ((EFI_D_INFO, "\nShutting Down UEFI Boot Services: %lu ms\n",
           GetTimerCountms ()));
@@ -1060,12 +1028,7 @@ BootLinux (BootInfo *Info)
     goto Exit;
   }
 
-  PreparePlatformHardware (KernIntf, (VOID *)BootParamlistPtr.KernelLoadAddr,
-                  (UINTN)BootParamlistPtr.KernelSizeActual,
-                  (VOID *)BootParamlistPtr.RamdiskLoadAddr,
-                  (UINTN)RamdiskSizeActual,
-                  (VOID *)BootParamlistPtr.DeviceTreeLoadAddr, DT_SIZE_2MB,
-                  (VOID *)StackCurrent, (UINTN)StackBase);
+  PreparePlatformHardware ();
 
   BootStatsSetTimeStamp (BS_KERNEL_ENTRY);
 
@@ -1092,6 +1055,7 @@ BootLinux (BootInfo *Info)
     LinuxKernel32 (0, 0, (UINTN)BootParamlistPtr.DeviceTreeLoadAddr);
 
     // Should never reach here. After life support is not available
+    DEBUG ((EFI_D_ERROR, "After Life support not available\n"));
     goto Exit;
   }
 
@@ -1589,5 +1553,17 @@ BOOLEAN IsEnableDisplayMenuFlagSupported (VOID)
 BOOLEAN IsEnableDisplayMenuFlagSupported (VOID)
 {
   return TRUE;
+}
+#endif
+
+#ifdef ENABLE_SYSTEMD_BOOTSLOT
+BOOLEAN IsSystemdBootslotEnabled (VOID)
+{
+  return TRUE;
+}
+#else
+BOOLEAN IsSystemdBootslotEnabled (VOID)
+{
+  return FALSE;
 }
 #endif

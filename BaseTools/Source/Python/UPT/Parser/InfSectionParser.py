@@ -1,9 +1,15 @@
 ## @file
-# This file contained the parser for sections in INF file
+# This file contained the parser for sections in INF file 
 #
-# Copyright (c) 2011 - 2018, Intel Corporation. All rights reserved.<BR>
+# Copyright (c) 2011 - 2014, Intel Corporation. All rights reserved.<BR>
 #
-# SPDX-License-Identifier: BSD-2-Clause-Patent
+# This program and the accompanying materials are licensed and made available 
+# under the terms and conditions of the BSD License which accompanies this 
+# distribution. The full text of the license may be found at 
+# http://opensource.org/licenses/bsd-license.php
+#
+# THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+# WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 #
 
 '''
@@ -15,7 +21,7 @@ InfSectionParser
 from copy import deepcopy
 import re
 
-from Library.StringUtils import GetSplitValueList
+from Library.String import GetSplitValueList
 from Library.CommentParsing import ParseHeaderCommentSection
 from Library.CommentParsing import ParseComment
 
@@ -89,7 +95,7 @@ def GetSpecialStr2(ItemList, FileName, LineNo, SectionString):
             if ItemList[3] != '':
                 Logger.Error('Parser', FORMAT_INVALID, ST.ERR_INF_PARSER_SOURCE_SECTION_SECTIONNAME_INVALID \
                              % (SectionString), File=FileName, Line=LineNo, ExtraData=SectionString)
-
+        
         if not ItemList[0].upper() == DT.TAB_USER_EXTENSIONS.upper():
             Str2 = ItemList[2] + ' | ' + ItemList[3]
         else:
@@ -102,7 +108,7 @@ def GetSpecialStr2(ItemList, FileName, LineNo, SectionString):
     return Str2
 
 ## ProcessUseExtHeader
-#
+# 
 #
 def ProcessUseExtHeader(ItemList):
     NewItemList = []
@@ -132,12 +138,12 @@ def ProcessUseExtHeader(ItemList):
                 NewItemList.append(Item)
             else:
                 AppendContent = AppendContent + "." + Item
-
+    
     if len(NewItemList) > 4:
         return False, []
-
+    
     return True, NewItemList
-
+  
 ## GetArch
 #
 # GetArch
@@ -221,7 +227,7 @@ class InfSectionParser(InfDefinSectionParser,
         self.InfBuildOptionSection = InfBuildOptionsObject()
         self.InfLibraryClassSection = InfLibraryClassObject()
         self.InfPackageSection = InfPackageObject()
-        self.InfPcdSection = InfPcdObject(list(self.MetaFiles.keys())[0])
+        self.InfPcdSection = InfPcdObject(self.MetaFiles.keys()[0])
         self.InfSourcesSection = InfSourcesObject()
         self.InfUserExtensionSection = InfUserExtensionObject()
         self.InfProtocolSection = InfProtocolObject()
@@ -238,7 +244,7 @@ class InfSectionParser(InfDefinSectionParser,
 
         #
         # A List for store define section content.
-        #
+        #    
         self._PcdNameList = []
         self._SectionName = ''
         self._SectionType = 0
@@ -247,7 +253,7 @@ class InfSectionParser(InfDefinSectionParser,
 
     #
     # File Header content parser
-    #
+    #    
     def InfHeaderParser(self, Content, InfHeaderObject2, FileName, IsBinaryHeader = False):
         if IsBinaryHeader:
             (Abstract, Description, Copyright, License) = ParseHeaderCommentSection(Content, FileName, True)
@@ -266,7 +272,7 @@ class InfSectionParser(InfDefinSectionParser,
 
         #
         # Insert Abstract, Description, CopyRight, License into header object
-        #
+        #                                
         InfHeaderObject2.SetAbstract(Abstract)
         InfHeaderObject2.SetDescription(Description)
         InfHeaderObject2.SetCopyright(Copyright)
@@ -281,7 +287,7 @@ class InfSectionParser(InfDefinSectionParser,
     #
     #       [section_name.arch<.platform|module_type>]
     #
-    # @param String    A string contained the content need to be parsed.
+    # @param String    A string contained the content need to be parsed. 
     #
     def SectionHeaderParser(self, SectionString, FileName, LineNo):
         _Scope = []
@@ -307,7 +313,7 @@ class InfSectionParser(InfDefinSectionParser,
             #
             # different section should not mix in one section
             # Allow different PCD type sections mixed together
-            #
+            # 
             if _SectionName.upper() not in _PcdNameList:
                 if _SectionName != '' and _SectionName.upper() != ItemList[0].upper():
                     Logger.Error('Parser',
@@ -344,7 +350,7 @@ class InfSectionParser(InfDefinSectionParser,
 
             #
             # For [Defines] section, do special check.
-            #
+            # 
             if ItemList[0].upper() == DT.TAB_COMMON_DEFINES.upper():
                 if len(ItemList) != 1:
                     Logger.Error('Parser',
@@ -354,26 +360,26 @@ class InfSectionParser(InfDefinSectionParser,
 
             #
             # For [UserExtension] section, do special check.
-            #
+            # 
             if ItemList[0].upper() == DT.TAB_USER_EXTENSIONS.upper():
-
+            
                 RetValue = ProcessUseExtHeader(ItemList)
-
+                
                 if not RetValue[0]:
                     Logger.Error('Parser',
                                  FORMAT_INVALID,
                                  ST.ERR_INF_PARSER_DEFINE_FROMAT_INVALID % (SectionString),
                                  File=FileName, Line=LineNo, ExtraData=SectionString)
                 else:
-                    ItemList = RetValue[1]
-
+                    ItemList = RetValue[1]              
+                
                 if len(ItemList) == 3:
                     ItemList.append('COMMON')
-
+                
                 Str1 = ItemList[1]
 
             #
-            # For Library classes, need to check module type.
+            # For Library classes, need to check module type.       
             #
             if ItemList[0].upper() == DT.TAB_LIBRARY_CLASSES.upper() and len(ItemList) == 3:
                 if ItemList[2] != '':
@@ -418,10 +424,10 @@ class InfSectionParser(InfDefinSectionParser,
 
     ## GenSpecialSectionList
     #
-    #  @param SpecialSectionList: a list of list, of which item's format
+    #  @param SpecialSectionList: a list of list, of which item's format 
     #                             (Comment, LineNum)
     #  @param ContainerFile:      Input value for filename of Inf file
-    #
+    # 
     def InfSpecialCommentParser (self, SpecialSectionList, InfSectionObject, ContainerFile, SectionType):
         ReFindSpecialCommentRe = re.compile(r"""#(?:\s*)\[(.*?)\](?:.*)""", re.DOTALL)
         ReFindHobArchRe = re.compile(r"""[Hh][Oo][Bb]\.([^,]*)""", re.DOTALL)
@@ -449,7 +455,7 @@ class InfSectionParser(InfDefinSectionParser,
                     Arch = Match.groups(1)[0].upper()
                     ArchList.append(Arch)
             CommentSoFar = ''
-            for Index in range(1, len(List)):
+            for Index in xrange(1, len(List)):
                 Result = ParseComment(List[Index], DT.ALL_USAGE_TOKENS, TokenDict, [], False)
                 Usage = Result[0]
                 Type = Result[1]

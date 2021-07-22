@@ -2,7 +2,13 @@
 
 Copyright (c) 2006 - 2011, Intel Corporation. All rights reserved.<BR>
 Portions copyright (c) 2008 - 2011, Apple Inc. All rights reserved.<BR>
-SPDX-License-Identifier: BSD-2-Clause-Patent
+This program and the accompanying materials
+are licensed and made available under the terms and conditions of the BSD License
+which accompanies this distribution.  The full text of the license may be found at
+http://opensource.org/licenses/bsd-license.php
+
+THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
@@ -38,7 +44,7 @@ UINTN       gFdInfoCount = 0;
 EMU_FD_INFO *gFdInfo;
 
 //
-// Array that supports separate memory ranges.
+// Array that supports seperate memory rantes.
 //  The memory ranges are set in system.cmd via the EFI_MEMORY_SIZE variable.
 //  The number of array elements is allocated base on parsing
 //  EFI_MEMORY_SIZE and the memory is never freed.
@@ -81,7 +87,7 @@ Routine Description:
 Arguments:
   Argc - Number of command line arguments
   Argv - Array of command line argument strings
-  Envp - Array of environment variable strings
+  Envp - Array of environmemt variable strings
 
 Returns:
   0 - Normal exit
@@ -113,7 +119,7 @@ main (
 
   //
   // Xcode does not support sourcing gdb scripts directly, so the Xcode XML
-  // has a break point script to source the GdbRun.sh script.
+  // has a break point script to source the GdbRun script.
   //
   SecGdbConfigBreak ();
 
@@ -169,7 +175,7 @@ main (
   //
   // Allocate space for gSystemMemory Array
   //
-  gSystemMemoryCount  = CountSeparatorsInString (MemorySizeStr, '!') + 1;
+  gSystemMemoryCount  = CountSeperatorsInString (MemorySizeStr, '!') + 1;
   gSystemMemory       = AllocateZeroPool (gSystemMemoryCount * sizeof (EMU_SYSTEM_MEMORY));
   if (gSystemMemory == NULL) {
     printf ("ERROR : Can not allocate memory for system.  Exiting.\n");
@@ -178,7 +184,7 @@ main (
   //
   // Allocate space for gSystemMemory Array
   //
-  gFdInfoCount  = CountSeparatorsInString (FirmwareVolumesStr, '!') + 1;
+  gFdInfoCount  = CountSeperatorsInString (FirmwareVolumesStr, '!') + 1;
   gFdInfo       = AllocateZeroPool (gFdInfoCount * sizeof (EMU_FD_INFO));
   if (gFdInfo == NULL) {
     printf ("ERROR : Can not allocate memory for fd info.  Exiting.\n");
@@ -243,7 +249,7 @@ main (
                 );
     } else {
       //
-      // Open the FD and remember where it got mapped into our processes address space
+      // Open the FD and remmeber where it got mapped into our processes address space
       // Maps Read Only
       //
       Status = MapFile (
@@ -379,7 +385,7 @@ Arguments:
 Returns:
   EFI_SUCCESS      - The file was opened and mapped.
   EFI_NOT_FOUND    - FileName was not found in the current directory
-  EFI_DEVICE_ERROR - An error occurred attempting to map the opened file
+  EFI_DEVICE_ERROR - An error occured attempting to map the opened file
 
 **/
 EFI_STATUS
@@ -523,7 +529,7 @@ Arguments:
   PeiCorePe32File         - SEC PE32
 
 Returns:
-  Success means control is transferred and thus we should never return
+  Success means control is transfered and thus we should never return
 
 **/
 VOID
@@ -608,10 +614,10 @@ SecLoadFromCore (
 
 Routine Description:
   This service is called from Index == 0 until it returns EFI_UNSUPPORTED.
-  It allows discontinuous memory regions to be supported by the emulator.
+  It allows discontiguous memory regions to be supported by the emulator.
   It uses gSystemMemory[] and gSystemMemoryCount that were created by
   parsing the host environment variable EFI_MEMORY_SIZE.
-  The size comes from the variable and the address comes from the call to
+  The size comes from the varaible and the address comes from the call to
   UnixOpenFile.
 
 Arguments:
@@ -661,7 +667,7 @@ Routine Description:
 
  This is all of GCD for system memory passed to DXE Core. FV
  mapping and other device mapped into system memory are not
- included in the check.
+ inlcuded in the check.
 
 Arguments:
   Index      - Which memory region to use
@@ -697,7 +703,7 @@ EfiSystemMemoryRange (
 
 Routine Description:
   Since the SEC is the only Unix program in stack it must export
-  an interface to do POSIX calls.  gUnix is initialized in UnixThunk.c.
+  an interface to do POSIX calls.  gUnix is initailized in UnixThunk.c.
 
 Arguments:
   InterfaceSize - sizeof (EFI_WIN_NT_THUNK_PROTOCOL);
@@ -775,7 +781,7 @@ SecPeCoffGetEntryPoint (
 
 Routine Description:
   Return the FD Size and base address. Since the FD is loaded from a
-  file into host memory only the SEC will know its address.
+  file into host memory only the SEC will know it's address.
 
 Arguments:
   Index  - Which FD, starts at zero.
@@ -824,26 +830,26 @@ SecUnixFdAddress (
 /*++
 
 Routine Description:
-  Count the number of separators in String
+  Count the number of seperators in String
 
 Arguments:
   String    - String to process
-  Separator - Item to count
+  Seperator - Item to count
 
 Returns:
-  Number of Separator in String
+  Number of Seperator in String
 
 **/
 UINTN
-CountSeparatorsInString (
+CountSeperatorsInString (
   IN  const CHAR16   *String,
-  IN  CHAR16         Separator
+  IN  CHAR16         Seperator
   )
 {
   UINTN Count;
 
   for (Count = 0; *String != '\0'; String++) {
-    if (*String == Separator) {
+    if (*String == Seperator) {
       Count++;
     }
   }
@@ -898,7 +904,7 @@ Routine Description:
   The ModHandle is needed to unload the image.
 
 Arguments:
-  ImageContext - Input data returned from PE Loader Library. Used to find the
+  ImageContext - Input data returned from PE Laoder Library. Used to find the
                  .PDB file name of the PE Image.
   ModHandle    - Returned from LoadLibraryEx() and stored for call to
                  FreeLibrary().
@@ -922,7 +928,7 @@ AddHandle (
   for (Index = 0; Index < mImageContextModHandleArraySize; Index++, Array++) {
     if (Array->ImageContext == NULL) {
       //
-      // Make a copy of the string and store the ModHandle
+      // Make a copy of the stirng and store the ModHandle
       //
       Array->ImageContext = ImageContext;
       Array->ModHandle    = ModHandle;
@@ -933,7 +939,7 @@ AddHandle (
   //
   // No free space in mImageContextModHandleArray so grow it by
   // IMAGE_CONTEXT_TO_MOD_HANDLE entires. realloc will
-  // copy the old values to the new location. But it does
+  // copy the old values to the new locaiton. But it does
   // not zero the new memory area.
   //
   PreviousSize = mImageContextModHandleArraySize * sizeof (IMAGE_CONTEXT_TO_MOD_HANDLE);
@@ -961,11 +967,11 @@ Routine Description:
   Return the ModHandle and delete the entry in the array.
 
 Arguments:
-  ImageContext - Input data returned from PE Loader Library. Used to find the
+  ImageContext - Input data returned from PE Laoder Library. Used to find the
                  .PDB file name of the PE Image.
 
 Returns:
-  ModHandle - ModHandle associated with ImageContext is returned
+  ModHandle - ModHandle assoicated with ImageContext is returned
   NULL      - No ModHandle associated with ImageContext
 
 **/
@@ -1113,9 +1119,6 @@ DlLoadImage (
 }
 
 
-#ifdef __APPLE__
-__attribute__((noinline))
-#endif
 VOID
 SecGdbScriptBreak (
   char                *FileName,
@@ -1129,7 +1132,7 @@ SecGdbScriptBreak (
 
 
 /**
-  Adds the image to a gdb script so its symbols can be loaded.
+  Adds the image to a gdb script so it's symbols can be loaded.
   The AddFirmwareSymbolFile helper macro is used.
 
   @param  ImageContext  The PE/COFF image context
@@ -1145,7 +1148,7 @@ GdbScriptAddImage (
 
   if (ImageContext->PdbPointer != NULL && !IsPdbFile (ImageContext->PdbPointer)) {
     FILE  *GdbTempFile;
-    if (FeaturePcdGet (PcdEmulatorLazyLoadSymbols)) {
+    if (FeaturePcdGet (PcdEmulatorLazyLoadSymbols)) {    
       GdbTempFile = fopen (gGdbWorkingFileName, "a");
       if (GdbTempFile != NULL) {
         long unsigned int SymbolsAddr = (long unsigned int)(ImageContext->ImageAddress + ImageContext->SizeOfHeaders);
@@ -1167,13 +1170,13 @@ GdbScriptAddImage (
       GdbTempFile = fopen (gGdbWorkingFileName, "w");
       if (GdbTempFile != NULL) {
         fprintf (
-          GdbTempFile,
-          "add-symbol-file %s 0x%08lx\n",
-          ImageContext->PdbPointer,
+          GdbTempFile, 
+          "add-symbol-file %s 0x%08lx\n", 
+          ImageContext->PdbPointer, 
           (long unsigned int)(ImageContext->ImageAddress + ImageContext->SizeOfHeaders)
           );
         fclose (GdbTempFile);
-
+  
         //
         // Target for gdb breakpoint in a script that uses gGdbWorkingFileName to set a breakpoint.
         // Hey what can you say scripting in gdb is not that great....
@@ -1202,7 +1205,7 @@ SecPeCoffRelocateImageExtraAction (
 
 
 /**
-  Adds the image to a gdb script so its symbols can be unloaded.
+  Adds the image to a gdb script so it's symbols can be unloaded.
   The RemoveFirmwareSymbolFile helper macro is used.
 
   @param  ImageContext  The PE/COFF image context
@@ -1222,7 +1225,7 @@ GdbScriptRemoveImage (
     return;
   }
 
-  if (FeaturePcdGet (PcdEmulatorLazyLoadSymbols)) {
+  if (FeaturePcdGet (PcdEmulatorLazyLoadSymbols)) {    
     //
     // Write the file we need for the gdb script
     //
@@ -1253,7 +1256,7 @@ GdbScriptRemoveImage (
       SecGdbScriptBreak (ImageContext->PdbPointer, strlen (ImageContext->PdbPointer) + 1, 0, 0);
     } else {
       ASSERT (FALSE);
-    }
+    }  
   }
 }
 

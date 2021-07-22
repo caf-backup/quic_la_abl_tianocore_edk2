@@ -1,9 +1,15 @@
 #!/usr/bin/env bash
 #
 # Copyright (c) 2008 - 2009, Apple Inc. All rights reserved.<BR>
-# Copyright (c) 2010 - 2019, Intel Corporation. All rights reserved.<BR>
+# Copyright (c) 2010 - 2015, Intel Corporation. All rights reserved.<BR>
 #
-# SPDX-License-Identifier: BSD-2-Clause-Patent
+# This program and the accompanying materials
+# are licensed and made available under the terms and conditions of the BSD License
+# which accompanies this distribution.  The full text of the license may be found at
+# http://opensource.org/licenses/bsd-license.php
+#
+# THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+# WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 #
 
 set -e
@@ -40,7 +46,7 @@ ARCH_X64=no
 BUILDTARGET=DEBUG
 BUILD_OPTIONS=
 PLATFORMFILE=
-THREADNUMBER=0
+THREADNUMBER=1
 LAST_ARG=
 RUN_QEMU=no
 ENABLE_FLASH=no
@@ -77,18 +83,23 @@ case `uname` in
   Linux*)
     gcc_version=$(gcc -v 2>&1 | tail -1 | awk '{print $3}')
     case $gcc_version in
-      [1-3].*|4.[0-7].*)
-        echo OvmfPkg requires GCC4.8 or later
-        exit 1
+      4.5.*)
+        TARGET_TOOLS=GCC45
+        ;;
+      4.6.*)
+        TARGET_TOOLS=GCC46
+        ;;
+      4.7.*)
+        TARGET_TOOLS=GCC47
         ;;
       4.8.*)
         TARGET_TOOLS=GCC48
         ;;
-      4.9.*|6.[0-2].*)
+      4.9.*|4.1[0-9].*|5.*.*)
         TARGET_TOOLS=GCC49
         ;;
       *)
-        TARGET_TOOLS=GCC5
+        TARGET_TOOLS=GCC44
         ;;
     esac
 esac
@@ -205,14 +216,23 @@ if [ -z "$PLATFORMFILE" ]; then
 fi
 
 if [[ "$RUN_QEMU" == "yes" ]]; then
-  qemu_version=$($QEMU_COMMAND -version 2>&1 | \
-                   grep -o -E 'version [0-9]+\.[0-9]+\.[0-9]+' | \
-                     awk '{print $2}')
+  qemu_version=$($QEMU_COMMAND -version 2>&1 | tail -1 | awk '{print $4}')
   case $qemu_version in
-    1.[6-9].*|[2-9].*.*|[1-9][0-9]*.*.*)
+    1.[6-9].*|1.[1-9][0-9].*|2.*.*)
       ENABLE_FLASH=yes
       ;;
   esac
+
+  ADD_QEMU_HDA=yes
+  for arg in "$@"
+  do
+    case $arg in
+      -hd[a-d]|-fd[ab]|-cdrom)
+        ADD_QEMU_HDA=no
+        break
+        ;;
+    esac
+  done
 fi
 
 #
@@ -252,9 +272,12 @@ if [[ "$RUN_QEMU" == "yes" ]]; then
   fi
   ln -sf $FV_DIR/OVMF.fd $QEMU_FIRMWARE_DIR/bios.bin
   if [[ "$ENABLE_FLASH" == "yes" ]]; then
-    QEMU_COMMAND="$QEMU_COMMAND -drive if=pflash,format=raw,file=$QEMU_FIRMWARE_DIR/bios.bin"
+    QEMU_COMMAND="$QEMU_COMMAND -pflash $QEMU_FIRMWARE_DIR/bios.bin"
   else
     QEMU_COMMAND="$QEMU_COMMAND -L $QEMU_FIRMWARE_DIR"
+  fi
+  if [[ "$ADD_QEMU_HDA" == "yes" ]]; then
+    QEMU_COMMAND="$QEMU_COMMAND -hda fat:$BUILD_ROOT_ARCH"
   fi
   echo Running: $QEMU_COMMAND "$@"
   $QEMU_COMMAND "$@"

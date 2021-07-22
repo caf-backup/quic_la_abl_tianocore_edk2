@@ -1,95 +1,109 @@
 /* Threads.c -- multithreading library
-2017-06-26 : Igor Pavlov : Public domain */
-
-#include "Precomp.h"
-
-#ifndef UNDER_CE
-#include <process.h>
-#endif
+2008-08-05
+Igor Pavlov
+Public domain */
 
 #include "Threads.h"
+#include <process.h>
 
 static WRes GetError()
 {
   DWORD res = GetLastError();
-  return res ? (WRes)res : 1;
+  return (res) ? (WRes)(res) : 1;
 }
 
-static WRes HandleToWRes(HANDLE h) { return (h != NULL) ? 0 : GetError(); }
-static WRes BOOLToWRes(BOOL v) { return v ? 0 : GetError(); }
+WRes HandleToWRes(HANDLE h) { return (h != 0) ? 0 : GetError(); }
+WRes BOOLToWRes(BOOL v) { return v ? 0 : GetError(); }
 
-WRes HandlePtr_Close(HANDLE *p)
+static WRes MyCloseHandle(HANDLE *h)
 {
-  if (*p != NULL)
-  {
-    if (!CloseHandle(*p))
+  if (*h != NULL)
+    if (!CloseHandle(*h))
       return GetError();
-    *p = NULL;
-  }
+  *h = NULL;
   return 0;
 }
 
-WRes Handle_WaitObject(HANDLE h) { return (WRes)WaitForSingleObject(h, INFINITE); }
-
-WRes Thread_Create(CThread *p, THREAD_FUNC_TYPE func, LPVOID param)
+WRes Thread_Create(CThread *thread, THREAD_FUNC_RET_TYPE (THREAD_FUNC_CALL_TYPE *startAddress)(void *), LPVOID parameter)
 {
-  /* Windows Me/98/95: threadId parameter may not be NULL in _beginthreadex/CreateThread functions */
-  
-  #ifdef UNDER_CE
-  
-  DWORD threadId;
-  *p = CreateThread(0, 0, func, param, 0, &threadId);
-
-  #else
-
-  unsigned threadId;
-  *p = (HANDLE)_beginthreadex(NULL, 0, func, param, 0, &threadId);
-   
-  #endif
-
-  /* maybe we must use errno here, but probably GetLastError() is also OK. */
-  return HandleToWRes(*p);
+  unsigned threadId; /* Windows Me/98/95: threadId parameter may not be NULL in _beginthreadex/CreateThread functions */
+  thread->handle =
+    /* CreateThread(0, 0, startAddress, parameter, 0, &threadId); */
+    (HANDLE)_beginthreadex(NULL, 0, startAddress, parameter, 0, &threadId);
+    /* maybe we must use errno here, but probably GetLastError() is also OK. */
+  return HandleToWRes(thread->handle);
 }
 
-static WRes Event_Create(CEvent *p, BOOL manualReset, int signaled)
+WRes WaitObject(HANDLE h)
 {
-  *p = CreateEvent(NULL, manualReset, (signaled ? TRUE : FALSE), NULL);
-  return HandleToWRes(*p);
+  return (WRes)WaitForSingleObject(h, INFINITE);
 }
 
-WRes Event_Set(CEvent *p) { return BOOLToWRes(SetEvent(*p)); }
-WRes Event_Reset(CEvent *p) { return BOOLToWRes(ResetEvent(*p)); }
-
-WRes ManualResetEvent_Create(CManualResetEvent *p, int signaled) { return Event_Create(p, TRUE, signaled); }
-WRes AutoResetEvent_Create(CAutoResetEvent *p, int signaled) { return Event_Create(p, FALSE, signaled); }
-WRes ManualResetEvent_CreateNotSignaled(CManualResetEvent *p) { return ManualResetEvent_Create(p, 0); }
-WRes AutoResetEvent_CreateNotSignaled(CAutoResetEvent *p) { return AutoResetEvent_Create(p, 0); }
-
-
-WRes Semaphore_Create(CSemaphore *p, UInt32 initCount, UInt32 maxCount)
+WRes Thread_Wait(CThread *thread)
 {
-  *p = CreateSemaphore(NULL, (LONG)initCount, (LONG)maxCount, NULL);
-  return HandleToWRes(*p);
+  if (thread->handle == NULL)
+    return 1;
+  return WaitObject(thread->handle);
 }
 
-static WRes Semaphore_Release(CSemaphore *p, LONG releaseCount, LONG *previousCount)
-  { return BOOLToWRes(ReleaseSemaphore(*p, releaseCount, previousCount)); }
-WRes Semaphore_ReleaseN(CSemaphore *p, UInt32 num)
-  { return Semaphore_Release(p, (LONG)num, NULL); }
-WRes Semaphore_Release1(CSemaphore *p) { return Semaphore_ReleaseN(p, 1); }
+WRes Thread_Close(CThread *thread)
+{
+  return MyCloseHandle(&thread->handle);
+}
+
+WRes Event_Create(CEvent *p, BOOL manualReset, int initialSignaled)
+{
+  p->handle = CreateEvent(NULL, manualReset, (initialSignaled ? TRUE : FALSE), NULL);
+  return HandleToWRes(p->handle);
+}
+
+WRes ManualResetEvent_Create(CManualResetEvent *p, int initialSignaled)
+  { return Event_Create(p, TRUE, initialSignaled); }
+WRes ManualResetEvent_CreateNotSignaled(CManualResetEvent *p)
+  { return ManualResetEvent_Create(p, 0); }
+
+WRes AutoResetEvent_Create(CAutoResetEvent *p, int initialSignaled)
+  { return Event_Create(p, FALSE, initialSignaled); }
+WRes AutoResetEvent_CreateNotSignaled(CAutoResetEvent *p)
+  { return AutoResetEvent_Create(p, 0); }
+
+WRes Event_Set(CEvent *p) { return BOOLToWRes(SetEvent(p->handle)); }
+WRes Event_Reset(CEvent *p) { return BOOLToWRes(ResetEvent(p->handle)); }
+WRes Event_Wait(CEvent *p) { return WaitObject(p->handle); }
+WRes Event_Close(CEvent *p) { return MyCloseHandle(&p->handle); }
+
+
+WRes Semaphore_Create(CSemaphore *p, UInt32 initiallyCount, UInt32 maxCount)
+{
+  p->handle = CreateSemaphore(NULL, (LONG)initiallyCount, (LONG)maxCount, NULL);
+  return HandleToWRes(p->handle);
+}
+
+WRes Semaphore_Release(CSemaphore *p, LONG releaseCount, LONG *previousCount)
+{
+  return BOOLToWRes(ReleaseSemaphore(p->handle, releaseCount, previousCount));
+}
+WRes Semaphore_ReleaseN(CSemaphore *p, UInt32 releaseCount)
+{
+  return Semaphore_Release(p, (LONG)releaseCount, NULL);
+}
+WRes Semaphore_Release1(CSemaphore *p)
+{
+  return Semaphore_ReleaseN(p, 1);
+}
+
+WRes Semaphore_Wait(CSemaphore *p) { return WaitObject(p->handle); }
+WRes Semaphore_Close(CSemaphore *p) { return MyCloseHandle(&p->handle); }
 
 WRes CriticalSection_Init(CCriticalSection *p)
 {
   /* InitializeCriticalSection can raise only STATUS_NO_MEMORY exception */
-  #ifdef _MSC_VER
   __try
-  #endif
   {
     InitializeCriticalSection(p);
     /* InitializeCriticalSectionAndSpinCount(p, 0); */
   }
-  #ifdef _MSC_VER
   __except (EXCEPTION_EXECUTE_HANDLER) { return 1; }
-  #endif
   return 0;
 }
+

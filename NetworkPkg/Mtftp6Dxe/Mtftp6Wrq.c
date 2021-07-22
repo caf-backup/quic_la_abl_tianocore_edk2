@@ -3,7 +3,13 @@
 
   Copyright (c) 2009 - 2014, Intel Corporation. All rights reserved.<BR>
 
-  SPDX-License-Identifier: BSD-2-Clause-Patent
+  This program and the accompanying materials
+  are licensed and made available under the terms and conditions of the BSD License
+  which accompanies this distribution.  The full text of the license may be found at
+  http://opensource.org/licenses/bsd-license.php.
+
+  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
@@ -147,7 +153,7 @@ Mtftp6WrqHandleAck (
 {
   UINT16                    AckNum;
   INTN                      Expected;
-  UINT64                    BlockCounter;
+  UINT64                    TotalBlock;
 
   *IsCompleted = FALSE;
   AckNum       = NTOHS (Packet->Ack.Block[0]);
@@ -166,15 +172,15 @@ Mtftp6WrqHandleAck (
   //
   // Remove the acked block number, if this is the last block number,
   // tell the Mtftp6WrqInput to finish the transfer. This is the last
-  // block number if the block range are empty.
+  // block number if the block range are empty..
   //
-  Mtftp6RemoveBlockNum (&Instance->BlkList, AckNum, *IsCompleted, &BlockCounter);
+  Mtftp6RemoveBlockNum (&Instance->BlkList, AckNum, *IsCompleted, &TotalBlock);
 
   Expected = Mtftp6GetNextBlockNum (&Instance->BlkList);
 
   if (Expected < 0) {
     //
-    // The block range is empty. It may either because the last
+    // The block range is empty. It may either because the the last
     // block has been ACKed, or the sequence number just looped back,
     // that is, there is more than 0xffff blocks.
     //
@@ -312,7 +318,7 @@ Mtftp6WrqHandleOack (
   }
   ASSERT (Options != NULL);
 
-  Status = Mtftp6ParseExtensionOption (Options, Count, FALSE, Instance->Operation, &ExtInfo);
+  Status = Mtftp6ParseExtensionOption (Options, Count, FALSE, &ExtInfo);
 
   if (EFI_ERROR(Status) || !Mtftp6WrqOackValid (&ExtInfo, &Instance->ExtInfo)) {
     //
@@ -332,7 +338,7 @@ Mtftp6WrqHandleOack (
       Mtftp6SendError (
         Instance,
         EFI_MTFTP6_ERRORCODE_ILLEGAL_OPERATION,
-        (UINT8 *) "Malformatted OACK packet"
+        (UINT8 *) "Mal-formated OACK packet"
         );
     }
 

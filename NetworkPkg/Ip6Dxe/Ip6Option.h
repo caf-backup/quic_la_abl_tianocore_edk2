@@ -3,7 +3,13 @@
 
   Copyright (c) 2009 - 2010, Intel Corporation. All rights reserved.<BR>
 
-  SPDX-License-Identifier: BSD-2-Clause-Patent
+  This program and the accompanying materials
+  are licensed and made available under the terms and conditions of the BSD License
+  which accompanies this distribution.  The full text of the license may be found at
+  http://opensource.org/licenses/bsd-license.php.
+
+  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
@@ -45,7 +51,7 @@ typedef enum {
 /**
   Validate the IP6 extension header format for both the packets we received
   and that we will transmit. It will compute the ICMPv6 error message fields
-  if the option is mal-formatted.
+  if the option is mal-formated.
 
   @param[in]  IpSb          The IP6 service instance. This is an optional parameter.
   @param[in]  Packet        The data of the packet. Ignored if NULL.
@@ -66,8 +72,8 @@ typedef enum {
   @param[out] Fragmented    Indicate whether the packet is fragmented.
                             This is an optional parameter that may be NULL.
 
-  @retval     TRUE          The option is properly formatted.
-  @retval     FALSE         The option is malformatted.
+  @retval     TRUE          The option is properly formated.
+  @retval     FALSE         The option is malformated.
 
 **/
 BOOLEAN
@@ -116,7 +122,7 @@ Ip6FillHopByHop (
   @param[in]  ExtHdrsLen       The length of the extension headers.
   @param[in]  FragmentOffset   The fragment offset of the data following the header.
   @param[out] UpdatedExtHdrs   The updated ExtHdrs with Fragment header inserted.
-                               It's caller's responsibility to free this buffer.
+                               It's caller's responsiblity to free this buffer.
 
   @retval EFI_OUT_OF_RESOURCES Failed to finish the operation due to lake of
                                resource.
@@ -173,7 +179,7 @@ Ip6CopyExts (
   @param[in]  OptionLen         The length of the whole option.
 
   @retval TRUE     The option is properly formatted.
-  @retval FALSE    The option is malformatted.
+  @retval FALSE    The option is malformated.
 
 **/
 BOOLEAN

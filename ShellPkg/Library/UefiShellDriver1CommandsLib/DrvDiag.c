@@ -2,8 +2,14 @@
   Main file for DrvDiag shell Driver1 function.
 
   (C) Copyright 2015 Hewlett-Packard Development Company, L.P.<BR>
-  Copyright (c) 2010 - 2018, Intel Corporation. All rights reserved.<BR>
-  SPDX-License-Identifier: BSD-2-Clause-Patent
+  Copyright (c) 2010 - 2013, Intel Corporation. All rights reserved.<BR>
+  This program and the accompanying materials
+  are licensed and made available under the terms and conditions of the BSD License
+  which accompanies this distribution.  The full text of the license may be found at
+  http://opensource.org/licenses/bsd-license.php
+
+  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
@@ -36,6 +42,7 @@ typedef enum {
   @retval EFI_NOT_FOUND         No diagnostic handle could be found.
 **/
 EFI_STATUS
+EFIAPI
 DoDiagnostics (
   IN CONST DRV_DIAG_TEST_MODE Mode,
   IN CONST CHAR8              *Lang,
@@ -87,27 +94,22 @@ DoDiagnostics (
 
   if (DriverHandle != NULL) {
     DriverHandleList = AllocateZeroPool(2*sizeof(EFI_HANDLE));
-    if (DriverHandleList == NULL) {
-      return EFI_OUT_OF_RESOURCES;
-    }
+    ASSERT(DriverHandleList!=NULL);
     DriverHandleList[0] = DriverHandle;
     DriverHandleListCount = 1;
   } else {
     DriverHandleList = GetHandleListByProtocolList(DiagGuidList);
     if (DriverHandleList == NULL) {
-      ShellPrintHiiEx(-1, -1, NULL, STRING_TOKEN (STR_GEN_PROTOCOL_NF), gShellDriver1HiiHandle, L"drvdiag", L"gEfiDriverDiagnosticsProtocolGuid", &gEfiDriverDiagnosticsProtocolGuid);
-      ShellPrintHiiEx(-1, -1, NULL, STRING_TOKEN (STR_GEN_PROTOCOL_NF), gShellDriver1HiiHandle, L"drvdiag", L"gEfiDriverDiagnostics2ProtocolGuid", &gEfiDriverDiagnostics2ProtocolGuid);
+      ShellPrintHiiEx(-1, -1, NULL, STRING_TOKEN (STR_GEN_PROTOCOL_NF), gShellDriver1HiiHandle, L"drvdiag", L"gEfiDriverDiagnosticsProtocolGuid", &gEfiDriverDiagnosticsProtocolGuid);  
+      ShellPrintHiiEx(-1, -1, NULL, STRING_TOKEN (STR_GEN_PROTOCOL_NF), gShellDriver1HiiHandle, L"drvdiag", L"gEfiDriverDiagnostics2ProtocolGuid", &gEfiDriverDiagnostics2ProtocolGuid);  
       return (EFI_NOT_FOUND);
-    }
+    } 
     for (Walker = DriverHandleList ; Walker != NULL && *Walker != NULL ; DriverHandleListCount++, Walker++);
   }
 
   if (ControllerHandle != NULL) {
     ControllerHandleList = AllocateZeroPool(2*sizeof(EFI_HANDLE));
-    if (ControllerHandleList == NULL) {
-      SHELL_FREE_NON_NULL (DriverHandleList);
-      return EFI_OUT_OF_RESOURCES;
-    }
+    ASSERT(ControllerHandleList!=NULL);
     ControllerHandleList[0] = ControllerHandle;
     ControllerHandleListCount = 1;
   } else {
@@ -116,11 +118,7 @@ DoDiagnostics (
 
   if (ChildHandle != NULL) {
     ChildHandleList = AllocateZeroPool(2*sizeof(EFI_HANDLE));
-    if (ChildHandleList == NULL) {
-      SHELL_FREE_NON_NULL (ControllerHandleList);
-      SHELL_FREE_NON_NULL (DriverHandleList);
-      return EFI_OUT_OF_RESOURCES;
-    }
+    ASSERT(ChildHandleList!=NULL);
     ChildHandleList[0] = ChildHandle;
     ChildHandleListCount = 1;
   } else if (AllChilds) {
@@ -144,7 +142,7 @@ DoDiagnostics (
     }
     if (ControllerHandle == NULL) {
       PARSE_HANDLE_DATABASE_DEVICES(DriverHandleList[DriverHandleListLoop], &ControllerHandleListCount, &ControllerHandleList);
-    }
+    } 
     if (ControllerHandleListCount == 0) {
       if (Mode == TestModeList) {
         ShellPrintHiiEx(-1, -1, NULL, STRING_TOKEN (STR_DRVDIAG_DRIVER_NO_HANDLES), gShellDriver1HiiHandle);
@@ -160,7 +158,7 @@ DoDiagnostics (
         if (AllChilds) {
           ASSERT(ChildHandleList == NULL);
           PARSE_HANDLE_DATABASE_MANAGED_CHILDREN(
-            DriverHandleList[DriverHandleListLoop],
+            DriverHandleList[DriverHandleListLoop], 
             ControllerHandleList[ControllerHandleListLoop],
             &ChildHandleListCount,
             &ChildHandleList);
@@ -196,7 +194,7 @@ DoDiagnostics (
                   &OutBuffer);
                 FreePool(Language);
               }
-            }
+            } 
             if (!Found && (Lang == NULL||(Lang!=NULL&&(Lang[2]!='-')))){
               Status = gBS->OpenProtocol(
                 DriverHandleList[DriverHandleListLoop],
@@ -351,7 +349,7 @@ ShellCommandRunDrvDiag (
   Status = ShellCommandLineParse (ParamList, &Package, &ProblemParam, TRUE);
   if (EFI_ERROR(Status)) {
     if (Status == EFI_VOLUME_CORRUPTED && ProblemParam != NULL) {
-      ShellPrintHiiEx(-1, -1, NULL, STRING_TOKEN (STR_GEN_PROBLEM), gShellDriver1HiiHandle, L"drvdiag", ProblemParam);
+      ShellPrintHiiEx(-1, -1, NULL, STRING_TOKEN (STR_GEN_PROBLEM), gShellDriver1HiiHandle, L"drvdiag", ProblemParam);  
       FreePool(ProblemParam);
       ShellStatus = SHELL_INVALID_PARAMETER;
     } else {
@@ -369,14 +367,14 @@ ShellCommandRunDrvDiag (
       //
       // error for too many parameters
       //
-      ShellPrintHiiEx(-1, -1, NULL, STRING_TOKEN (STR_GEN_TOO_MANY), gShellDriver1HiiHandle, L"drvdiag");
+      ShellPrintHiiEx(-1, -1, NULL, STRING_TOKEN (STR_GEN_TOO_MANY), gShellDriver1HiiHandle, L"drvdiag");  
       ShellStatus = SHELL_INVALID_PARAMETER;
     } else if ((ShellCommandLineGetFlag(Package, L"-s"))
             || (ShellCommandLineGetFlag(Package, L"-e"))
             || (ShellCommandLineGetFlag(Package, L"-m"))
            ){
       //
-      // Run the appropriate test
+      // Run the apropriate test
       //
       if        (ShellCommandLineGetFlag(Package, L"-s")) {
         Mode =   TestModeStandard;
@@ -397,7 +395,7 @@ ShellCommandRunDrvDiag (
     Lang = ShellCommandLineGetValue(Package, L"-l");
     if (ShellCommandLineGetFlag(Package, L"-l") && Lang == NULL) {
       ASSERT(Language == NULL);
-      ShellPrintHiiEx(-1, -1, NULL, STRING_TOKEN (STR_GEN_NO_VALUE), gShellDriver1HiiHandle, L"drvdiag",  L"-l");
+      ShellPrintHiiEx(-1, -1, NULL, STRING_TOKEN (STR_GEN_NO_VALUE), gShellDriver1HiiHandle, L"drvdiag",  L"-l");  
       ShellCommandLineFreeVarList (Package);
       return (SHELL_INVALID_PARAMETER);
     } else if (Lang != NULL) {
@@ -432,8 +430,8 @@ ShellCommandRunDrvDiag (
       Mode,
       Language,
       ShellCommandLineGetFlag(Package, L"-c"),
-      Handle1,
-      Handle2,
+      Handle1, 
+      Handle2, 
       Handle3
       );
 

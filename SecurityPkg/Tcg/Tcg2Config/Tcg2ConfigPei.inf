@@ -4,8 +4,13 @@
 #  This module initializes TPM device type based on variable and detection.
 #  NOTE: This module is only for reference only, each platform should have its own setup page.
 #
-# Copyright (c) 2015 - 2018, Intel Corporation. All rights reserved.<BR>
-# SPDX-License-Identifier: BSD-2-Clause-Patent
+# Copyright (c) 2015, Intel Corporation. All rights reserved.<BR>
+# This program and the accompanying materials
+# are licensed and made available under the terms and conditions of the BSD License
+# which accompanies this distribution. The full text of the license may be found at
+# http://opensource.org/licenses/bsd-license.php
+# THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+# WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 #
 ##
 
@@ -19,7 +24,7 @@
   ENTRY_POINT                    = Tcg2ConfigPeimEntryPoint
 
 #
-#  VALID_ARCHITECTURES           = IA32 X64 EBC
+#  VALID_ARCHITECTURES           = IA32 X64 IPF EBC
 #
 # [BootMode]
 #   S3_RESUME                 ## SOMETIMES_CONSUMES
@@ -28,7 +33,6 @@
 [Sources]
   Tcg2ConfigPeim.c
   Tcg2ConfigNvData.h
-  Tcg2Internal.h
   TpmDetection.c
 
 [Packages]
@@ -39,11 +43,13 @@
 [LibraryClasses]
   BaseLib
   BaseMemoryLib
+  MemoryAllocationLib
   PeiServicesLib
   PeimEntryPoint
   DebugLib
   PcdLib
   TimerLib
+  IoLib
   Tpm12CommandLib
   Tpm12DeviceLib
 
@@ -61,11 +67,12 @@
 [Pcd]
   gEfiSecurityPkgTokenSpaceGuid.PcdTpmInstanceGuid                 ## PRODUCES
   gEfiSecurityPkgTokenSpaceGuid.PcdTpmInitializationPolicy         ## PRODUCES
-  gEfiSecurityPkgTokenSpaceGuid.PcdTpmAutoDetection                ## CONSUMES
+  gEfiSecurityPkgTokenSpaceGuid.PcdTpmAutoDetection                ## CONSUMES 
+  gEfiSecurityPkgTokenSpaceGuid.PcdTpmBaseAddress                  ## SOMETIMES_CONSUMES
 
 [Depex]
   gEfiPeiMasterBootModePpiGuid AND
   gEfiPeiReadOnlyVariable2PpiGuid
-
+  
 [UserExtensions.TianoCore."ExtraFiles"]
   Tcg2ConfigPeiExtra.uni

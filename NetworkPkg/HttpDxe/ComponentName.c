@@ -2,9 +2,15 @@
   Implementation of EFI_COMPONENT_NAME_PROTOCOL and
   EFI_COMPONENT_NAME2_PROTOCOL protocol.
 
-  Copyright (c) 2015 - 2018, Intel Corporation. All rights reserved.<BR>
+  Copyright (c) 2015, Intel Corporation. All rights reserved.<BR>
 
-  SPDX-License-Identifier: BSD-2-Clause-Patent
+  This program and the accompanying materials
+  are licensed and made available under the terms and conditions of the BSD License
+  which accompanies this distribution.  The full text of the license may be found at
+  http://opensource.org/licenses/bsd-license.php.
+
+  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
@@ -13,7 +19,7 @@
 ///
 /// Component Name Protocol instance
 ///
-GLOBAL_REMOVE_IF_UNREFERENCED
+GLOBAL_REMOVE_IF_UNREFERENCED 
 EFI_COMPONENT_NAME_PROTOCOL  gHttpDxeComponentName = {
   (EFI_COMPONENT_NAME_GET_DRIVER_NAME)     HttpDxeComponentNameGetDriverName,
   (EFI_COMPONENT_NAME_GET_CONTROLLER_NAME) HttpDxeComponentNameGetControllerName,
@@ -23,7 +29,7 @@ EFI_COMPONENT_NAME_PROTOCOL  gHttpDxeComponentName = {
 ///
 /// Component Name 2 Protocol instance
 ///
-GLOBAL_REMOVE_IF_UNREFERENCED
+GLOBAL_REMOVE_IF_UNREFERENCED 
 EFI_COMPONENT_NAME2_PROTOCOL  gHttpDxeComponentName2 = {
   HttpDxeComponentNameGetDriverName,
   HttpDxeComponentNameGetControllerName,
@@ -33,7 +39,7 @@ EFI_COMPONENT_NAME2_PROTOCOL  gHttpDxeComponentName2 = {
 ///
 /// Table of driver names
 ///
-GLOBAL_REMOVE_IF_UNREFERENCED
+GLOBAL_REMOVE_IF_UNREFERENCED 
 EFI_UNICODE_STRING_TABLE mHttpDxeDriverNameTable[] = {
   { "eng;en", (CHAR16 *) L"HttpDxe" },
   { NULL, NULL }

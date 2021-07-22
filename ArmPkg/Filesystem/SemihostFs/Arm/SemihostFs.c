@@ -4,7 +4,13 @@
   Copyright (c) 2008 - 2009, Apple Inc. All rights reserved.<BR>
   Portions copyright (c) 2011 - 2014, ARM Ltd. All rights reserved.<BR>
 
-  SPDX-License-Identifier: BSD-2-Clause-Patent
+  This program and the accompanying materials
+  are licensed and made available under the terms and conditions of the BSD License
+  which accompanies this distribution.  The full text of the license may be found at
+  http://opensource.org/licenses/bsd-license.php
+
+  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
@@ -201,12 +207,11 @@ FileOpen (
     return EFI_WRITE_PROTECTED;
   }
 
-  Length = StrLen (FileName) + 1;
-  AsciiFileName = AllocatePool (Length);
+  AsciiFileName = AllocatePool (StrLen (FileName) + 1);
   if (AsciiFileName == NULL) {
     return EFI_OUT_OF_RESOURCES;
   }
-  UnicodeStrToAsciiStrS (FileName, AsciiFileName, Length);
+  UnicodeStrToAsciiStr (FileName, AsciiFileName);
 
   // Opening '/', '\', '.', or the NULL pathname is trying to open the root directory
   if ((AsciiStrCmp (AsciiFileName, "\\") == 0) ||
@@ -458,7 +463,7 @@ FileDelete (
     NameSize = AsciiStrLen (Fcb->FileName);
     FileName = AllocatePool (NameSize + 1);
 
-    AsciiStrCpyS (FileName, NameSize + 1, Fcb->FileName);
+    AsciiStrCpy (FileName, Fcb->FileName);
 
     // Close the file if it's open.  Disregard return status,
     // since it might give an error if the file isn't open.
@@ -691,7 +696,7 @@ FileGetPosition (
   @param[in]  Position  The byte position from the start of the file to set.
 
   @retval  EFI_SUCCESS       The position was set.
-  @retval  EFI_DEVICE_ERROR  The semi-hosting positioning operation failed.
+  @retval  EFI_DEVICE_ERROR  The semi-hosting positionning operation failed.
   @retval  EFI_UNSUPPORTED   The seek request for nonzero is not valid on open
                              directories.
   @retval  EFI_INVALID_PARAMETER  The parameter "This" is NULL.
@@ -823,10 +828,8 @@ GetFilesystemInfo (
   EFI_FILE_SYSTEM_INFO  *Info;
   EFI_STATUS            Status;
   UINTN                 ResultSize;
-  UINTN                 StringSize;
 
-  StringSize = StrSize (mSemihostFsLabel);
-  ResultSize = SIZE_OF_EFI_FILE_SYSTEM_INFO + StringSize;
+  ResultSize = SIZE_OF_EFI_FILE_SYSTEM_INFO + StrSize (mSemihostFsLabel);
 
   if (*BufferSize >= ResultSize) {
     ZeroMem (Buffer, ResultSize);
@@ -840,7 +843,7 @@ GetFilesystemInfo (
     Info->FreeSpace  = 0;
     Info->BlockSize  = 0;
 
-    CopyMem (Info->VolumeLabel, mSemihostFsLabel, StringSize);
+    StrCpy (Info->VolumeLabel, mSemihostFsLabel);
   } else {
     Status = EFI_BUFFER_TOO_SMALL;
   }
@@ -900,7 +903,7 @@ FileGetInfo (
     ResultSize = StrSize (mSemihostFsLabel);
 
     if (*BufferSize >= ResultSize) {
-      CopyMem (Buffer, mSemihostFsLabel, ResultSize);
+      StrCpy (Buffer, mSemihostFsLabel);
       Status = EFI_SUCCESS;
     } else {
       Status = EFI_BUFFER_TOO_SMALL;
@@ -960,12 +963,11 @@ SetFileInfo (
     return EFI_ACCESS_DENIED;
   }
 
-  Length = StrLen (Info->FileName) + 1;
-  AsciiFileName = AllocatePool (Length);
+  AsciiFileName = AllocatePool (StrLen (Info->FileName) + 1);
   if (AsciiFileName == NULL) {
     return EFI_OUT_OF_RESOURCES;
   }
-  UnicodeStrToAsciiStrS (Info->FileName, AsciiFileName, Length);
+  UnicodeStrToAsciiStr (Info->FileName, AsciiFileName);
 
   FileSizeIsDifferent = (Info->FileSize != Fcb->Info.FileSize);
   FileNameIsDifferent = (AsciiStrCmp (AsciiFileName, Fcb->FileName) != 0);

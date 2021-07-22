@@ -1,23 +1,28 @@
 ## @file
 # This file is used to create/update/query/erase table for inf datas
 #
-# Copyright (c) 2008 - 2018, Intel Corporation. All rights reserved.<BR>
-# SPDX-License-Identifier: BSD-2-Clause-Patent
+# Copyright (c) 2008, Intel Corporation. All rights reserved.<BR>
+# This program and the accompanying materials
+# are licensed and made available under the terms and conditions of the BSD License
+# which accompanies this distribution.  The full text of the license may be found at
+# http://opensource.org/licenses/bsd-license.php
+#
+# THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+# WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 #
 
 ##
 # Import Modules
 #
-from __future__ import absolute_import
 import Common.EdkLogger as EdkLogger
 import CommonDataClass.DataClass as DataClass
-from Table.Table import Table
-from Common.StringUtils import ConvertToSqlString
+from Table import Table
+from Common.String import ConvertToSqlString
 
 ## TableInf
 #
 # This class defined a table used for data model
-#
+# 
 # @param object:       Inherited from object class
 #
 #
@@ -25,7 +30,7 @@ class TableInf(Table):
     def __init__(self, Cursor):
         Table.__init__(self, Cursor)
         self.Table = 'Inf'
-
+    
     ## Create table
     #
     # Create table Inf
@@ -91,14 +96,14 @@ class TableInf(Table):
         SqlCommand = """insert into %s values(%s, %s, '%s', '%s', '%s', '%s', '%s', '%s', %s, %s, %s, %s, %s, %s, %s)""" \
                      % (self.Table, self.ID, Model, Value1, Value2, Value3, Value4, Value5, Arch, BelongsToItem, BelongsToFile, StartLine, StartColumn, EndLine, EndColumn, Enabled)
         Table.Insert(self, SqlCommand)
-
+        
         return self.ID
-
+    
     ## Query table
     #
-    # @param Model:  The Model of Record
+    # @param Model:  The Model of Record 
     #
-    # @retval:       A recordSet of all found records
+    # @retval:       A recordSet of all found records 
     #
     def Query(self, Model):
         SqlCommand = """select ID, Value1, Value2, Value3, Arch, BelongsToItem, BelongsToFile, StartLine from %s

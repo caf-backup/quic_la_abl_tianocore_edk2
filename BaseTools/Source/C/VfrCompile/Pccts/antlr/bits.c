@@ -573,13 +573,13 @@ const char *suffix;
 	else
 		fprintf(DefFile, "extern SetWordType zzerr%d[];\n", esetnum);
 	if ( name!=NULL ) {
-		fprintf(ErrFile, "SetWordType %s%s[%lu] = {",
+		fprintf(ErrFile, "SetWordType %s%s[%d] = {",
 				name,
                 suffix,
 				NumWords(TokenNum-1)*sizeof(unsigned));
 	}
 	else {
-		fprintf(ErrFile, "SetWordType zzerr%d[%lu] = {",
+		fprintf(ErrFile, "SetWordType zzerr%d[%d] = {",
 				esetnum,
 				NumWords(TokenNum-1)*sizeof(unsigned));
 	}
@@ -641,20 +641,20 @@ const char *suffix;
 	esetnum++;
 
 	if ( name!=NULL ) {
-		fprintf(Parser_h, "\tstatic SetWordType %s%s[%lu];\n", name, suffix,
+		fprintf(Parser_h, "\tstatic SetWordType %s%s[%d];\n", name, suffix,
 				NumWords(TokenNum-1)*sizeof(unsigned));
-		fprintf(Parser_c, "SetWordType %s::%s%s[%lu] = {",
+		fprintf(Parser_c, "SetWordType %s::%s%s[%d] = {",
 				CurrentClassName,
 				name,
 				suffix,
 				NumWords(TokenNum-1)*sizeof(unsigned));
 	}
 	else {
-		fprintf(Parser_c, "SetWordType %s::err%d[%lu] = {",
+		fprintf(Parser_c, "SetWordType %s::err%d[%d] = {",
 				CurrentClassName,
 				esetnum,
 				NumWords(TokenNum-1)*sizeof(unsigned));
-		fprintf(Parser_h, "\tstatic SetWordType err%d[%lu];\n", esetnum,
+		fprintf(Parser_h, "\tstatic SetWordType err%d[%d];\n", esetnum,
 				NumWords(TokenNum-1)*sizeof(unsigned));
 	}
 
@@ -787,7 +787,7 @@ GenParser_c_Hdr()
 
 	/* Build constructors */
 	fprintf(Parser_c, "\n%s::", CurrentClassName);
-	fprintf(Parser_c,	"%s(ANTLRTokenBuffer *input) : %s(input,%d,%d,%d,%lu)\n",
+	fprintf(Parser_c,	"%s(ANTLRTokenBuffer *input) : %s(input,%d,%d,%d,%d)\n",
 						CurrentClassName,
 						(BaseClassName == NULL ? "ANTLRParser" : BaseClassName),
 						OutputLL_k,
@@ -912,7 +912,7 @@ GenErrHdr( )
 #ifdef DUM
 	if ( LexGen ) fprintf(ErrFile, "#define zzEOF_TOKEN %d\n", (TokenInd!=NULL?TokenInd[EofToken]:EofToken));
 #endif
-	fprintf(ErrFile, "#define zzSET_SIZE %lu\n", NumWords(TokenNum-1)*sizeof(unsigned));
+	fprintf(ErrFile, "#define zzSET_SIZE %d\n", NumWords(TokenNum-1)*sizeof(unsigned));
 	if ( DemandLookahead ) fprintf(ErrFile, "#define DEMAND_LOOK\n");
 	fprintf(ErrFile, "#include \"antlr.h\"\n");
 	if ( GenAST ) fprintf(ErrFile, "#include \"ast.h\"\n");

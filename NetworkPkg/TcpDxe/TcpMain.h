@@ -2,9 +2,15 @@
   Declaration of protocol interfaces in EFI_TCP4_PROTOCOL and EFI_TCP6_PROTOCOL.
   It is the common head file for all Tcp*.c in TCP driver.
 
-  Copyright (c) 2009 - 2016, Intel Corporation. All rights reserved.<BR>
+  Copyright (c) 2009 - 2012, Intel Corporation. All rights reserved.<BR>
 
-  SPDX-License-Identifier: BSD-2-Clause-Patent
+  This program and the accompanying materials
+  are licensed and made available under the terms and conditions of the BSD License
+  which accompanies this distribution.  The full text of the license may be found at
+  http://opensource.org/licenses/bsd-license.php.
+
+  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
@@ -230,7 +236,7 @@ Tcp4Connect (
   @retval EFI_SUCCESS              The listen token has been queued successfully.
   @retval EFI_NOT_STARTED          The EFI_TCP4_PROTOCOL instance hasn't been
                                    configured.
-  @retval EFI_ACCESS_DENIED        The instance is not a passive one or it is not
+  @retval EFI_ACCESS_DENIED        The instatnce is not a passive one or it is not
                                    in Tcp4StateListen state, or a same listen token
                                    has already existed in the listen token queue of
                                    this TCP instance.
@@ -353,25 +359,14 @@ Tcp4Close (
 /**
   Abort an asynchronous connection, listen, transmission or receive request.
 
-  @param  This  The pointer to the EFI_TCP4_PROTOCOL instance.
-  @param  Token The pointer to a token that has been issued by
-                EFI_TCP4_PROTOCOL.Connect(),
-                EFI_TCP4_PROTOCOL.Accept(),
-                EFI_TCP4_PROTOCOL.Transmit() or
-                EFI_TCP4_PROTOCOL.Receive(). If NULL, all pending
-                tokens issued by above four functions will be aborted. Type
-                EFI_TCP4_COMPLETION_TOKEN is defined in
-                EFI_TCP4_PROTOCOL.Connect().
+  @param[in]  This                 Pointer to the EFI_TCP4_PROTOCOL instance.
+  @param[in]  Token                Pointer to a token that has been issued by
+                                   Connect(), Accept(), Transmit() or Receive(). If
+                                   NULL, all pending tokens issued by the above four
+                                   functions will be aborted.
 
-  @retval  EFI_SUCCESS             The asynchronous I/O request is aborted and Token->Event
-                                   is signaled.
-  @retval  EFI_INVALID_PARAMETER   This is NULL.
-  @retval  EFI_NOT_STARTED         This instance hasn't been configured.
-  @retval  EFI_NO_MAPPING          When using the default address, configuration
-                                   (DHCP, BOOTP,RARP, etc.) hasn't finished yet.
-  @retval  EFI_NOT_FOUND           The asynchronous I/O request isn't found in the
-                                   transmission or receive queue. It has either
-                                   completed or wasn't issued by Transmit() and Receive().
+  @retval EFI_UNSUPPORTED          The operation is not supported in the current
+                                   implementation.
 
 **/
 EFI_STATUS
@@ -565,7 +560,7 @@ Tcp6Connect (
   @retval EFI_INVALID_PARAMETER  One or more of the following are TRUE:
                                  - This is NULL.
                                  - ListenToken is NULL.
-                                 - ListenToken->CompletionToken.Event is NULL.
+                                 - ListentToken->CompletionToken.Event is NULL.
   @retval EFI_OUT_OF_RESOURCES   Could not allocate enough resources to finish the operation.
   @retval EFI_DEVICE_ERROR       Any unexpected error not belonging to the error
                                  categories given above.
@@ -735,13 +730,7 @@ Tcp6Close (
                                  EFI_TCP6_COMPLETION_TOKEN is defined in
                                  EFI_TCP_PROTOCOL.Connect().
 
-  @retval EFI_SUCCESS            The asynchronous I/O request is aborted and Token->Event
-                                 is signaled.
-  @retval EFI_INVALID_PARAMETER  This is NULL.
-  @retval EFI_NOT_STARTED        This instance hasn't been configured.
-  @retval EFI_NOT_FOUND          The asynchronous I/O request isn't found in the transmission or
-                                 receive queue. It has either completed or wasn't issued by
-                                 Transmit() and Receive().
+  @retval EFI_UNSUPPORTED        The implementation does not support this function.
 
 **/
 EFI_STATUS

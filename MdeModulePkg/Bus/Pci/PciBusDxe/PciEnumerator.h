@@ -1,8 +1,14 @@
 /** @file
   PCI bus enumeration logic function declaration for PCI bus module.
 
-Copyright (c) 2006 - 2019, Intel Corporation. All rights reserved.<BR>
-SPDX-License-Identifier: BSD-2-Clause-Patent
+Copyright (c) 2006 - 2009, Intel Corporation. All rights reserved.<BR>
+This program and the accompanying materials
+are licensed and made available under the terms and conditions of the BSD License
+which accompanies this distribution.  The full text of the license may be found at
+http://opensource.org/licenses/bsd-license.php
+
+THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
@@ -15,8 +21,7 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
   This routine is used to enumerate entire pci bus system
   in a given platform.
 
-  @param Controller          Parent controller handle.
-  @param HostBridgeHandle    Host bridge handle.
+  @param Controller  Parent controller handle.
 
   @retval EFI_SUCCESS    PCI enumeration finished successfully.
   @retval other          Some error occurred when enumerating the pci bus system.
@@ -24,8 +29,7 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
 **/
 EFI_STATUS
 PciEnumerator (
-  IN EFI_HANDLE                    Controller,
-  IN EFI_HANDLE                    HostBridgeHandle
+  IN EFI_HANDLE                    Controller
   );
 
 /**
@@ -103,7 +107,7 @@ DetermineRootBridgeAttributes (
   @return Max size of option rom needed.
 
 **/
-UINT32
+UINT64
 GetMaxOptionRomSize (
   IN PCI_IO_DEVICE   *Bridge
   );
@@ -214,7 +218,7 @@ GetMaxResourceConsumerDevice (
   @param Mem64ResStatus   Status of 64-bit memory resource node.
   @param PMem64ResStatus  Status of 64-bit Prefetchable memory resource node.
 
-  @retval EFI_SUCCESS     Successfully adjusted resource on host bridge.
+  @retval EFI_SUCCESS     Successfully adjusted resoruce on host bridge.
   @retval EFI_ABORTED     Host bridge hasn't this resource type or no resource be adjusted.
 
 **/
@@ -233,7 +237,7 @@ PciHostBridgeAdjustAllocation (
   );
 
 /**
-  Summary requests for all resource type, and construct ACPI resource
+  Summary requests for all resource type, and contruct ACPI resource
   requestor instance.
 
   @param Bridge           detecting bridge
@@ -245,7 +249,7 @@ PciHostBridgeAdjustAllocation (
   @param Config           Output buffer holding new constructed APCI resource requestor
 
   @retval EFI_SUCCESS           Successfully constructed ACPI resource.
-  @retval EFI_OUT_OF_RESOURCES  No memory available.
+  @retval EFI_OUT_OF_RESOURCES  No memory availabe.
 
 **/
 EFI_STATUS
@@ -436,8 +440,8 @@ NotifyPhase (
   @retval EFI_INVALID_PARAMETER    Phase is not a valid phase that is defined in
                                    EFI_PCI_CONTROLLER_RESOURCE_ALLOCATION_PHASE.
   @retval EFI_DEVICE_ERROR         Programming failed due to a hardware error. The PCI enumerator should
-                                   not enumerate this device, including its child devices if it is a PCI-to-PCI
-                                   bridge.
+                                    not enumerate this device, including its child devices if it is a PCI-to-PCI
+                                    bridge.
 
 **/
 EFI_STATUS

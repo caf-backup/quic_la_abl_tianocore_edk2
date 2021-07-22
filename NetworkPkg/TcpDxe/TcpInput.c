@@ -1,9 +1,15 @@
 /** @file
   TCP input process routines.
 
-  Copyright (c) 2009 - 2018, Intel Corporation. All rights reserved.<BR>
+  Copyright (c) 2009 - 2015, Intel Corporation. All rights reserved.<BR>
 
-  SPDX-License-Identifier: BSD-2-Clause-Patent
+  This program and the accompanying materials
+  are licensed and made available under the terms and conditions of the BSD License
+  which accompanies this distribution.  The full text of the license may be found at
+  http://opensource.org/licenses/bsd-license.php.
+
+  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
@@ -25,7 +31,7 @@ TcpSeqAcceptable (
   IN TCP_SEG *Seg
   )
 {
-  return (TCP_SEQ_LEQ (Tcb->RcvNxt, Seg->End) &&
+  return (TCP_SEQ_LEQ (Tcb->RcvWl2, Seg->End) &&
           TCP_SEQ_LT (Seg->Seq, Tcb->RcvWl2 + Tcb->RcvWnd));
 }
 
@@ -68,7 +74,7 @@ TcpFastRecover (
     Tcb->CWnd = Tcb->Ssthresh + 3 * Tcb->SndMss;
 
     DEBUG (
-      (EFI_D_NET,
+      (EFI_D_INFO,
       "TcpFastRecover: enter fast retransmission for TCB %p, recover point is %d\n",
       Tcb,
       Tcb->Recover)
@@ -91,7 +97,7 @@ TcpFastRecover (
     //
     Tcb->CWnd += Tcb->SndMss;
     DEBUG (
-      (EFI_D_NET,
+      (EFI_D_INFO,
       "TcpFastRecover: received another duplicated ACK (%d) for TCB %p\n",
       Seg->Ack,
       Tcb)
@@ -115,7 +121,7 @@ TcpFastRecover (
 
       Tcb->CongestState = TCP_CONGEST_OPEN;
       DEBUG (
-        (EFI_D_NET,
+        (EFI_D_INFO,
         "TcpFastRecover: received a full ACK(%d) for TCB %p, exit fast recovery\n",
         Seg->Ack,
         Tcb)
@@ -144,7 +150,7 @@ TcpFastRecover (
       Tcb->CWnd -= Acked;
 
       DEBUG (
-        (EFI_D_NET,
+        (EFI_D_INFO,
         "TcpFastRecover: received a partial ACK(%d) for TCB %p\n",
         Seg->Ack,
         Tcb)
@@ -182,7 +188,7 @@ TcpFastLossRecover (
       Tcb->CongestState = TCP_CONGEST_OPEN;
 
       DEBUG (
-        (EFI_D_NET,
+        (EFI_D_INFO,
         "TcpFastLossRecover: received a full ACK(%d) for TCB %p\n",
         Seg->Ack,
         Tcb)
@@ -196,7 +202,7 @@ TcpFastLossRecover (
       //
       TcpRetransmit (Tcb, Seg->Ack);
       DEBUG (
-        (EFI_D_NET,
+        (EFI_D_INFO,
         "TcpFastLossRecover: received a partial ACK(%d) for TCB %p\n",
         Seg->Ack,
         Tcb)
@@ -246,7 +252,7 @@ TcpComputeRtt (
 
   //
   // Step 2.4: Limit the RTO to at least 1 second
-  // Step 2.5: Limit the RTO to a maximum value that
+  // Step 2.5: Limit the RTO to a maxium value that
   // is at least 60 second
   //
   if (Tcb->Rto < TCP_RTO_MIN) {
@@ -258,7 +264,7 @@ TcpComputeRtt (
   }
 
   DEBUG (
-    (EFI_D_NET,
+    (EFI_D_INFO,
     "TcpComputeRtt: new RTT for TCB %p computed SRTT: %d RTTVAR: %d RTO: %d\n",
     Tcb,
     Tcb->SRtt,
@@ -275,11 +281,8 @@ TcpComputeRtt (
   @param[in]  Left     The sequence number of the window's left edge.
   @param[in]  Right    The sequence number of the window's right edge.
 
-  @retval     0        The segment is broken.
-  @retval     1        The segment is in good shape.
-
 **/
-INTN
+VOID
 TcpTrimSegment (
   IN NET_BUF   *Nbuf,
   IN TCP_SEQNO Left,
@@ -303,7 +306,7 @@ TcpTrimSegment (
 
     Seg->Seq = Seg->End;
     NetbufTrim (Nbuf, Nbuf->TotalSize, NET_BUF_HEAD);
-    return 1;
+    return;
   }
 
   //
@@ -356,7 +359,7 @@ TcpTrimSegment (
     }
   }
 
-  return TcpVerifySegment (Nbuf);
+  ASSERT (TcpVerifySegment (Nbuf) != 0);
 }
 
 /**
@@ -365,17 +368,14 @@ TcpTrimSegment (
   @param[in]  Tcb      Pointer to the TCP_CB of this TCP instance.
   @param[in]  Nbuf     Pointer to the NET_BUF containing the received tcp segment.
 
-  @retval     0        The segment is broken.
-  @retval     1        The segment is in good shape.
-
 **/
-INTN
+VOID
 TcpTrimInWnd (
   IN TCP_CB  *Tcb,
   IN NET_BUF *Nbuf
   )
 {
-  return TcpTrimSegment (Nbuf, Tcb->RcvNxt, Tcb->RcvWl2 + Tcb->RcvWnd);
+  TcpTrimSegment (Nbuf, Tcb->RcvNxt, Tcb->RcvWl2 + Tcb->RcvWnd);
 }
 
 /**
@@ -421,16 +421,7 @@ TcpDeliverData (
     Nbuf  = NET_LIST_USER_STRUCT (Entry, NET_BUF, List);
     Seg   = TCPSEG_NETBUF (Nbuf);
 
-    if (TcpVerifySegment (Nbuf) == 0) {
-      DEBUG (
-        (EFI_D_ERROR,
-        "TcpToSendData: discard a broken segment for TCB %p\n",
-        Tcb)
-        );
-      NetbufFree (Nbuf);
-      return -1;
-    }
-
+    ASSERT (TcpVerifySegment (Nbuf) != 0);
     ASSERT (Nbuf->Tcp == NULL);
 
     if (TCP_SEQ_GT (Seg->Seq, Seq)) {
@@ -464,7 +455,7 @@ TcpDeliverData (
       }
 
       DEBUG (
-        (EFI_D_NET,
+        (EFI_D_INFO,
         "TcpDeliverData: processing FIN from peer of TCB %p\n",
         Tcb)
         );
@@ -570,11 +561,8 @@ TcpDeliverData (
   @param[in, out]  Tcb   Pointer to the TCP_CB of this TCP instance.
   @param[in]       Nbuf  Pointer to the buffer containing the data to be queued.
 
-  @retval          0     An error condition occurred.
-  @retval          1     No error occurred to queue data.
-
 **/
-INTN
+VOID
 TcpQueueData (
   IN OUT TCP_CB  *Tcb,
   IN     NET_BUF *Nbuf
@@ -600,7 +588,7 @@ TcpQueueData (
   if (IsListEmpty (Head)) {
 
     InsertTailList (Head, &Nbuf->List);
-    return 1;
+    return;
   }
 
   //
@@ -627,12 +615,12 @@ TcpQueueData (
     if (TCP_SEQ_LT (Seg->Seq, TCPSEG_NETBUF (Node)->End)) {
 
       if (TCP_SEQ_LEQ (Seg->End, TCPSEG_NETBUF (Node)->End)) {
-        return 1;
+
+        NetbufFree (Nbuf);
+        return;
       }
 
-      if (TcpTrimSegment (Nbuf, TCPSEG_NETBUF (Node)->End, Seg->End) == 0) {
-        return 0;
-      }
+      TcpTrimSegment (Nbuf, TCPSEG_NETBUF (Node)->End, Seg->End);
     }
   }
 
@@ -660,20 +648,16 @@ TcpQueueData (
       if (TCP_SEQ_LEQ (TCPSEG_NETBUF (Node)->Seq, Seg->Seq)) {
 
         RemoveEntryList (&Nbuf->List);
-        return 1;
+        NetbufFree (Nbuf);
+        return;
       }
 
-      if (TcpTrimSegment (Nbuf, Seg->Seq, TCPSEG_NETBUF (Node)->Seq) == 0) {
-        RemoveEntryList (&Nbuf->List);
-        return 0;
-      }
+      TcpTrimSegment (Nbuf, Seg->Seq, TCPSEG_NETBUF (Node)->Seq);
       break;
     }
 
     Cur = Cur->ForwardLink;
   }
-
-  return 1;
 }
 
 
@@ -681,13 +665,10 @@ TcpQueueData (
   Adjust the send queue or the retransmit queue.
 
   @param[in]  Tcb      Pointer to the TCP_CB of this TCP instance.
-  @param[in]  Ack      The acknowledge sequence number of the received segment.
-
-  @retval          0     An error condition occurred.
-  @retval          1     No error occurred.
+  @param[in]  Ack      The acknowledge seuqence number of the received segment.
 
 **/
-INTN
+VOID
 TcpAdjustSndQue (
   IN TCP_CB    *Tcb,
   IN TCP_SEQNO Ack
@@ -720,10 +701,9 @@ TcpAdjustSndQue (
       continue;
     }
 
-    return TcpTrimSegment (Node, Ack, Seg->End);
+    TcpTrimSegment (Node, Ack, Seg->End);
+    break;
   }
-
-  return 1;
 }
 
 /**
@@ -758,7 +738,6 @@ TcpInput (
   TCP_SEQNO   Right;
   TCP_SEQNO   Urg;
   UINT16      Checksum;
-  INT32       Usable;
 
   ASSERT ((Version == IP_VERSION_4) || (Version == IP_VERSION_6));
 
@@ -769,18 +748,11 @@ TcpInput (
 
   Head    = (TCP_HEAD *) NetbufGetByte (Nbuf, 0, NULL);
   ASSERT (Head != NULL);
-
-  if (Nbuf->TotalSize < sizeof (TCP_HEAD)) {
-    DEBUG ((EFI_D_NET, "TcpInput: received a malformed packet\n"));
-    goto DISCARD;
-  }
-
   Len     = Nbuf->TotalSize - (Head->HeadLen << 2);
 
   if ((Head->HeadLen < 5) || (Len < 0)) {
 
-    DEBUG ((EFI_D_NET, "TcpInput: received a malformed packet\n"));
-
+    DEBUG ((EFI_D_INFO, "TcpInput: received a malformed packet\n"));
     goto DISCARD;
   }
 
@@ -815,7 +787,7 @@ TcpInput (
           );
 
   if ((Tcb == NULL) || (Tcb->State == TCP_CLOSED)) {
-    DEBUG ((EFI_D_NET, "TcpInput: send reset because no TCB found\n"));
+    DEBUG ((EFI_D_INFO, "TcpInput: send reset because no TCB found\n"));
 
     Tcb = NULL;
     goto SEND_RESET;
@@ -895,7 +867,7 @@ TcpInput (
       }
 
       DEBUG (
-        (EFI_D_NET,
+        (EFI_D_INFO,
         "TcpInput: create a child for TCB %p in listening\n",
         Tcb)
         );
@@ -913,15 +885,7 @@ TcpInput (
 
       TcpSetState (Tcb, TCP_SYN_RCVD);
       TcpSetTimer (Tcb, TCP_TIMER_CONNECT, Tcb->ConnectTimeout);
-      if (TcpTrimInWnd (Tcb, Nbuf) == 0) {
-        DEBUG (
-          (EFI_D_ERROR,
-          "TcpInput: discard a broken segment for TCB %p\n",
-          Tcb)
-          );
-
-        goto DISCARD;
-      }
+      TcpTrimInWnd (Tcb, Nbuf);
 
       goto StepSix;
     }
@@ -1003,20 +967,12 @@ TcpInput (
           TCP_CLEAR_FLG (Tcb->CtrlFlag, TCP_CTRL_RTT_ON);
         }
 
-        if (TcpTrimInWnd (Tcb, Nbuf) == 0) {
-          DEBUG (
-            (EFI_D_ERROR,
-            "TcpInput: discard a broken segment for TCB %p\n",
-            Tcb)
-            );
-
-          goto DISCARD;
-        }
+        TcpTrimInWnd (Tcb, Nbuf);
 
         TCP_SET_FLG (Tcb->CtrlFlag, TCP_CTRL_ACK_NOW);
 
         DEBUG (
-          (EFI_D_NET,
+          (EFI_D_INFO,
           "TcpInput: connection established for TCB %p in SYN_SENT\n",
           Tcb)
           );
@@ -1024,21 +980,14 @@ TcpInput (
         goto StepSix;
       } else {
         //
-        // Received a SYN segment without ACK, simultaneous open.
+        // Received a SYN segment without ACK, simultanous open.
         //
         TcpSetState (Tcb, TCP_SYN_RCVD);
 
         ASSERT (Tcb->SndNxt == Tcb->Iss + 1);
+        TcpAdjustSndQue (Tcb, Tcb->SndNxt);
 
-        if (TcpAdjustSndQue (Tcb, Tcb->SndNxt) == 0 || TcpTrimInWnd (Tcb, Nbuf) == 0) {
-          DEBUG (
-            (EFI_D_ERROR,
-            "TcpInput: discard a broken segment for TCB %p\n",
-            Tcb)
-            );
-
-          goto DISCARD;
-        }
+        TcpTrimInWnd (Tcb, Nbuf);
 
         DEBUG (
           (EFI_D_WARN,
@@ -1103,7 +1052,7 @@ TcpInput (
 
       //
       // This TCB comes from either a LISTEN TCB,
-      // or active open TCB with simultaneous open.
+      // or active open TCB with simultanous open.
       // Do NOT signal user CONNECTION refused
       // if it comes from a LISTEN TCB.
       //
@@ -1124,15 +1073,7 @@ TcpInput (
   //
   // Trim the data and flags.
   //
-  if (TcpTrimInWnd (Tcb, Nbuf) == 0) {
-    DEBUG (
-      (EFI_D_ERROR,
-      "TcpInput: discard a broken segment for TCB %p\n",
-      Tcb)
-      );
-
-    goto DISCARD;
-  }
+  TcpTrimInWnd (Tcb, Nbuf);
 
   //
   // Third step: Check security and precedence, Ignored
@@ -1186,7 +1127,7 @@ TcpInput (
       TcpDeliverData (Tcb);
 
       DEBUG (
-        (EFI_D_NET,
+        (EFI_D_INFO,
         "TcpInput: connection established for TCB %p in SYN_RCVD\n",
         Tcb)
         );
@@ -1307,16 +1248,7 @@ TcpInput (
 
   if (TCP_SEQ_GT (Seg->Ack, Tcb->SndUna)) {
 
-    if (TcpAdjustSndQue (Tcb, Seg->Ack) == 0) {
-      DEBUG (
-        (EFI_D_ERROR,
-        "TcpInput: discard a broken segment for TCB %p\n",
-        Tcb)
-        );
-
-      goto DISCARD;
-    }
-
+    TcpAdjustSndQue (Tcb, Seg->Ack);
     Tcb->SndUna = Seg->Ack;
 
     if (TCP_FLG_ON (Tcb->CtrlFlag, TCP_CTRL_SND_URG) &&
@@ -1367,27 +1299,9 @@ TcpInput (
       }
 
       if (TCP_SEQ_LT (Right, Tcb->SndNxt)) {
-        //
-        // Check for Window Retraction in RFC7923 section 2.4.
-        // The lower n bits of the peer's actual receive window is wiped out if TCP
-        // window scale is enabled, it will look like the peer is shrinking the window.
-        // Check whether the SndNxt is out of the advertised receive window by more than
-        // 2^Rcv.Wind.Shift before moving the SndNxt to the left.
-        //
-        DEBUG (
-          (EFI_D_WARN,
-          "TcpInput: peer advise negative useable window for connected TCB %p\n",
-          Tcb)
-          );
-        Usable = TCP_SUB_SEQ (Tcb->SndNxt, Right);
-        if ((Usable >> Tcb->SndWndScale) > 0) {
-          DEBUG (
-            (EFI_D_WARN,
-            "TcpInput: SndNxt is out of window by more than window scale for TCB %p\n",
-            Tcb)
-            );
-          Tcb->SndNxt = Right;
-        }
+
+        Tcb->SndNxt = Right;
+
         if (Right == Tcb->SndUna) {
 
           TcpClearTimer (Tcb, TCP_TIMER_REXMIT);
@@ -1409,7 +1323,7 @@ NO_UPDATE:
   {
 
     DEBUG (
-      (EFI_D_NET,
+      (EFI_D_INFO,
       "TcpInput: local FIN is ACKed by peer for connected TCB %p\n",
       Tcb)
       );
@@ -1505,7 +1419,7 @@ StepSix:
   if (TCP_FLG_ON (Seg->Flag, TCP_FLG_URG) && !TCP_FIN_RCVD (Tcb->State)) {
 
     DEBUG (
-      (EFI_D_NET,
+      (EFI_D_INFO,
       "TcpInput: received urgent data from peer for connected TCB %p\n",
       Tcb)
       );
@@ -1549,16 +1463,7 @@ StepSix:
       goto RESET_THEN_DROP;
     }
 
-    if (TcpQueueData (Tcb, Nbuf) == 0) {
-      DEBUG (
-        (EFI_D_ERROR,
-        "TcpInput: discard a broken segment for TCB %p\n",
-        Tcb)
-        );
-
-      goto DISCARD;
-    }
-
+    TcpQueueData (Tcb, Nbuf);
     if (TcpDeliverData (Tcb) == -1) {
       goto RESET_THEN_DROP;
     }
@@ -1654,10 +1559,6 @@ TcpIcmpInput (
   EFI_STATUS       IcmpErrStatus;
   BOOLEAN          IcmpErrIsHard;
   BOOLEAN          IcmpErrNotify;
-
-  if (Nbuf->TotalSize < sizeof (TCP_HEAD)) {
-    goto CLEAN_EXIT;
-  }
 
   Head = (TCP_HEAD *) NetbufGetByte (Nbuf, 0, NULL);
   ASSERT (Head != NULL);

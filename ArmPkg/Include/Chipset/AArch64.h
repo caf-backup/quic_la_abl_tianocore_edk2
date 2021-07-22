@@ -1,9 +1,15 @@
 /** @file
 
   Copyright (c) 2008 - 2009, Apple Inc. All rights reserved.<BR>
-  Copyright (c) 2011 - 2017, ARM Ltd. All rights reserved.<BR>
+  Copyright (c) 2011 - 2015, ARM Ltd. All rights reserved.<BR>
 
-  SPDX-License-Identifier: BSD-2-Clause-Patent
+  This program and the accompanying materials
+  are licensed and made available under the terms and conditions of the BSD License
+  which accompanies this distribution.  The full text of the license may be found at
+  http://opensource.org/licenses/bsd-license.php
+
+  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
@@ -11,6 +17,7 @@
 #define __AARCH64_H__
 
 #include <Chipset/AArch64Mmu.h>
+#include <Chipset/ArmArchTimer.h>
 
 // ARM Interrupt ID in Exception Table
 #define ARM_ARCH_EXCEPTION_IRQ            EXCEPT_AARCH64_IRQ
@@ -42,7 +49,6 @@
 #define ARM_CPU_TYPE_AEMv8      0xD0F
 #define ARM_CPU_TYPE_A53        0xD03
 #define ARM_CPU_TYPE_A57        0xD07
-#define ARM_CPU_TYPE_A72        0xD08
 #define ARM_CPU_TYPE_A15        0xC0F
 #define ARM_CPU_TYPE_A9         0xC09
 #define ARM_CPU_TYPE_A7         0xC07
@@ -90,41 +96,6 @@
 #define CNTHCTL_EL2_EL1PCEN     BIT1
 
 #define ARM_VECTOR_TABLE_ALIGNMENT ((1 << 11)-1)
-
-// Vector table offset definitions
-#define ARM_VECTOR_CUR_SP0_SYNC 0x000
-#define ARM_VECTOR_CUR_SP0_IRQ  0x080
-#define ARM_VECTOR_CUR_SP0_FIQ  0x100
-#define ARM_VECTOR_CUR_SP0_SERR 0x180
-
-#define ARM_VECTOR_CUR_SPx_SYNC 0x200
-#define ARM_VECTOR_CUR_SPx_IRQ  0x280
-#define ARM_VECTOR_CUR_SPx_FIQ  0x300
-#define ARM_VECTOR_CUR_SPx_SERR 0x380
-
-#define ARM_VECTOR_LOW_A64_SYNC 0x400
-#define ARM_VECTOR_LOW_A64_IRQ  0x480
-#define ARM_VECTOR_LOW_A64_FIQ  0x500
-#define ARM_VECTOR_LOW_A64_SERR 0x580
-
-#define ARM_VECTOR_LOW_A32_SYNC 0x600
-#define ARM_VECTOR_LOW_A32_IRQ  0x680
-#define ARM_VECTOR_LOW_A32_FIQ  0x700
-#define ARM_VECTOR_LOW_A32_SERR 0x780
-
-#define VECTOR_BASE(tbl)          \
-  .section .text.##tbl##,"ax";    \
-  .align 11;                      \
-  .org 0x0;                       \
-  GCC_ASM_EXPORT(tbl);            \
-  ASM_PFX(tbl):                   \
-
-#define VECTOR_ENTRY(tbl, off)    \
-  .org off
-
-#define VECTOR_END(tbl)           \
-  .org 0x800;                     \
-  .previous
 
 VOID
 EFIAPI
@@ -188,18 +159,6 @@ ArmEnableAlignmentCheck (
 
 VOID
 EFIAPI
-ArmDisableStackAlignmentCheck (
-  VOID
-  );
-
-VOID
-EFIAPI
-ArmEnableStackAlignmentCheck (
-  VOID
-  );
-
-VOID
-EFIAPI
 ArmDisableAllExceptions (
   VOID
   );
@@ -207,11 +166,6 @@ ArmDisableAllExceptions (
 VOID
 ArmWriteHcr (
   IN UINTN Hcr
-  );
-
-UINTN
-ArmReadHcr (
-  VOID
   );
 
 UINTN
@@ -224,19 +178,14 @@ PageAttributeToGcdAttribute (
   IN UINT64 PageAttributes
   );
 
+UINT64
+GcdAttributeToPageAttribute (
+  IN UINT64 GcdAttributes
+  );
+
 UINTN
 ArmWriteCptr (
   IN  UINT64 Cptr
-  );
-
-UINT32
-ArmReadCntHctl (
-  VOID
-  );
-
-VOID
-ArmWriteCntHctl (
-  IN UINT32 CntHctl
   );
 
 #endif // __AARCH64_H__

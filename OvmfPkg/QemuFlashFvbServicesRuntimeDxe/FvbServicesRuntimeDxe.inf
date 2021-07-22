@@ -1,13 +1,20 @@
 ## @file
-#  Component description file for QEMU Flash Firmware Volume Block DXE driver
+#  Component description file for QEMU Flash Fimware Volume Block DXE driver
 #  module.
 #
-#  This DXE runtime driver implements and produces the Firmware Volue Block
+#  This DXE runtime driver implements and produces the Fimware Volue Block
 #  Protocol for a QEMU flash device.
 #
 #  Copyright (c) 2006 - 2013, Intel Corporation. All rights reserved.<BR>
 #
-#  SPDX-License-Identifier: BSD-2-Clause-Patent
+#  This program and the accompanying materials are licensed and made available
+#  under the terms and conditions of the BSD License which accompanies this
+#  distribution. The full text of the license may be found at
+#  http://opensource.org/licenses/bsd-license.php
+#
+#  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR
+#  IMPLIED.
 #
 ##
 
@@ -29,10 +36,8 @@
 [Sources]
   FvbInfo.c
   FwBlockService.c
-  FwBlockService.h
   FwBlockServiceDxe.c
   QemuFlash.c
-  QemuFlash.h
   QemuFlashDxe.c
 
 [Packages]
@@ -46,7 +51,6 @@
   DebugLib
   DevicePathLib
   DxeServicesTableLib
-  MemEncryptSevLib
   MemoryAllocationLib
   PcdLib
   UefiBootServicesTableLib
@@ -81,8 +85,6 @@
   gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageVariableBase64
   gUefiOvmfPkgTokenSpaceGuid.PcdOvmfFlashVariablesEnable
 
-[FeaturePcd]
-  gUefiOvmfPkgTokenSpaceGuid.PcdSmmSmramRequire
 
 [Depex]
   TRUE

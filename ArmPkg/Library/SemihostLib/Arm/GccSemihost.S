@@ -2,11 +2,21 @@
 #
 # Copyright (c) 2008 - 2010, Apple Inc. All rights reserved.<BR>
 #
-# SPDX-License-Identifier: BSD-2-Clause-Patent
+# This program and the accompanying materials
+# are licensed and made available under the terms and conditions of the BSD License
+# which accompanies this distribution.  The full text of the license may be found at
+# http://opensource.org/licenses/bsd-license.php
+#
+# THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+# WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 #
 #------------------------------------------------------------------------------
 
-#include <AsmMacroIoLib.h>
+.text
+.align 2
+
+.globl ASM_PFX(GccSemihostCall)
+INTERWORK_FUNC(GccSemihostCall)
 
 /*
   Semihosting operation request mechanism
@@ -22,7 +32,7 @@
        the svc lr register. That happens to be the one we are using, so we must
        save it or we will not be able to return.
  */
-ASM_FUNC(GccSemihostCall)
+ASM_PFX(GccSemihostCall):
   stmfd   sp!, {lr}
   svc     #0x123456
   ldmfd   sp!, {lr}

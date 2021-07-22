@@ -2,8 +2,14 @@
   Main file for LoadPciRom shell Debug1 function.
 
   (C) Copyright 2015 Hewlett-Packard Development Company, L.P.<BR>
-  Copyright (c) 2005 - 2019, Intel Corporation. All rights reserved.<BR>
-  SPDX-License-Identifier: BSD-2-Clause-Patent
+  Copyright (c) 2005 - 2012, Intel Corporation. All rights reserved.<BR>
+  This program and the accompanying materials
+  are licensed and made available under the terms and conditions of the BSD License
+  which accompanies this distribution.  The full text of the license may be found at
+  http://opensource.org/licenses/bsd-license.php
+
+  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
@@ -20,6 +26,7 @@
   @retval EFI_ABORTED     The abort mechanism was received.
 **/
 EFI_STATUS
+EFIAPI
 LoadPciRomConnectAllDriversToAllControllers (
   VOID
   );
@@ -38,6 +45,7 @@ LoadPciRomConnectAllDriversToAllControllers (
   @retval Other value             Unknown error.
 **/
 EFI_STATUS
+EFIAPI
 LoadEfiDriversFromRomImage (
   VOID                      *RomBar,
   UINTN                     RomSize,
@@ -87,7 +95,7 @@ ShellCommandRunLoadPciRom (
   Status = ShellCommandLineParse (ParamList, &Package, &ProblemParam, TRUE);
   if (EFI_ERROR(Status)) {
     if (Status == EFI_VOLUME_CORRUPTED && ProblemParam != NULL) {
-      ShellPrintHiiEx(-1, -1, NULL, STRING_TOKEN (STR_GEN_PROBLEM), gShellDebug1HiiHandle, L"loadpcirom", ProblemParam);
+      ShellPrintHiiEx(-1, -1, NULL, STRING_TOKEN (STR_GEN_PROBLEM), gShellDebug1HiiHandle, L"loadpcirom", ProblemParam);  
       FreePool(ProblemParam);
       ShellStatus = SHELL_INVALID_PARAMETER;
     } else {
@@ -95,7 +103,7 @@ ShellCommandRunLoadPciRom (
     }
   } else {
     if (ShellCommandLineGetCount(Package) < 2) {
-      ShellPrintHiiEx(-1, -1, NULL, STRING_TOKEN (STR_GEN_TOO_FEW), gShellDebug1HiiHandle, L"loadpcirom");
+      ShellPrintHiiEx(-1, -1, NULL, STRING_TOKEN (STR_GEN_TOO_FEW), gShellDebug1HiiHandle, L"loadpcirom");  
       ShellStatus = SHELL_INVALID_PARAMETER;
     } else {
       if (ShellCommandLineGetFlag(Package, L"-nc")) {
@@ -114,7 +122,7 @@ ShellCommandRunLoadPciRom (
          ){
         Status = ShellOpenFileMetaArg((CHAR16*)Param, EFI_FILE_MODE_WRITE|EFI_FILE_MODE_READ, &FileList);
         if (EFI_ERROR(Status)) {
-          ShellPrintHiiEx(-1, -1, NULL, STRING_TOKEN (STR_GEN_FILE_OPEN_FAIL), gShellDebug1HiiHandle, L"loadpcirom", Param);
+          ShellPrintHiiEx(-1, -1, NULL, STRING_TOKEN (STR_GEN_FILE_OPEN_FAIL), gShellDebug1HiiHandle, L"loadpcirom", Param);  
           ShellStatus = SHELL_ACCESS_DENIED;
           break;
         }
@@ -128,25 +136,21 @@ ShellCommandRunLoadPciRom (
             ; Node = (EFI_SHELL_FILE_INFO*)GetNextNode(&FileList->Link, &Node->Link)
            ){
           if (EFI_ERROR(Node->Status)){
-            ShellPrintHiiEx(-1, -1, NULL, STRING_TOKEN (STR_GEN_FILE_OPEN_FAIL), gShellDebug1HiiHandle, L"loadpcirom", Node->FullName);
+            ShellPrintHiiEx(-1, -1, NULL, STRING_TOKEN (STR_GEN_FILE_OPEN_FAIL), gShellDebug1HiiHandle, L"loadpcirom", Node->FullName);  
             ShellStatus = SHELL_INVALID_PARAMETER;
             continue;
           }
           if (FileHandleIsDirectory(Node->Handle) == EFI_SUCCESS) {
-            ShellPrintHiiEx(-1, -1, NULL, STRING_TOKEN (STR_FILE_NOT_DIR), gShellDebug1HiiHandle, L"loadpcirom", Node->FullName);
+            ShellPrintHiiEx(-1, -1, NULL, STRING_TOKEN (STR_FILE_NOT_DIR), gShellDebug1HiiHandle, L"loadpcirom", Node->FullName);  
             ShellStatus = SHELL_INVALID_PARAMETER;
             continue;
           }
           SourceSize  = (UINTN) Node->Info->FileSize;
           File1Buffer = AllocateZeroPool (SourceSize);
-          if (File1Buffer == NULL) {
-            ShellPrintHiiEx (-1, -1, NULL, STRING_TOKEN (STR_GEN_OUT_MEM), gShellDebug1HiiHandle, L"loadpcirom");
-            ShellStatus = SHELL_OUT_OF_RESOURCES;
-            continue;
-          }
+          ASSERT(File1Buffer != NULL);
           Status = gEfiShellProtocol->ReadFile(Node->Handle, &SourceSize, File1Buffer);
           if (EFI_ERROR(Status)) {
-            ShellPrintHiiEx(-1, -1, NULL, STRING_TOKEN (STR_FILE_READ_FAIL), gShellDebug1HiiHandle, L"loadpcirom", Node->FullName);
+            ShellPrintHiiEx(-1, -1, NULL, STRING_TOKEN (STR_FILE_READ_FAIL), gShellDebug1HiiHandle, L"loadpcirom", Node->FullName);  
             ShellStatus = SHELL_INVALID_PARAMETER;
           } else {
             Status = LoadEfiDriversFromRomImage (
@@ -160,7 +164,7 @@ ShellCommandRunLoadPciRom (
           FreePool(File1Buffer);
         }
       } else if (ShellStatus == SHELL_SUCCESS) {
-        ShellPrintHiiEx(-1, -1, NULL, STRING_TOKEN (STR_FILE_NOT_SPEC), gShellDebug1HiiHandle, "loadpcirom");
+        ShellPrintHiiEx(-1, -1, NULL, STRING_TOKEN (STR_FILE_NOT_SPEC), gShellDebug1HiiHandle, "loadpcirom");  
         ShellStatus = SHELL_NOT_FOUND;
       }
       if (FileList != NULL && !IsListEmpty(&FileList->Link)) {
@@ -191,6 +195,7 @@ ShellCommandRunLoadPciRom (
   @retval Other value             Unknown error.
 **/
 EFI_STATUS
+EFIAPI
 LoadEfiDriversFromRomImage (
   VOID                      *RomBar,
   UINTN                     RomSize,
@@ -228,14 +233,14 @@ LoadEfiDriversFromRomImage (
     EfiRomHeader = (EFI_PCI_EXPANSION_ROM_HEADER *) (UINTN) RomBarOffset;
 
     if (EfiRomHeader->Signature != PCI_EXPANSION_ROM_HEADER_SIGNATURE) {
-      ShellPrintHiiEx(-1, -1, NULL, STRING_TOKEN (STR_LOADPCIROM_CORRUPT), gShellDebug1HiiHandle, L"loadpcirom", FileName, ImageIndex);
+      ShellPrintHiiEx(-1, -1, NULL, STRING_TOKEN (STR_LOADPCIROM_CORRUPT), gShellDebug1HiiHandle, L"loadpcirom", FileName, ImageIndex);  
 //      PrintToken (STRING_TOKEN (STR_LOADPCIROM_IMAGE_CORRUPT), HiiHandle, ImageIndex);
       return ReturnStatus;
     }
 
     //
-    // If the pointer to the PCI Data Structure is invalid, no further images can be located.
-    // The PCI Data Structure must be DWORD aligned.
+    // If the pointer to the PCI Data Structure is invalid, no further images can be located. 
+    // The PCI Data Structure must be DWORD aligned. 
     //
     if (EfiRomHeader->PcirOffset == 0 ||
         (EfiRomHeader->PcirOffset & 3) != 0 ||
@@ -334,21 +339,12 @@ LoadEfiDriversFromRomImage (
                         &ImageHandle
                        );
           if (EFI_ERROR (Status)) {
-            //
-            // With EFI_SECURITY_VIOLATION retval, the Image was loaded and an ImageHandle was created
-            // with a valid EFI_LOADED_IMAGE_PROTOCOL, but the image can not be started right now.
-            // If the caller doesn't have the option to defer the execution of an image, we should
-            // unload image for the EFI_SECURITY_VIOLATION to avoid resource leak.
-            //
-            if (Status == EFI_SECURITY_VIOLATION) {
-              gBS->UnloadImage (ImageHandle);
-            }
-            ShellPrintHiiEx(-1, -1, NULL, STRING_TOKEN (STR_LOADPCIROM_LOAD_FAIL), gShellDebug1HiiHandle, L"loadpcirom", FileName, ImageIndex);
+            ShellPrintHiiEx(-1, -1, NULL, STRING_TOKEN (STR_LOADPCIROM_LOAD_FAIL), gShellDebug1HiiHandle, L"loadpcirom", FileName, ImageIndex);  
 //            PrintToken (STRING_TOKEN (STR_LOADPCIROM_LOAD_IMAGE_ERROR), HiiHandle, ImageIndex, Status);
           } else {
             Status = gBS->StartImage (ImageHandle, NULL, NULL);
             if (EFI_ERROR (Status)) {
-              ShellPrintHiiEx(-1, -1, NULL, STRING_TOKEN (STR_LOADPCIROM_START_FAIL), gShellDebug1HiiHandle, L"loadpcirom", FileName, ImageIndex);
+              ShellPrintHiiEx(-1, -1, NULL, STRING_TOKEN (STR_LOADPCIROM_START_FAIL), gShellDebug1HiiHandle, L"loadpcirom", FileName, ImageIndex);  
 //              PrintToken (STRING_TOKEN (STR_LOADPCIROM_START_IMAGE), HiiHandle, ImageIndex, Status);
             } else {
               ReturnStatus = Status;
@@ -377,36 +373,98 @@ LoadEfiDriversFromRomImage (
   @retval EFI_ABORTED     The abort mechanism was received.
 **/
 EFI_STATUS
+EFIAPI
 LoadPciRomConnectAllDriversToAllControllers (
   VOID
   )
+
 {
   EFI_STATUS  Status;
+  UINTN       AllHandleCount;
+  EFI_HANDLE  *AllHandleBuffer;
+  UINTN       Index;
   UINTN       HandleCount;
   EFI_HANDLE  *HandleBuffer;
-  UINTN       Index;
+  UINTN       *HandleType;
+  UINTN       HandleIndex;
+  BOOLEAN     Parent;
+  BOOLEAN     Device;
 
-  Status = gBS->LocateHandleBuffer (
-                  AllHandles,
-                  NULL,
-                  NULL,
-                  &HandleCount,
-                  &HandleBuffer
-                  );
+  Status = gBS->LocateHandleBuffer(
+            AllHandles,
+            NULL,
+            NULL,
+            &AllHandleCount,
+            &AllHandleBuffer
+           );
   if (EFI_ERROR (Status)) {
     return Status;
   }
 
-  for (Index = 0; Index < HandleCount; Index++) {
+  for (Index = 0; Index < AllHandleCount; Index++) {
     if (ShellGetExecutionBreakFlag ()) {
       Status = EFI_ABORTED;
-      break;
+      goto Done;
     }
-    gBS->ConnectController (HandleBuffer[Index], NULL, NULL, TRUE);
+    //
+    // Scan the handle database
+    //
+    Status = ParseHandleDatabaseByRelationshipWithType(
+      NULL,
+      AllHandleBuffer[Index],
+      &HandleCount,
+      &HandleBuffer,
+      &HandleType
+     );
+/*
+    Status = LibScanHandleDatabase (
+              NULL,
+              NULL,
+              AllHandleBuffer[Index],
+              NULL,
+              &HandleCount,
+              &HandleBuffer,
+              &HandleType
+             );
+*/
+    if (EFI_ERROR (Status)) {
+      goto Done;
+    }
+
+    Device = TRUE;
+    if ((HandleType[Index] & HR_DRIVER_BINDING_HANDLE) != 0) {
+      Device = FALSE;
+    }
+
+    if ((HandleType[Index] & HR_IMAGE_HANDLE) != 0) {
+      Device = FALSE;
+    }
+
+    if (Device) {
+      Parent = FALSE;
+      for (HandleIndex = 0; HandleIndex < HandleCount; HandleIndex++) {
+        if ((HandleType[HandleIndex] & HR_PARENT_HANDLE) != 0) {
+          Parent = TRUE;
+        }
+      }
+
+      if (!Parent) {
+        if ((HandleType[Index] & HR_DEVICE_HANDLE) != 0) {
+          Status = gBS->ConnectController (
+                        AllHandleBuffer[Index],
+                        NULL,
+                        NULL,
+                        TRUE
+                       );
+        }
+      }
+    }
+
+    FreePool (HandleBuffer);
+    FreePool (HandleType);
   }
 
-  if (HandleBuffer != NULL) {
-    FreePool (HandleBuffer);
-  }
+Done:
+  FreePool (AllHandleBuffer);
   return Status;
 }

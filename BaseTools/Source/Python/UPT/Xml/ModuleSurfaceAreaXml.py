@@ -1,9 +1,15 @@
 ## @file
 # This file is used to parse a Module file of .PKG file
 #
-# Copyright (c) 2011 - 2018, Intel Corporation. All rights reserved.<BR>
+# Copyright (c) 2011 - 2014, Intel Corporation. All rights reserved.<BR>
 #
-# SPDX-License-Identifier: BSD-2-Clause-Patent
+# This program and the accompanying materials are licensed and made available
+# under the terms and conditions of the BSD License which accompanies this
+# distribution. The full text of the license may be found at
+# http://opensource.org/licenses/bsd-license.php
+#
+# THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+# WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 #
 
 '''
@@ -11,10 +17,10 @@ ModuleSurfaceAreaXml
 '''
 from xml.dom import minidom
 
-from Library.StringUtils import ConvertNEToNOTEQ
-from Library.StringUtils import ConvertNOTEQToNE
-from Library.StringUtils import GetStringOfList
-from Library.StringUtils import IsMatchArch
+from Library.String import ConvertNEToNOTEQ
+from Library.String import ConvertNOTEQToNE
+from Library.String import GetStringOfList
+from Library.String import IsMatchArch
 from Library.Xml.XmlRoutines import XmlElement
 from Library.Xml.XmlRoutines import XmlAttribute
 from Library.Xml.XmlRoutines import XmlNode
@@ -544,7 +550,7 @@ class ModulePropertyXml(object):
             Hob = Axml.FromXml(SubItem, 'HOB')
             self.HOBs.append(Hob)
 
-        if Header is None:
+        if Header == None:
             Header = ModuleObject()
 
         Header.SetModuleType(self.ModuleType)

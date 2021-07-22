@@ -2,9 +2,16 @@
 PEIM to produce gPeiUsb2HostControllerPpiGuid based on gPeiUsbControllerPpiGuid
 which is used to enable recovery function from USB Drivers.
 
-Copyright (c) 2010 - 2018, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2010 - 2013, Intel Corporation. All rights reserved.<BR>
+  
+This program and the accompanying materials
+are licensed and made available under the terms and conditions
+of the BSD License which accompanies this distribution.  The
+full text of the license may be found at
+http://opensource.org/licenses/bsd-license.php
 
-SPDX-License-Identifier: BSD-2-Clause-Patent
+THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
@@ -32,7 +39,7 @@ USB_PORT_STATE_MAP  mUsbPortChangeMap[] = {
 
 /**
   Read Ehc Operation register.
-
+  
   @param  Ehc       The EHCI device.
   @param  Offset    The operation register offset.
 
@@ -46,17 +53,17 @@ EhcReadOpReg (
   )
 {
   UINT32                  Data;
-
+ 
   ASSERT (Ehc->CapLen != 0);
 
   Data = MmioRead32 (Ehc->UsbHostControllerBaseAddress + Ehc->CapLen + Offset);
-
+  
   return Data;
 }
 
 /**
   Write the data to the EHCI operation register.
-
+  
   @param  Ehc       The EHCI device.
   @param  Offset    EHCI operation register offset.
   @param  Data      The data to write.
@@ -78,7 +85,7 @@ EhcWriteOpReg (
 
 /**
   Set one bit of the operational register while keeping other bits.
-
+  
   @param  Ehc       The EHCI device.
   @param  Offset    The offset of the operational register.
   @param  Bit       The bit mask of the register to set.
@@ -100,7 +107,7 @@ EhcSetOpRegBit (
 
 /**
   Clear one bit of the operational register while keeping other bits.
-
+  
   @param  Ehc       The EHCI device.
   @param  Offset    The offset of the operational register.
   @param  Bit       The bit mask of the register to clear.
@@ -121,9 +128,9 @@ EhcClearOpRegBit (
 }
 
 /**
-  Wait the operation register's bit as specified by Bit
+  Wait the operation register's bit as specified by Bit 
   to become set (or clear).
-
+  
   @param  Ehc           The EHCI device.
   @param  Offset        The offset of the operational register.
   @param  Bit           The bit mask of the register to wait for.
@@ -158,7 +165,7 @@ EhcWaitOpRegBit (
 
 /**
   Read EHCI capability register.
-
+  
   @param  Ehc       The EHCI device.
   @param  Offset    Capability register address.
 
@@ -172,16 +179,16 @@ EhcReadCapRegister (
   )
 {
   UINT32                  Data;
-
+  
   Data = MmioRead32(Ehc->UsbHostControllerBaseAddress + Offset);
-
+  
   return Data;
 }
 
 /**
   Set door bell and wait it to be ACKed by host controller.
   This function is used to synchronize with the hardware.
-
+  
   @param  Ehc       The EHCI device.
   @param  Timeout   The time to wait before abort (in millisecond, ms).
 
@@ -216,9 +223,9 @@ EhcSetAndWaitDoorBell (
 }
 
 /**
-  Clear all the interrutp status bits, these bits
+  Clear all the interrutp status bits, these bits 
   are Write-Clean.
-
+  
   @param  Ehc       The EHCI device.
 
 **/
@@ -231,9 +238,9 @@ EhcAckAllInterrupt (
 }
 
 /**
-  Enable the periodic schedule then wait EHC to
+  Enable the periodic schedule then wait EHC to 
   actually enable it.
-
+  
   @param  Ehc       The EHCI device.
   @param  Timeout   The time to wait before abort (in millisecond, ms).
 
@@ -257,7 +264,7 @@ EhcEnablePeriodSchd (
 
 /**
   Enable asynchrounous schedule.
-
+  
   @param  Ehc       The EHCI device.
   @param  Timeout   Time to wait before abort.
 
@@ -281,7 +288,7 @@ EhcEnableAsyncSchd (
 
 /**
   Check whether Ehc is halted.
-
+  
   @param  Ehc       The EHCI device.
 
   @retval TRUE      The controller is halted.
@@ -298,7 +305,7 @@ EhcIsHalt (
 
 /**
   Check whether system error occurred.
-
+  
   @param  Ehc       The EHCI device.
 
   @retval TRUE      System error happened.
@@ -315,7 +322,7 @@ EhcIsSysError (
 
 /**
   Reset the host controller.
-
+  
   @param  Ehc             The EHCI device.
   @param  Timeout         Time to wait before abort (in millisecond, ms).
 
@@ -349,7 +356,7 @@ EhcResetHC (
 
 /**
   Halt the host controller.
-
+  
   @param  Ehc             The EHCI device.
   @param  Timeout         Time to wait before abort.
 
@@ -372,7 +379,7 @@ EhcHaltHC (
 
 /**
   Set the EHCI to run.
-
+  
   @param  Ehc             The EHCI device.
   @param  Timeout         Time to wait before abort.
 
@@ -395,7 +402,7 @@ EhcRunHC (
 
 /**
   Power On All EHCI Ports.
-
+  
   @param  Ehc             The EHCI device.
 
 **/
@@ -404,32 +411,24 @@ EhcPowerOnAllPorts (
   IN PEI_USB2_HC_DEV          *Ehc
   )
 {
-  UINT8     PortNumber;
-  UINT8     Index;
-  UINT32    RegVal;
+  UINT8 PortNumber;
+  UINT8 Index;
 
   PortNumber = (UINT8)(Ehc->HcStructParams & HCSP_NPORTS);
   for (Index = 0; Index < PortNumber; Index++) {
-    //
-    // Do not clear port status bits on initialization.  Otherwise devices will
-    // not enumerate properly at startup.
-    //
-    RegVal  = EhcReadOpReg(Ehc, EHC_PORT_STAT_OFFSET + 4 * Index);
-    RegVal &= ~PORTSC_CHANGE_MASK;
-    RegVal |= PORTSC_POWER;
-    EhcWriteOpReg (Ehc, EHC_PORT_STAT_OFFSET + 4 * Index, RegVal);
+    EhcSetOpRegBit (Ehc, EHC_PORT_STAT_OFFSET + 4 * Index, PORTSC_POWER);
   }
 }
 
 /**
-  Initialize the HC hardware.
+  Initialize the HC hardware. 
   EHCI spec lists the five things to do to initialize the hardware.
   1. Program CTRLDSSEGMENT.
   2. Set USBINTR to enable interrupts.
   3. Set periodic list base.
   4. Set USBCMD, interrupt threshold, frame list size etc.
   5. Write 1 to CONFIGFLAG to route all ports to EHCI.
-
+  
   @param  Ehc             The EHCI device.
 
   @retval EFI_SUCCESS     The EHCI has come out of halt state.
@@ -444,7 +443,7 @@ EhcInitHC (
   EFI_STATUS              Status;
   EFI_PHYSICAL_ADDRESS        TempPtr;
   UINTN               PageNumber;
-
+  
   ASSERT (EhcIsHalt (Ehc));
 
   //
@@ -465,9 +464,9 @@ EhcInitHC (
     return Status;
   }
 
-  EhcPowerOnAllPorts (Ehc);
+  EhcPowerOnAllPorts (Ehc);  
   MicroSecondDelay (EHC_ROOT_PORT_RECOVERY_STALL);
-
+  
   Status = EhcInitSched (Ehc);
 
   if (EFI_ERROR (Status)) {
@@ -516,26 +515,26 @@ EhcInitHC (
 
 /**
   Submits bulk transfer to a bulk endpoint of a USB device.
-
+  
   @param  PeiServices           The pointer of EFI_PEI_SERVICES.
   @param  This                  The pointer of PEI_USB2_HOST_CONTROLLER_PPI.
   @param  DeviceAddress         Target device address.
   @param  EndPointAddress       Endpoint number and its direction in bit 7.
-  @param  DeviceSpeed           Device speed, Low speed device doesn't support
+  @param  DeviceSpeed           Device speed, Low speed device doesn't support 
                                 bulk transfer.
-  @param  MaximumPacketLength   Maximum packet size the endpoint is capable of
+  @param  MaximumPacketLength   Maximum packet size the endpoint is capable of 
                                 sending or receiving.
-  @param  Data                  Array of pointers to the buffers of data to transmit
+  @param  Data                  Array of pointers to the buffers of data to transmit 
                                 from or receive into.
   @param  DataLength            The lenght of the data buffer.
   @param  DataToggle            On input, the initial data toggle for the transfer;
-                                On output, it is updated to to next data toggle to use of
+                                On output, it is updated to to next data toggle to use of 
                                 the subsequent bulk transfer.
   @param  TimeOut               Indicates the maximum time, in millisecond, which the
                                 transfer is allowed to complete.
                                 If Timeout is 0, then the caller must wait for the function
                                 to be completed until EFI_SUCCESS or EFI_DEVICE_ERROR is returned.
-  @param  Translator            A pointr to the transaction translator data.
+  @param  Translator            A pointr to the transaction translator data.                                
   @param  TransferResult        A pointer to the detailed result information of the
                                 bulk transfer.
 
@@ -570,7 +569,7 @@ EhcBulkTransfer (
   //
   // Validate the parameters
   //
-  if ((DataLength == NULL) || (*DataLength == 0) ||
+  if ((DataLength == NULL) || (*DataLength == 0) || 
       (Data == NULL) || (Data[0] == NULL) || (TransferResult == NULL)) {
     return EFI_INVALID_PARAMETER;
   }
@@ -645,10 +644,10 @@ ON_EXIT:
   Retrieves the number of root hub ports.
 
   @param[in]  PeiServices   The pointer to the PEI Services Table.
-  @param[in]  This          The pointer to this instance of the
+  @param[in]  This          The pointer to this instance of the 
                             PEI_USB2_HOST_CONTROLLER_PPI.
-  @param[out] PortNumber    The pointer to the number of the root hub ports.
-
+  @param[out] PortNumber    The pointer to the number of the root hub ports.                                
+                                
   @retval EFI_SUCCESS           The port number was retrieved successfully.
   @retval EFI_INVALID_PARAMETER PortNumber is NULL.
 
@@ -664,19 +663,19 @@ EhcGetRootHubPortNumber (
 
   PEI_USB2_HC_DEV             *EhcDev;
   EhcDev = PEI_RECOVERY_USB_EHC_DEV_FROM_EHCI_THIS (This);
-
+  
   if (PortNumber == NULL) {
     return EFI_INVALID_PARAMETER;
-  }
-
+  }  
+  
   *PortNumber = (UINT8)(EhcDev->HcStructParams & HCSP_NPORTS);
   return EFI_SUCCESS;
-
+  
 }
 
 /**
   Clears a feature for the specified root hub port.
-
+  
   @param  PeiServices           The pointer of EFI_PEI_SERVICES.
   @param  This                  The pointer of PEI_USB2_HOST_CONTROLLER_PPI.
   @param  PortNumber            Specifies the root hub port whose feature
@@ -684,7 +683,7 @@ EhcGetRootHubPortNumber (
   @param  PortFeature           Indicates the feature selector associated with the
                                 feature clear request.
 
-  @retval EFI_SUCCESS            The feature specified by PortFeature was cleared
+  @retval EFI_SUCCESS            The feature specified by PortFeature was cleared 
                                  for the USB root hub port specified by PortNumber.
   @retval EFI_INVALID_PARAMETER  PortNumber is invalid or PortFeature is invalid.
 
@@ -798,7 +797,7 @@ ON_EXIT:
 
 /**
   Sets a feature for the specified root hub port.
-
+  
   @param  PeiServices           The pointer of EFI_PEI_SERVICES
   @param  This                  The pointer of PEI_USB2_HOST_CONTROLLER_PPI
   @param  PortNumber            Root hub port to set.
@@ -869,7 +868,7 @@ EhcSetRootHubPortFeature (
         break;
       }
     }
-
+    
     //
     // Set one to PortReset bit must also set zero to PortEnable bit
     //
@@ -900,10 +899,10 @@ ON_EXIT:
 
 /**
   Retrieves the current status of a USB root hub port.
-
+  
   @param  PeiServices            The pointer of EFI_PEI_SERVICES.
   @param  This                   The pointer of PEI_USB2_HOST_CONTROLLER_PPI.
-  @param  PortNumber             The root hub port to retrieve the state from.
+  @param  PortNumber             The root hub port to retrieve the state from.  
   @param  PortStatus             Variable to receive the port state.
 
   @retval EFI_SUCCESS            The status of the USB root hub port specified.
@@ -950,9 +949,9 @@ EhcGetRootHubPortStatus (
 
   //
   // Identify device speed. If in K state, it is low speed.
-  // If the port is enabled after reset, the device is of
+  // If the port is enabled after reset, the device is of 
   // high speed. The USB bus driver should retrieve the actual
-  // port speed after reset.
+  // port speed after reset. 
   //
   if (EHC_BIT_IS_SET (State, PORTSC_LINESTATE_K)) {
     PortStatus->PortStatus |= USB_PORT_STAT_LOW_SPEED;
@@ -960,7 +959,7 @@ EhcGetRootHubPortStatus (
   } else if (EHC_BIT_IS_SET (State, PORTSC_ENABLED)) {
     PortStatus->PortStatus |= USB_PORT_STAT_HIGH_SPEED;
   }
-
+  
   //
   // Convert the EHCI port/port change state to UEFI status
   //
@@ -986,12 +985,12 @@ ON_EXIT:
 
 /**
   Submits control transfer to a target USB device.
-
+  
   @param  PeiServices            The pointer of EFI_PEI_SERVICES.
   @param  This                   The pointer of PEI_USB2_HOST_CONTROLLER_PPI.
   @param  DeviceAddress          The target device address.
   @param  DeviceSpeed            Target device speed.
-  @param  MaximumPacketLength    Maximum packet size the default control transfer
+  @param  MaximumPacketLength    Maximum packet size the default control transfer 
                                  endpoint is capable of sending or receiving.
   @param  Request                USB device request to send.
   @param  TransferDirection      Specifies the data direction for the data stage.
@@ -1045,12 +1044,12 @@ EhcControlTransfer (
     return EFI_INVALID_PARAMETER;
   }
 
-  if ((TransferDirection == EfiUsbNoData) &&
+  if ((TransferDirection == EfiUsbNoData) && 
       ((Data != NULL) || (*DataLength != 0))) {
     return EFI_INVALID_PARAMETER;
   }
 
-  if ((TransferDirection != EfiUsbNoData) &&
+  if ((TransferDirection != EfiUsbNoData) && 
      ((Data == NULL) || (*DataLength == 0))) {
     return EFI_INVALID_PARAMETER;
   }
@@ -1134,36 +1133,6 @@ ON_EXIT:
 }
 
 /**
-  One notified function to stop the Host Controller at the end of PEI
-
-  @param[in]  PeiServices        Pointer to PEI Services Table.
-  @param[in]  NotifyDescriptor   Pointer to the descriptor for the Notification event that
-                                 caused this function to execute.
-  @param[in]  Ppi                Pointer to the PPI data associated with this function.
-
-  @retval     EFI_SUCCESS  The function completes successfully
-  @retval     others
-**/
-EFI_STATUS
-EFIAPI
-EhcEndOfPei (
-  IN EFI_PEI_SERVICES           **PeiServices,
-  IN EFI_PEI_NOTIFY_DESCRIPTOR  *NotifyDescriptor,
-  IN VOID                       *Ppi
-  )
-{
-  PEI_USB2_HC_DEV   *Ehc;
-
-  Ehc = PEI_RECOVERY_USB_EHC_DEV_FROM_THIS_NOTIFY (NotifyDescriptor);
-
-  EhcHaltHC (Ehc, EHC_GENERIC_TIMEOUT);
-
-  EhcFreeSched (Ehc);
-
-  return EFI_SUCCESS;
-}
-
-/**
   @param  FileHandle  Handle of the file being invoked.
   @param  PeiServices Describes the list of possible PEI Services.
 
@@ -1218,7 +1187,7 @@ EhcPeimEntry (
     if (EFI_ERROR (Status)) {
       break;
     }
-
+    
     //
     // This PEIM is for UHC type controller.
     //
@@ -1241,8 +1210,6 @@ EhcPeimEntry (
     EhcDev = (PEI_USB2_HC_DEV *) ((UINTN) TempPtr);
 
     EhcDev->Signature = USB2_HC_DEV_SIGNATURE;
-
-    IoMmuInit (&EhcDev->IoMmu);
 
     EhcDev->UsbHostControllerBaseAddress = (UINT32) BaseAddress;
 
@@ -1275,12 +1242,6 @@ EhcPeimEntry (
       continue;
     }
 
-    EhcDev->EndOfPeiNotifyList.Flags = (EFI_PEI_PPI_DESCRIPTOR_NOTIFY_CALLBACK | EFI_PEI_PPI_DESCRIPTOR_TERMINATE_LIST);
-    EhcDev->EndOfPeiNotifyList.Guid = &gEfiEndOfPeiSignalPpiGuid;
-    EhcDev->EndOfPeiNotifyList.Notify = EhcEndOfPei;
-
-    PeiServicesNotifyPpi (&EhcDev->EndOfPeiNotifyList);
-
     Index++;
   }
 
@@ -1296,19 +1257,19 @@ EhcPeimEntry (
 **/
 EFI_STATUS
 InitializeUsbHC (
-  IN PEI_USB2_HC_DEV      *EhcDev
+  IN PEI_USB2_HC_DEV      *EhcDev  
   )
 {
   EFI_STATUS  Status;
 
-
+   	
   EhcResetHC (EhcDev, EHC_RESET_TIMEOUT);
 
   Status = EhcInitHC (EhcDev);
 
   if (EFI_ERROR (Status)) {
-    return EFI_ABORTED;
+    return EFI_ABORTED;      
   }
-
+  
   return EFI_SUCCESS;
 }

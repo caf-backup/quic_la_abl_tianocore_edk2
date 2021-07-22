@@ -2,7 +2,13 @@
   Temp RAM PPI
 
 Copyright (c) 2011, Apple Inc. All rights reserved.<BR>
-SPDX-License-Identifier: BSD-2-Clause-Patent
+This program and the accompanying materials
+are licensed and made available under the terms and conditions of the BSD License
+which accompanies this distribution.  The full text of the license may be found at
+http://opensource.org/licenses/bsd-license.php
+
+THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
@@ -30,7 +36,7 @@ SecTemporaryRamSupport (
   )
 {
   //
-  // Migrate the whole temporary memory to permanent memory.
+  // Migrate the whole temporary memory to permenent memory.
   //
   CopyMem (
     (VOID*)(UINTN)PermanentMemoryBase,
@@ -40,14 +46,14 @@ SecTemporaryRamSupport (
 
   //
   // SecSwitchStack function must be invoked after the memory migration
-  // immediately, also we need fixup the stack change caused by new call into
-  // permanent memory.
+  // immediatly, also we need fixup the stack change caused by new call into
+  // permenent memory.
   //
   SecSwitchStack ((UINT32) TemporaryMemoryBase, (UINT32) PermanentMemoryBase);
 
   //
   // We need *not* fix the return address because currently,
-  // The PeiCore is executed in flash.
+  // The PeiCore is excuted in flash.
   //
 
   //

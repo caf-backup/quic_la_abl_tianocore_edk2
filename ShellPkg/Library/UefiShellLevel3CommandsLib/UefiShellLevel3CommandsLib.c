@@ -3,13 +3,19 @@
 
   (C) Copyright 2014 Hewlett-Packard Development Company, L.P.<BR>
   Copyright (c) 2009 - 2011, Intel Corporation. All rights reserved. <BR>
-  SPDX-License-Identifier: BSD-2-Clause-Patent
+  This program and the accompanying materials
+  are licensed and made available under the terms and conditions of the BSD License
+  which accompanies this distribution.  The full text of the license may be found at
+  http://opensource.org/licenses/bsd-license.php
+
+  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 #include "UefiShellLevel3CommandsLib.h"
 
 CONST CHAR16 gShellLevel3FileName[] = L"ShellCommands";
-EFI_HII_HANDLE gShellLevel3HiiHandle = NULL;
+EFI_HANDLE gShellLevel3HiiHandle = NULL;
 
 /**
   return the filename to get help from is not using HII.

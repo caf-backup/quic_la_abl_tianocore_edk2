@@ -1,14 +1,21 @@
 /** @file
   Diffie-Hellman Wrapper Implementation over OpenSSL.
 
-Copyright (c) 2010 - 2018, Intel Corporation. All rights reserved.<BR>
-SPDX-License-Identifier: BSD-2-Clause-Patent
+Copyright (c) 2010 - 2015, Intel Corporation. All rights reserved.<BR>
+This program and the accompanying materials
+are licensed and made available under the terms and conditions of the BSD License
+which accompanies this distribution.  The full text of the license may be found at
+http://opensource.org/licenses/bsd-license.php
+
+THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
 #include "InternalCryptLib.h"
 #include <openssl/bn.h>
 #include <openssl/dh.h>
+
 
 /**
   Allocates and Initializes one Diffie-Hellman Context for subsequent use.
@@ -54,7 +61,7 @@ DhFree (
 
   Given generator g, and length of prime number p in bits, this function generates p,
   and sets DH context according to value of g and p.
-
+  
   Before this function can be invoked, pseudorandom number generator must be correctly
   initialized by RandomSeed().
 
@@ -66,7 +73,7 @@ DhFree (
   @param[in]       PrimeLength  Length in bits of prime to be generated.
   @param[out]      Prime        Pointer to the buffer to receive the generated prime number.
 
-  @retval TRUE   DH parameter generation succeeded.
+  @retval TRUE   DH pamameter generation succeeded.
   @retval FALSE  Value of Generator is not supported.
   @retval FALSE  PRNG fails to generate random prime number with PrimeLength.
 
@@ -81,7 +88,6 @@ DhGenerateParameter (
   )
 {
   BOOLEAN RetVal;
-  BIGNUM  *BnP;
 
   //
   // Check input parameters.
@@ -99,8 +105,7 @@ DhGenerateParameter (
     return FALSE;
   }
 
-  DH_get0_pqg (DhContext, (const BIGNUM **)&BnP, NULL, NULL);
-  BN_bn2bin (BnP, Prime);
+  BN_bn2bin (((DH *) DhContext)->p, Prime);
 
   return TRUE;
 }
@@ -119,7 +124,7 @@ DhGenerateParameter (
   @param[in]       PrimeLength  Length in bits of prime to be generated.
   @param[in]       Prime        Pointer to the prime number.
 
-  @retval TRUE   DH parameter setting succeeded.
+  @retval TRUE   DH pamameter setting succeeded.
   @retval FALSE  Value of Generator is not supported.
   @retval FALSE  Value of Generator is not suitable for the Prime.
   @retval FALSE  Value of Prime is not a prime number.
@@ -136,8 +141,7 @@ DhSetParameter (
   )
 {
   DH      *Dh;
-  BIGNUM  *BnP;
-  BIGNUM  *BnG;
+  BIGNUM  *Bn;
 
   //
   // Check input parameters.
@@ -145,34 +149,57 @@ DhSetParameter (
   if (DhContext == NULL || Prime == NULL || PrimeLength > INT_MAX) {
     return FALSE;
   }
-
+  
   if (Generator != DH_GENERATOR_2 && Generator != DH_GENERATOR_5) {
     return FALSE;
   }
 
-  //
-  // Set the generator and prime parameters for DH object.
-  //
-  Dh  = (DH *)DhContext;
-  BnP = BN_bin2bn ((const unsigned char *)Prime, (int)(PrimeLength / 8), NULL);
-  BnG = BN_bin2bn ((const unsigned char *)&Generator, 1, NULL);
-  if ((BnP == NULL) || (BnG == NULL) || !DH_set0_pqg (Dh, BnP, NULL, BnG)) {
+  Bn = NULL;
+
+  Dh = (DH *) DhContext;
+  Dh->g = NULL;
+  Dh->p = BN_new ();
+  if (Dh->p == NULL) {
+    goto Error;
+  }
+  
+  Dh->g = BN_new ();
+  if (Dh->g == NULL) {
+    goto Error;
+  }
+
+  Bn = BN_bin2bn (Prime, (UINT32) (PrimeLength / 8), Dh->p);
+  if (Bn == NULL) {
+    goto Error;
+  }
+
+  if (BN_set_word (Dh->g, (UINT32) Generator) == 0) {
     goto Error;
   }
 
   return TRUE;
 
 Error:
-  BN_free (BnP);
-  BN_free (BnG);
 
+  if (Dh->p != NULL) {
+    BN_free (Dh->p);
+  }
+
+  if (Dh->g != NULL) {
+    BN_free (Dh->g);
+  }
+
+  if (Bn != NULL) {
+    BN_free (Bn);
+  }
+  
   return FALSE;
 }
 
 /**
   Generates DH public key.
 
-  This function generates random secret exponent, and computes the public key, which is
+  This function generates random secret exponent, and computes the public key, which is 
   returned via parameter PublicKey and PublicKeySize. DH context is updated accordingly.
   If the PublicKey buffer is too small to hold the public key, FALSE is returned and
   PublicKeySize is set to the required buffer size to obtain the public key.
@@ -201,7 +228,6 @@ DhGenerateKey (
 {
   BOOLEAN RetVal;
   DH      *Dh;
-  BIGNUM  *DhPubKey;
   INTN    Size;
 
   //
@@ -214,21 +240,18 @@ DhGenerateKey (
   if (PublicKey == NULL && *PublicKeySize != 0) {
     return FALSE;
   }
-
+  
   Dh = (DH *) DhContext;
 
   RetVal = (BOOLEAN) DH_generate_key (DhContext);
   if (RetVal) {
-    DH_get0_key (Dh, (const BIGNUM **)&DhPubKey, NULL);
-    Size = BN_num_bytes (DhPubKey);
+    Size = BN_num_bytes (Dh->pub_key);
     if ((Size > 0) && (*PublicKeySize < (UINTN) Size)) {
       *PublicKeySize = Size;
       return FALSE;
     }
-
-    if (PublicKey != NULL) {
-      BN_bn2bin (DhPubKey, PublicKey);
-    }
+    
+    BN_bn2bin (Dh->pub_key, PublicKey);
     *PublicKeySize = Size;
   }
 
@@ -239,7 +262,7 @@ DhGenerateKey (
   Computes exchanged common key.
 
   Given peer's public key, this function computes the exchanged common key, based on its own
-  context including value of prime modulus and random secret exponent.
+  context including value of prime modulus and random secret exponent. 
 
   If DhContext is NULL, then return FALSE.
   If PeerPublicKey is NULL, then return FALSE.
@@ -282,7 +305,7 @@ DhComputeKey (
   if (PeerPublicKeySize > INT_MAX) {
     return FALSE;
   }
-
+  
   Bn = BN_bin2bn (PeerPublicKey, (UINT32) PeerPublicKeySize, NULL);
   if (Bn == NULL) {
     return FALSE;

@@ -1,10 +1,15 @@
 /** @file
   Library functions which relates with driver health.
 
-Copyright (c) 2011 - 2018, Intel Corporation. All rights reserved.<BR>
 (C) Copyright 2015 Hewlett-Packard Development Company, L.P.<BR>
-(C) Copyright 2016 Hewlett Packard Enterprise Development LP<BR>
-SPDX-License-Identifier: BSD-2-Clause-Patent
+Copyright (c) 2011 - 2015, Intel Corporation. All rights reserved.<BR>
+This program and the accompanying materials
+are licensed and made available under the terms and conditions of the BSD License
+which accompanies this distribution.  The full text of the license may be found at
+http://opensource.org/licenses/bsd-license.php
+
+THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
@@ -86,7 +91,7 @@ BmGetControllerName (
 
     Status = ComponentName->GetControllerName (
                               ComponentName,
-                              ControllerHandle,
+                              ControllerHandle, 
                               ChildHandle,
                               BestLanguage,
                               &ControllerName
@@ -125,7 +130,7 @@ BmDisplayMessages (
 
   ControllerName = BmGetControllerName (
                      DriverHealthInfo->DriverHealthHandle,
-                     DriverHealthInfo->ControllerHandle,
+                     DriverHealthInfo->ControllerHandle, 
                      DriverHealthInfo->ChildHandle
                      );
 
@@ -175,7 +180,7 @@ BmRepairNotify (
 
 /**
   Collect the Driver Health status of a single controller.
-
+  
   @param DriverHealthInfo        A pointer to the array containing all of the platform driver health information.
   @param Count                   Return the updated array count.
   @param DriverHealthHandle      The handle on which the Driver Health protocol instance is retrieved.
@@ -212,7 +217,7 @@ BmGetSingleControllerHealthStatus (
                   (VOID **) &DriverHealth
                   );
   ASSERT_EFI_ERROR (Status);
-
+  
 
   if (ControllerHandle == NULL) {
     //
@@ -417,13 +422,10 @@ EfiBootManagerFreeDriverHealthInfo (
 
 /**
   Repair all the controllers according to the Driver Health status queried.
-
-  @param ReconnectRepairCount     To record the number of recursive call of
-                                  this function itself.
 **/
 VOID
 BmRepairAllControllers (
-  UINTN       ReconnectRepairCount
+  VOID
   )
 {
   EFI_STATUS                          Status;
@@ -437,21 +439,16 @@ BmRepairAllControllers (
   BOOLEAN                             RebootRequired;
   EFI_HII_HANDLE                      *HiiHandles;
   EFI_FORM_BROWSER2_PROTOCOL          *FormBrowser2;
-  UINT32                              MaxRepairCount;
-  UINT32                              RepairCount;
 
   //
   // Configure PcdDriverHealthConfigureForm to ZeroGuid to disable driver health check.
   //
-  if (IsZeroGuid (PcdGetPtr (PcdDriverHealthConfigureForm))) {
+  if (CompareGuid (PcdGetPtr (PcdDriverHealthConfigureForm), &gZeroGuid)) {
     return;
   }
 
   Status = gBS->LocateProtocol (&gEfiFormBrowser2ProtocolGuid, NULL, (VOID **) &FormBrowser2);
   ASSERT_EFI_ERROR (Status);
-
-  MaxRepairCount = PcdGet32 (PcdMaxRepairCount);
-  RepairCount = 0;
 
   do {
     RepairRequired        = FALSE;
@@ -465,7 +462,7 @@ BmRepairAllControllers (
       if (DriverHealthInfo[Index].HealthStatus == EfiDriverHealthStatusConfigurationRequired) {
         ConfigurationRequired = TRUE;
       }
-
+      
       if (DriverHealthInfo[Index].HealthStatus == EfiDriverHealthStatusRepairRequired) {
         RepairRequired        = TRUE;
 
@@ -513,10 +510,9 @@ BmRepairAllControllers (
         FreePool (HiiHandles);
       }
     }
-
+  
     EfiBootManagerFreeDriverHealthInfo (DriverHealthInfo, Count);
-    RepairCount++;
-  } while ((RepairRequired || ConfigurationRequired) && ((MaxRepairCount == 0) || (RepairCount < MaxRepairCount)));
+  } while (RepairRequired || ConfigurationRequired);
 
   RebootRequired    = FALSE;
   ReconnectRequired = FALSE;
@@ -545,6 +541,10 @@ BmRepairAllControllers (
   EfiBootManagerFreeDriverHealthInfo (DriverHealthInfo, Count);
 
 
+  if (ReconnectRequired) {
+    BmRepairAllControllers ();
+  }
+
   DEBUG_CODE (
     CHAR16 *ControllerName;
 
@@ -568,15 +568,6 @@ BmRepairAllControllers (
     }
     EfiBootManagerFreeDriverHealthInfo (DriverHealthInfo, Count);
     );
-
-  if (ReconnectRequired) {
-    if (ReconnectRepairCount < MAX_RECONNECT_REPAIR) {
-      BmRepairAllControllers (ReconnectRepairCount + 1);
-    } else {
-      DEBUG ((DEBUG_ERROR, "[%a:%d] Repair failed after %d retries.\n",
-        __FUNCTION__, __LINE__, ReconnectRepairCount));
-    }
-  }
 
   if (RebootRequired) {
     DEBUG ((EFI_D_INFO, "[BDS] One of the Driver Health instances requires rebooting.\n"));

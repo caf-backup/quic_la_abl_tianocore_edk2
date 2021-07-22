@@ -1,9 +1,16 @@
 /** @file
 Private Header file for Usb Host Controller PEIM
 
-Copyright (c) 2010 - 2018, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2010, Intel Corporation. All rights reserved.<BR>
+  
+This program and the accompanying materials
+are licensed and made available under the terms and conditions
+of the BSD License which accompanies this distribution.  The
+full text of the license may be found at
+http://opensource.org/licenses/bsd-license.php
 
-SPDX-License-Identifier: BSD-2-Clause-Patent
+THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
@@ -66,7 +73,7 @@ typedef struct _PEI_URB     PEI_URB;
 #define USB_ERR_SHORT_PACKET    0x200
 
 //
-// Fill in the hardware link point: pass in a EHC_QH/QH_HW
+// Fill in the hardware link point: pass in a EHC_QH/QH_HW 
 // pointer to QH_LINK; A EHC_QTD/QTD_HW pointer to QTD_LINK
 //
 #define QH_LINK(Addr, Type, Term) \
@@ -75,16 +82,16 @@ typedef struct _PEI_URB     PEI_URB;
 #define QTD_LINK(Addr, Term)      QH_LINK((Addr), 0, (Term))
 
 //
-// The defination of EHCI hardware used data structure for
-// little endian architecture. The QTD and QH structures
-// are required to be 32 bytes aligned. Don't add members
+// The defination of EHCI hardware used data structure for 
+// little endian architecture. The QTD and QH structures 
+// are required to be 32 bytes aligned. Don't add members 
 // to the head of the associated software strucuture.
 //
 #pragma pack(1)
 typedef struct {
   UINT32                  NextQtd;
   UINT32                  AltNext;
-
+  
   UINT32                  Status       : 8;
   UINT32                  Pid          : 2;
   UINT32                  ErrCnt       : 2;
@@ -98,7 +105,7 @@ typedef struct {
 } QTD_HW;
 
 typedef struct {
-  UINT32                  HorizonLink;
+  UINT32                  HorizonLink;  
   //
   // Endpoint capabilities/Characteristics DWord 1 and DWord 2
   //
@@ -124,7 +131,7 @@ typedef struct {
   UINT32                  CurQtd;
   UINT32                  NextQtd;
   UINT32                  AltQtd;
-
+  
   UINT32                  Status       : 8;
   UINT32                  Pid          : 2;
   UINT32                  ErrCnt       : 2;
@@ -156,7 +163,7 @@ typedef struct _USB_ENDPOINT {
 } USB_ENDPOINT;
 
 //
-// Software QTD strcture, this is used to manage all the
+// Software QTD strcture, this is used to manage all the 
 // QTD generated from a URB. Don't add fields before QtdHw.
 //
 struct _PEI_EHC_QTD {
@@ -170,17 +177,17 @@ struct _PEI_EHC_QTD {
 
 
 //
-// Software QH structure. All three different transaction types
-// supported by UEFI USB, that is the control/bulk/interrupt
-// transfers use the queue head and queue token strcuture.
+// Software QH structure. All three different transaction types 
+// supported by UEFI USB, that is the control/bulk/interrupt 
+// transfers use the queue head and queue token strcuture. 
 //
 // Interrupt QHs are linked to periodic frame list in the reversed
-// 2^N tree. Each interrupt QH is linked to the list starting at
+// 2^N tree. Each interrupt QH is linked to the list starting at 
 // frame 0. There is a dummy interrupt QH linked to each frame as
 // a sentinental whose polling interval is 1. Synchronous interrupt
-// transfer is linked after this dummy QH.
-//
-// For control/bulk transfer, only synchronous (in the sense of UEFI)
+// transfer is linked after this dummy QH. 
+// 
+// For control/bulk transfer, only synchronous (in the sense of UEFI) 
 // transfer is supported. A dummy QH is linked to EHCI AsyncListAddr
 // as the reclamation header. New transfer is inserted after this QH.
 //
@@ -189,17 +196,17 @@ struct _PEI_EHC_QH {
   UINT32                  Signature;
   PEI_EHC_QH              *NextQh;    // The queue head pointed to by horizontal link
   EFI_LIST_ENTRY          Qtds;       // The list of QTDs to this queue head
-  UINTN                   Interval;
+  UINTN                   Interval; 
 };
 
 //
-// URB (Usb Request Block) contains information for all kinds of
+// URB (Usb Request Block) contains information for all kinds of 
 // usb requests.
 //
 struct _PEI_URB {
   UINT32                          Signature;
   EFI_LIST_ENTRY                  UrbList;
-
+  
   //
   // Transaction information
   //
@@ -211,14 +218,14 @@ struct _PEI_URB {
   UINTN                           DataLen;
   VOID                            *DataPhy;     // Address of the mapped user data
   VOID                            *DataMap;
-  EFI_ASYNC_USB_TRANSFER_CALLBACK Callback;
+  EFI_ASYNC_USB_TRANSFER_CALLBACK Callback; 
   VOID                            *Context;
 
   //
   // Schedule data
   //
   PEI_EHC_QH                      *Qh;
-
+  
   //
   // Transaction result
   //
@@ -230,7 +237,7 @@ struct _PEI_URB {
 /**
   Delete a single asynchronous interrupt transfer for
   the device and endpoint.
-
+  
   @param  Ehc         The EHCI device.
   @param  Data        Current data not associated with a QTD.
   @param  DataLen     The length of the data.
@@ -254,7 +261,7 @@ EhcCreateQtd (
 
 /**
   Allocate and initialize a EHCI queue head.
-
+  
   @param  Ehci      The EHCI device.
   @param  Ep        The endpoint to create queue head for.
 
@@ -270,7 +277,7 @@ EhcCreateQh (
 
 /**
   Free an allocated URB. It is possible for it to be partially inited.
-
+  
   @param  Ehc         The EHCI device.
   @param  Urb         The URB to free.
 
@@ -284,7 +291,7 @@ EhcFreeUrb (
 
 /**
   Create a new URB and its associated QTD.
-
+  
   @param  Ehc               The EHCI device.
   @param  DevAddr           The device address.
   @param  EpAddr            Endpoint addrress & its direction.
@@ -307,7 +314,7 @@ PEI_URB *
 EhcCreateUrb (
   IN PEI_USB2_HC_DEV                    *Ehc,
   IN UINT8                              DevAddr,
-  IN UINT8                              EpAddr,
+  IN UINT8                              EpAddr,  
   IN UINT8                              DevSpeed,
   IN UINT8                              Toggle,
   IN UINTN                              MaxPacket,

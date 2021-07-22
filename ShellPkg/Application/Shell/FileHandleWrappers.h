@@ -2,7 +2,13 @@
   EFI_FILE_PROTOCOL wrappers for other items (Like Environment Variables, StdIn, StdOut, StdErr, etc...)
 
   Copyright (c) 2009 - 2010, Intel Corporation. All rights reserved.<BR>
-  SPDX-License-Identifier: BSD-2-Clause-Patent
+  This program and the accompanying materials
+  are licensed and made available under the terms and conditions of the BSD License
+  which accompanies this distribution.  The full text of the license may be found at
+  http://opensource.org/licenses/bsd-license.php
+
+  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
@@ -20,17 +26,17 @@ typedef struct {
 } SHELL_LINE_LOG;
 
 ///
-/// FILE styte interfaces for StdIn.
+/// FILE sytle interfaces for StdIn.
 ///
 extern EFI_FILE_PROTOCOL FileInterfaceStdIn;
 
 ///
-/// FILE styte interfaces for StdOut.
+/// FILE sytle interfaces for StdOut.
 ///
 extern EFI_FILE_PROTOCOL FileInterfaceStdOut;
 
 ///
-/// FILE styte interfaces for StdErr.
+/// FILE sytle interfaces for StdErr.
 ///
 extern EFI_FILE_PROTOCOL FileInterfaceStdErr;
 
@@ -49,6 +55,7 @@ extern EFI_FILE_PROTOCOL FileInterfaceNulFile;
   @return other     a pointer to an EFI_FILE_PROTOCOL structure
 **/
 EFI_FILE_PROTOCOL*
+EFIAPI
 CreateFileInterfaceEnv(
   CONST CHAR16 *EnvName
   );
@@ -63,6 +70,7 @@ CreateFileInterfaceEnv(
   @return other     a pointer to an EFI_FILE_PROTOCOL structure
 **/
 EFI_FILE_PROTOCOL*
+EFIAPI
 CreateFileInterfaceMem(
   IN CONST BOOLEAN Unicode
   );

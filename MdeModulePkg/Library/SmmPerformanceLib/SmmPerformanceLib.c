@@ -6,13 +6,19 @@
   to log performance data. If both SMM PerformanceEx and Performance Protocol are not available, it does not log any
   performance information.
 
-  Copyright (c) 2011 - 2018, Intel Corporation. All rights reserved.<BR>
-SPDX-License-Identifier: BSD-2-Clause-Patent
+  Copyright (c) 2011 - 2012, Intel Corporation. All rights reserved.<BR>
+This program and the accompanying materials
+are licensed and made available under the terms and conditions of the BSD License
+which accompanies this distribution.  The full text of the license may be found at
+http://opensource.org/licenses/bsd-license.php
+
+THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
 
-#include <Guid/PerformanceMeasurement.h>
+#include <Guid/Performance.h>
 
 #include <Library/PerformanceLib.h>
 #include <Library/DebugLib.h>
@@ -22,8 +28,10 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
 
 //
 // The cached SMM Performance Protocol and SMM PerformanceEx Protocol interface.
-EDKII_PERFORMANCE_MEASUREMENT_PROTOCOL  *mPerformanceMeasurement = NULL;
-BOOLEAN                                 mPerformanceMeasurementEnabled;
+//
+PERFORMANCE_PROTOCOL        *mPerformance = NULL;
+PERFORMANCE_EX_PROTOCOL     *mPerformanceEx = NULL;
+BOOLEAN                     mPerformanceMeasurementEnabled;
 
 /**
   The constructor function initializes the Performance Measurement Enable flag
@@ -41,7 +49,7 @@ SmmPerformanceLibConstructor (
   IN EFI_SYSTEM_TABLE  *SystemTable
   )
 {
-
+  
   mPerformanceMeasurementEnabled =  (BOOLEAN) ((PcdGet8(PcdPerformanceLibraryPropertyMask) & PERFORMANCE_LIBRARY_PROPERTY_MEASUREMENT_ENABLED) != 0);
 
   return EFI_SUCCESS;
@@ -57,26 +65,38 @@ SmmPerformanceLibConstructor (
 
 **/
 EFI_STATUS
-GetPerformanceMeasurementProtocol (
+GetPerformanceProtocol (
   VOID
   )
 {
   EFI_STATUS                Status;
-  EDKII_PERFORMANCE_MEASUREMENT_PROTOCOL   *PerformanceMeasurement;
+  PERFORMANCE_PROTOCOL      *Performance;
+  PERFORMANCE_EX_PROTOCOL   *PerformanceEx;
 
-  if (mPerformanceMeasurement != NULL) {
+  if (mPerformanceEx != NULL || mPerformance != NULL) {
     return EFI_SUCCESS;
   }
 
-  Status = gSmst->SmmLocateProtocol (&gEdkiiSmmPerformanceMeasurementProtocolGuid, NULL, (VOID **) &PerformanceMeasurement);
+  Status = gSmst->SmmLocateProtocol (&gSmmPerformanceExProtocolGuid, NULL, (VOID **) &PerformanceEx);
   if (!EFI_ERROR (Status)) {
-    ASSERT (PerformanceMeasurement != NULL);
+    ASSERT (PerformanceEx != NULL);
     //
-    // Cache PerformanceMeasurement Protocol.
+    // Cache PerformanceEx Protocol.
     //
-    mPerformanceMeasurement = PerformanceMeasurement;
+    mPerformanceEx = PerformanceEx;
     return EFI_SUCCESS;
   }
+
+  Status = gSmst->SmmLocateProtocol (&gSmmPerformanceProtocolGuid, NULL, (VOID **) &Performance);
+  if (!EFI_ERROR (Status)) {
+    ASSERT (Performance != NULL);
+    //
+    // Cache performance protocol.
+    //
+    mPerformance = Performance;
+    return EFI_SUCCESS;
+  }
+
   return EFI_NOT_FOUND;
 }
 
@@ -112,24 +132,17 @@ StartPerformanceMeasurementEx (
   IN UINT32       Identifier
   )
 {
-  EFI_STATUS    Status;
-  CONST CHAR8*  String;
+  EFI_STATUS  Status;
 
-  Status = GetPerformanceMeasurementProtocol ();
+  Status = GetPerformanceProtocol ();
   if (EFI_ERROR (Status)) {
-    return RETURN_NOT_FOUND;
+    return RETURN_OUT_OF_RESOURCES;
   }
 
-  if (Token != NULL) {
-    String = Token;
-  } else if (Module != NULL) {
-    String = Module;
-  } else {
-    String = NULL;
-  }
-
-  if (mPerformanceMeasurement != NULL) {
-    Status = mPerformanceMeasurement->CreatePerformanceMeasurement (Handle, NULL, String, TimeStamp, 0, Identifier, PerfStartEntry);
+  if (mPerformanceEx != NULL) {
+    Status = mPerformanceEx->StartGaugeEx (Handle, Token, Module, TimeStamp, Identifier);
+  } else if (mPerformance != NULL) {
+    Status = mPerformance->StartGauge (Handle, Token, Module, TimeStamp);
   } else {
     ASSERT (FALSE);
   }
@@ -140,7 +153,7 @@ StartPerformanceMeasurementEx (
 /**
   Fills in the end time of a performance measurement.
 
-  Looks up the record that matches Handle, Token and Module.
+  Looks up the record that matches Handle, Token, Module and Identifier.
   If the record can not be found then return RETURN_NOT_FOUND.
   If the record is found and TimeStamp is not zero,
   then TimeStamp is added to the record as the end time.
@@ -171,24 +184,17 @@ EndPerformanceMeasurementEx (
   IN UINT32       Identifier
   )
 {
-  EFI_STATUS    Status;
-  CONST CHAR8*  String;
+  EFI_STATUS  Status;
 
-  Status = GetPerformanceMeasurementProtocol ();
+  Status = GetPerformanceProtocol ();
   if (EFI_ERROR (Status)) {
     return RETURN_NOT_FOUND;
   }
 
-  if (Token != NULL) {
-    String = Token;
-  } else if (Module != NULL) {
-    String = Module;
-  } else {
-    String = NULL;
-  }
-
-  if (mPerformanceMeasurement != NULL) {
-    Status = mPerformanceMeasurement->CreatePerformanceMeasurement (Handle, NULL, String, TimeStamp, 0, Identifier, PerfEndEntry);
+  if (mPerformanceEx != NULL) {
+    Status = mPerformanceEx->EndGaugeEx (Handle, Token, Module, TimeStamp, Identifier);
+  } else if (mPerformance != NULL) {
+    Status = mPerformance->EndGauge (Handle, Token, Module, TimeStamp);
   } else {
     ASSERT (FALSE);
   }
@@ -240,7 +246,7 @@ EndPerformanceMeasurementEx (
 UINTN
 EFIAPI
 GetPerformanceMeasurementEx (
-  IN  UINTN       LogEntryKey,
+  IN  UINTN       LogEntryKey, 
   OUT CONST VOID  **Handle,
   OUT CONST CHAR8 **Token,
   OUT CONST CHAR8 **Module,
@@ -249,7 +255,58 @@ GetPerformanceMeasurementEx (
   OUT UINT32      *Identifier
   )
 {
-  return 0;
+  EFI_STATUS            Status;
+  GAUGE_DATA_ENTRY_EX   *GaugeData;
+
+  GaugeData = NULL;
+
+  ASSERT (Handle != NULL);
+  ASSERT (Token != NULL);
+  ASSERT (Module != NULL);
+  ASSERT (StartTimeStamp != NULL);
+  ASSERT (EndTimeStamp != NULL);
+  ASSERT (Identifier != NULL);
+
+  Status = GetPerformanceProtocol ();
+  if (EFI_ERROR (Status)) {
+    return 0;
+  }
+
+  if (mPerformanceEx != NULL) {
+    Status = mPerformanceEx->GetGaugeEx (LogEntryKey++, &GaugeData);
+  } else if (mPerformance != NULL) {
+    Status = mPerformance->GetGauge (LogEntryKey++, (GAUGE_DATA_ENTRY **) &GaugeData);
+  } else {
+    ASSERT (FALSE);
+    return 0;
+  }
+
+  //
+  // Make sure that LogEntryKey is a valid log entry key,
+  //
+  ASSERT (Status != EFI_INVALID_PARAMETER);
+
+  if (EFI_ERROR (Status)) {
+    //
+    // The LogEntryKey is the last entry (equals to the total entry number).
+    //
+    return 0;
+  }
+
+  ASSERT (GaugeData != NULL);
+
+  *Handle         = (VOID *) (UINTN) GaugeData->Handle;
+  *Token          = GaugeData->Token;
+  *Module         = GaugeData->Module;
+  *StartTimeStamp = GaugeData->StartTimeStamp;
+  *EndTimeStamp   = GaugeData->EndTimeStamp;
+  if (mPerformanceEx != NULL) {
+    *Identifier   = GaugeData->Identifier;
+  } else {
+    *Identifier   = 0;
+  }
+
+  return LogEntryKey;
 }
 
 /**
@@ -368,7 +425,8 @@ GetPerformanceMeasurement (
   OUT UINT64      *EndTimeStamp
   )
 {
-  return 0;
+  UINT32 Identifier;
+  return GetPerformanceMeasurementEx (LogEntryKey, Handle, Token, Module, StartTimeStamp, EndTimeStamp, &Identifier);
 }
 
 /**
@@ -390,72 +448,4 @@ PerformanceMeasurementEnabled (
   )
 {
   return mPerformanceMeasurementEnabled;
-}
-
-/**
-  Create performance record with event description and a timestamp.
-
-  @param CallerIdentifier  - Image handle or pointer to caller ID GUID
-  @param Guid              - Pointer to a GUID
-  @param String            - Pointer to a string describing the measurement
-  @param Address           - Pointer to a location in memory relevant to the measurement
-  @param Identifier        - Performance identifier describing the type of measurement
-
-  @retval RETURN_SUCCESS           - Successfully created performance record
-  @retval RETURN_OUT_OF_RESOURCES  - Ran out of space to store the records
-  @retval RETURN_INVALID_PARAMETER - Invalid parameter passed to function - NULL
-                                     pointer or invalid PerfId
-
-**/
-RETURN_STATUS
-EFIAPI
-LogPerformanceMeasurement (
-  IN CONST VOID   *CallerIdentifier,
-  IN CONST VOID   *Guid,    OPTIONAL
-  IN CONST CHAR8  *String,  OPTIONAL
-  IN UINT64       Address, OPTIONAL
-  IN UINT32       Identifier
-  )
-{
-  EFI_STATUS  Status;
-
-  Status = GetPerformanceMeasurementProtocol ();
-  if (EFI_ERROR (Status)) {
-    return RETURN_OUT_OF_RESOURCES;
-  }
-
-  if (mPerformanceMeasurement != NULL) {
-    Status = mPerformanceMeasurement->CreatePerformanceMeasurement (CallerIdentifier, Guid, String, 0, Address, Identifier, PerfEntry);
-  } else {
-    ASSERT (FALSE);
-  }
-
-  return (RETURN_STATUS) Status;
-}
-
-/**
-  Check whether the specified performance measurement can be logged.
-
-  This function returns TRUE when the PERFORMANCE_LIBRARY_PROPERTY_MEASUREMENT_ENABLED bit of PcdPerformanceLibraryPropertyMask is set
-  and the Type disable bit in PcdPerformanceLibraryPropertyMask is not set.
-
-  @param Type        - Type of the performance measurement entry.
-
-  @retval TRUE         The performance measurement can be logged.
-  @retval FALSE        The performance measurement can NOT be logged.
-
-**/
-BOOLEAN
-EFIAPI
-LogPerformanceMeasurementEnabled (
-  IN  CONST UINTN        Type
-  )
-{
-  //
-  // When Performance measurement is enabled and the type is not filtered, the performance can be logged.
-  //
-  if (PerformanceMeasurementEnabled () && (PcdGet8(PcdPerformanceLibraryPropertyMask) & Type) == 0) {
-    return TRUE;
-  }
-  return FALSE;
 }

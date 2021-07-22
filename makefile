@@ -31,7 +31,7 @@ BUILD_ROOT := $(ANDROID_PRODUCT_OUT)/$(TARGET)_$(TARGET_TOOLS)
 EDK_TOOLS := $(BUILDDIR)/BaseTools
 EDK_TOOLS_BIN := $(EDK_TOOLS)/Source/C/bin
 ABL_FV_IMG := $(BUILD_ROOT)/FV/abl.fv
-ABL_FV_ELF := $(BOOTLOADER_OUT)/../../unsigned_abl.elf
+ABL_FV_ELF := $(BOOTLOADER_OUT)/../../abl.elf
 SHELL:=/bin/bash
 
 # This function is to check version compatibility, used to control features based on the compiler version. \
@@ -67,7 +67,7 @@ else
 endif
 
 ifeq ($(TARGET_ARCHITECTURE), arm)
-	LOAD_ADDRESS := 0X8F700000
+	LOAD_ADDRESS := 0X8FB00000
 else
 	LOAD_ADDRESS := 0X9FA00000
 endif
@@ -90,6 +90,10 @@ ifneq "$(INIT_BIN_LE)" ""
 	INIT_BIN := $(INIT_BIN_LE)
 else
 	INIT_BIN := \"/init\"
+endif
+
+ifeq "$(USERDATAIMAGE_FILE_SYSTEM_TYPE)" ""
+	USERDATAIMAGE_FILE_SYSTEM_TYPE := ext4
 endif
 
 export SDLLVM_COMPILE_ANALYZE := $(SDLLVM_COMPILE_ANALYZE)
@@ -150,6 +154,9 @@ ABL_FV_IMG: EDK_TOOLS_BIN
 	-D UBSAN_UEFI_GCC_FLAG_UNDEFINED=$(UBSAN_GCC_FLAG_UNDEFINED) \
 	-D UBSAN_UEFI_GCC_FLAG_ALIGNMENT=$(UBSAN_GCC_FLAG_ALIGNMENT) \
 	-D NAND_SQUASHFS_SUPPORT=$(NAND_SQUASHFS_SUPPORT) \
+	-D ENABLE_SYSTEMD_BOOTSLOT=$(ENABLE_SYSTEMD_BOOTSLOT) \
+	-D RW_ROOTFS=$(RW_ROOTFS) \
+	-D USERDATAIMAGE_FILE_SYSTEM_TYPE=$(USERDATAIMAGE_FILE_SYSTEM_TYPE) \
 	-j build_modulepkg.log $*
 
 	cp $(BUILD_ROOT)/FV/FVMAIN_COMPACT.Fv $(ABL_FV_IMG)
@@ -158,4 +165,4 @@ BASETOOLS_CLEAN: ABL_FV_IMG
 	@$(MAKEPATH)make -C $(BUILDDIR)/BaseTools/Source/C clean > /dev/null
 
 ABL_FV_ELF: BASETOOLS_CLEAN
-	python3 $(WORKSPACE)/QcomModulePkg/Tools/image_header.py $(ABL_FV_IMG) $(ABL_FV_ELF) $(LOAD_ADDRESS) elf 32 nohash
+	python $(WORKSPACE)/QcomModulePkg/Tools/image_header.py $(ABL_FV_IMG) $(ABL_FV_ELF) $(LOAD_ADDRESS) elf 32

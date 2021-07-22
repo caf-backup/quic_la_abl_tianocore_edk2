@@ -3,7 +3,13 @@
   compiler.
 
   Copyright (c) 2006 - 2010, Intel Corporation. All rights reserved.<BR>
-  SPDX-License-Identifier: BSD-2-Clause-Patent
+  This program and the accompanying materials
+  are licensed and made available under the terms and conditions of the BSD License
+  which accompanies this distribution.  The full text of the license may be found at
+  http://opensource.org/licenses/bsd-license.php.
+
+  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
@@ -80,7 +86,7 @@ InternalMathARShiftU64 (
   //
   // Test if this compiler supports arithmetic shift
   //
-  TestValue = (INTN)((INT64)(1ULL << 63) >> 63);
+  TestValue = (((-1) << (sizeof (-1) * 8 - 1)) >> (sizeof (-1) * 8 - 1));
   if (TestValue == -1) {
     //
     // Arithmetic shift is supported

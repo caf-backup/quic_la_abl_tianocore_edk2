@@ -1,7 +1,13 @@
 /** @file
 
-  Copyright (c) 2014 - 2019, Intel Corporation. All rights reserved.<BR>
-  SPDX-License-Identifier: BSD-2-Clause-Patent
+  Copyright (c) 2014, Intel Corporation. All rights reserved.<BR>
+  This program and the accompanying materials
+  are licensed and made available under the terms and conditions of the BSD License
+  which accompanies this distribution.  The full text of the license may be found at
+  http://opensource.org/licenses/bsd-license.php
+
+  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
@@ -12,10 +18,13 @@
 //
 UFS_PASS_THRU_PRIVATE_DATA gUfsPassThruTemplate = {
   UFS_PASS_THRU_SIG,              // Signature
-  NULL,                           // Handle
+  NULL,                           // Handle  
   {                               // ExtScsiPassThruMode
     0xFFFFFFFF,
-    EFI_EXT_SCSI_PASS_THRU_ATTRIBUTES_PHYSICAL | EFI_EXT_SCSI_PASS_THRU_ATTRIBUTES_LOGICAL | EFI_EXT_SCSI_PASS_THRU_ATTRIBUTES_NONBLOCKIO,
+    //
+    // Note that the driver doesn't support ExtScsiPassThru non blocking I/O.
+    //
+    EFI_EXT_SCSI_PASS_THRU_ATTRIBUTES_PHYSICAL | EFI_EXT_SCSI_PASS_THRU_ATTRIBUTES_LOGICAL,
     sizeof (UINTN)
   },
   {                               // ExtScsiPassThru
@@ -28,15 +37,9 @@ UFS_PASS_THRU_PRIVATE_DATA gUfsPassThruTemplate = {
     UfsPassThruResetTargetLun,
     UfsPassThruGetNextTarget
   },
-  {                               // UfsDevConfig
-    UfsRwUfsDescriptor,
-    UfsRwUfsFlag,
-    UfsRwUfsAttribute
-  },
   0,                              // UfsHostController
   0,                              // UfsHcBase
-  {0, 0},                         // UfsHcInfo
-  {NULL, NULL},                   // UfsHcDriverInterface
+  0,                              // Capabilities
   0,                              // TaskTag
   0,                              // UtpTrlBase
   0,                              // Nutrs
@@ -61,11 +64,6 @@ UFS_PASS_THRU_PRIVATE_DATA gUfsPassThruTemplate = {
     },
     0x0000,                           // By default don't expose any Luns.
     0x0
-  },
-  NULL,                           // TimerEvent
-  {                               // Queue
-    NULL,
-    NULL
   }
 };
 
@@ -92,8 +90,6 @@ UFS_DEVICE_PATH    mUfsDevicePathTemplate = {
 };
 
 UINT8 mUfsTargetId[TARGET_MAX_BYTES];
-
-GLOBAL_REMOVE_IF_UNREFERENCED EDKII_UFS_HC_PLATFORM_PROTOCOL  *mUfsHcPlatform;
 
 /**
   Sends a SCSI Request Packet to a SCSI device that is attached to the SCSI channel. This function
@@ -206,7 +202,7 @@ UfsPassThruPassThru (
     if ((Private->Luns.BitMask & (BIT0 << Index)) == 0) {
       continue;
     }
-
+  
     if (Private->Luns.Lun[Index] == UfsLun) {
       break;
     }
@@ -216,7 +212,7 @@ UfsPassThruPassThru (
     return EFI_INVALID_PARAMETER;
   }
 
-  Status = UfsExecScsiCmds (Private, UfsLun, Packet, Event);
+  Status = UfsExecScsiCmds (Private, UfsLun, Packet);
 
   return Status;
 }
@@ -410,7 +406,7 @@ UfsPassThruBuildDevicePath (
     if ((Private->Luns.BitMask & (BIT0 << Index)) == 0) {
       continue;
     }
-
+  
     if (Private->Luns.Lun[Index] == UfsLun) {
       break;
     }
@@ -481,10 +477,10 @@ UfsPassThruGetTargetLun (
   }
 
   //
-  // Check whether the DevicePath belongs to UFS_DEVICE_PATH
+  // Check whether the DevicePath belongs to SCSI_DEVICE_PATH
   //
   if ((DevicePath->Type != MESSAGING_DEVICE_PATH) || (DevicePath->SubType != MSG_UFS_DP) ||
-      (DevicePathNodeLength(DevicePath) != sizeof(UFS_DEVICE_PATH))) {
+      (DevicePathNodeLength(DevicePath) != sizeof(SCSI_DEVICE_PATH))) {
     return EFI_UNSUPPORTED;
   }
 
@@ -501,7 +497,7 @@ UfsPassThruGetTargetLun (
     if ((Private->Luns.BitMask & (BIT0 << Index)) == 0) {
       continue;
     }
-
+  
     if (Private->Luns.Lun[Index] == UfsLun) {
       break;
     }
@@ -607,6 +603,10 @@ UfsPassThruGetNextTarget (
   IN OUT UINT8                           **Target
   )
 {
+  UFS_PASS_THRU_PRIVATE_DATA      *Private;
+
+  Private = UFS_PASS_THRU_PRIVATE_DATA_FROM_THIS (This);
+
   if (Target == NULL || *Target == NULL) {
     return EFI_INVALID_PARAMETER;
   }
@@ -727,49 +727,7 @@ UfsPassThruDriverBindingSupported (
         This->DriverBindingHandle,
         Controller
         );
-
-  return EFI_SUCCESS;
-}
-
-/**
-  Finishes device initialization by setting fDeviceInit flag and waiting untill device responds by
-  clearing it.
-
-  @param[in] Private  Pointer to the UFS_PASS_THRU_PRIVATE_DATA.
-
-  @retval EFI_SUCCESS  The operation succeeds.
-  @retval Others       The operation fails.
-
-**/
-EFI_STATUS
-UfsFinishDeviceInitialization (
-  IN UFS_PASS_THRU_PRIVATE_DATA  *Private
-  )
-{
-  EFI_STATUS  Status;
-  UINT8  DeviceInitStatus;
-  UINT8  Timeout;
-
-  DeviceInitStatus = 0xFF;
-
-  //
-  // The host enables the device initialization completion by setting fDeviceInit flag.
-  //
-  Status = UfsSetFlag (Private, UfsFlagDevInit);
-  if (EFI_ERROR (Status)) {
-    return Status;
-  }
-
-  Timeout = 5;
-  do {
-    Status = UfsReadFlag (Private, UfsFlagDevInit, &DeviceInitStatus);
-    if (EFI_ERROR (Status)) {
-      return Status;
-    }
-    MicroSecondDelay (1);
-    Timeout--;
-  } while (DeviceInitStatus != 0 && Timeout != 0);
-
+        
   return EFI_SUCCESS;
 }
 
@@ -821,17 +779,14 @@ UfsPassThruDriverBindingStart (
   UFS_PASS_THRU_PRIVATE_DATA            *Private;
   UINTN                                 UfsHcBase;
   UINT32                                Index;
-  UFS_UNIT_DESC                         UnitDescriptor;
-  UFS_DEV_DESC                          DeviceDescriptor;
-  UINT32                                UnitDescriptorSize;
-  UINT32                                DeviceDescriptorSize;
+  UFS_CONFIG_DESC                       Config;
 
   Status    = EFI_SUCCESS;
   UfsHc     = NULL;
   Private   = NULL;
   UfsHcBase = 0;
 
-  DEBUG ((DEBUG_INFO, "==UfsPassThru Start== Controller = %x\n", Controller));
+  DEBUG ((EFI_D_INFO, "==UfsPassThru Start== Controller = %x\n", Controller));
 
   Status  = gBS->OpenProtocol (
                    Controller,
@@ -843,7 +798,7 @@ UfsPassThruDriverBindingStart (
                    );
 
   if (EFI_ERROR (Status)) {
-    DEBUG ((DEBUG_ERROR, "Open Ufs Host Controller Protocol Error, Status = %r\n", Status));
+    DEBUG ((EFI_D_ERROR, "Open Ufs Host Controller Protocol Error, Status = %r\n", Status));
     goto Error;
   }
 
@@ -852,7 +807,7 @@ UfsPassThruDriverBindingStart (
   //
   Status = UfsHc->GetUfsHcMmioBar (UfsHc, &UfsHcBase);
   if (EFI_ERROR (Status)) {
-    DEBUG ((DEBUG_ERROR, "Get Ufs Host Controller Mmio Bar Error, Status = %r\n", Status));
+    DEBUG ((EFI_D_ERROR, "Get Ufs Host Controller Mmio Bar Error, Status = %r\n", Status));
     goto Error;
   }
 
@@ -861,7 +816,6 @@ UfsPassThruDriverBindingStart (
   //
   Private = AllocateCopyPool (sizeof (UFS_PASS_THRU_PRIVATE_DATA), &gUfsPassThruTemplate);
   if (Private == NULL) {
-    DEBUG ((DEBUG_ERROR, "Unable to allocate Ufs Pass Thru private data\n"));
     Status = EFI_OUT_OF_RESOURCES;
     goto Error;
   }
@@ -869,115 +823,61 @@ UfsPassThruDriverBindingStart (
   Private->ExtScsiPassThru.Mode = &Private->ExtScsiPassThruMode;
   Private->UfsHostController    = UfsHc;
   Private->UfsHcBase            = UfsHcBase;
-  Private->Handle               = Controller;
-  Private->UfsHcDriverInterface.UfsHcProtocol = UfsHc;
-  Private->UfsHcDriverInterface.UfsExecUicCommand = UfsHcDriverInterfaceExecUicCommand;
-  InitializeListHead (&Private->Queue);
-
-  //
-  // This has to be done before initializing UfsHcInfo or calling the UfsControllerInit
-  //
-  if (mUfsHcPlatform == NULL) {
-    Status = gBS->LocateProtocol (&gEdkiiUfsHcPlatformProtocolGuid, NULL, (VOID**)&mUfsHcPlatform);
-    if (EFI_ERROR (Status)) {
-      DEBUG ((DEBUG_INFO, "No UfsHcPlatformProtocol present\n"));
-    }
-  }
-
-  Status = GetUfsHcInfo (Private);
-  if (EFI_ERROR (Status)) {
-    DEBUG ((DEBUG_ERROR, "Failed to initialize UfsHcInfo\n"));
-    goto Error;
-  }
 
   //
   // Initialize UFS Host Controller H/W.
   //
   Status = UfsControllerInit (Private);
   if (EFI_ERROR (Status)) {
-    DEBUG ((DEBUG_ERROR, "Ufs Host Controller Initialization Error, Status = %r\n", Status));
+    DEBUG ((EFI_D_ERROR, "Ufs Host Controller Initialization Error, Status = %r\n", Status));
     goto Error;
   }
 
   //
   // UFS 2.0 spec Section 13.1.3.3:
-  // At the end of the UFS Interconnect Layer initialization on both host and device side,
-  // the host shall send a NOP OUT UPIU to verify that the device UTP Layer is ready.
+  // At the end of the UFS Interconnect Layer initialization on both host and device side, 
+  // the host shall send a NOP OUT UPIU to verify that the device UTP Layer is ready. 
   //
   Status = UfsExecNopCmds (Private);
   if (EFI_ERROR (Status)) {
-    DEBUG ((DEBUG_ERROR, "Ufs Sending NOP IN command Error, Status = %r\n", Status));
+    DEBUG ((EFI_D_ERROR, "Ufs Sending NOP IN command Error, Status = %r\n", Status));
     goto Error;
   }
 
-  Status = UfsFinishDeviceInitialization (Private);
+  //
+  // The host enables the device initialization completion by setting fDeviceInit flag.
+  //
+  Status = UfsSetFlag (Private, UfsFlagDevInit);
   if (EFI_ERROR (Status)) {
-    DEBUG ((DEBUG_ERROR, "Device failed to finish initialization, Status = %r\n", Status));
+    DEBUG ((EFI_D_ERROR, "Ufs Set fDeviceInit Flag Error, Status = %r\n", Status));
+    goto Error;
+  }
+
+  //
+  // Get Ufs Device's Lun Info by reading Configuration Descriptor.
+  //
+  Status = UfsRwDeviceDesc (Private, TRUE, UfsConfigDesc, 0, 0, &Config, sizeof (UFS_CONFIG_DESC));
+  if (EFI_ERROR (Status)) {
+    DEBUG ((EFI_D_ERROR, "Ufs Get Configuration Descriptor Error, Status = %r\n", Status));
     goto Error;
   }
 
   //
   // Check if 8 common luns are active and set corresponding bit mask.
+  // TODO: Parse device descriptor to decide if exposing RPMB LUN to upper layer for authentication access.
   //
-  UnitDescriptorSize = sizeof (UFS_UNIT_DESC);
   for (Index = 0; Index < 8; Index++) {
-    Status = UfsRwDeviceDesc (Private, TRUE, UfsUnitDesc, (UINT8) Index, 0, &UnitDescriptor, &UnitDescriptorSize);
-    if (EFI_ERROR (Status)) {
-      DEBUG ((DEBUG_ERROR, "Failed to read unit descriptor, index = %X, status = %r\n", Index, Status));
-      continue;
-    }
-    if (UnitDescriptor.LunEn == 0x1) {
-      DEBUG ((DEBUG_INFO, "UFS LUN %X is enabled\n", Index));
+    if (Config.UnitDescConfParams[Index].LunEn != 0) {
       Private->Luns.BitMask |= (BIT0 << Index);
+      DEBUG ((EFI_D_INFO, "Ufs Lun %d is enabled\n", Index));
     }
   }
 
-  //
-  // Check if RPMB WLUN is supported and set corresponding bit mask.
-  //
-  DeviceDescriptorSize = sizeof (UFS_DEV_DESC);
-  Status = UfsRwDeviceDesc (Private, TRUE, UfsDeviceDesc, 0, 0, &DeviceDescriptor, &DeviceDescriptorSize);
-  if (EFI_ERROR (Status)) {
-    DEBUG ((DEBUG_ERROR, "Failed to read device descriptor, status = %r\n", Status));
-  } else {
-    if (DeviceDescriptor.SecurityLun == 0x1) {
-      DEBUG ((DEBUG_INFO, "UFS WLUN RPMB is supported\n"));
-      Private->Luns.BitMask |= BIT11;
-    }
-  }
-
-  //
-  // Start the asynchronous interrupt monitor
-  //
-  Status = gBS->CreateEvent (
-                  EVT_TIMER | EVT_NOTIFY_SIGNAL,
-                  TPL_NOTIFY,
-                  ProcessAsyncTaskList,
-                  Private,
-                  &Private->TimerEvent
-                  );
-  if (EFI_ERROR (Status)) {
-    DEBUG ((DEBUG_ERROR, "Ufs Create Async Tasks Event Error, Status = %r\n", Status));
-    goto Error;
-  }
-
-  Status = gBS->SetTimer (
-                  Private->TimerEvent,
-                  TimerPeriodic,
-                  UFS_HC_ASYNC_TIMER
-                  );
-  if (EFI_ERROR (Status)) {
-    DEBUG ((DEBUG_ERROR, "Ufs Set Periodic Timer Error, Status = %r\n", Status));
-    goto Error;
-  }
-
-  Status = gBS->InstallMultipleProtocolInterfaces (
+  Status = gBS->InstallProtocolInterface (
                   &Controller,
                   &gEfiExtScsiPassThruProtocolGuid,
-                  &(Private->ExtScsiPassThru),
-                  &gEfiUfsDeviceConfigProtocolGuid,
-                  &(Private->UfsDevConfig),
-                  NULL
+                  EFI_NATIVE_INTERFACE,
+                  &(Private->ExtScsiPassThru)
                   );
   ASSERT_EFI_ERROR (Status);
 
@@ -986,7 +886,7 @@ UfsPassThruDriverBindingStart (
 Error:
   if (Private != NULL) {
     if (Private->TmrlMapping != NULL) {
-      UfsHc->Unmap (UfsHc, Private->TmrlMapping);
+      UfsHc->Unmap (UfsHc, Private->TmrlMapping);  
     }
     if (Private->UtpTmrlBase != NULL) {
       UfsHc->FreeBuffer (UfsHc, EFI_SIZE_TO_PAGES (Private->Nutmrs * sizeof (UTP_TMRD)), Private->UtpTmrlBase);
@@ -997,10 +897,6 @@ Error:
     }
     if (Private->UtpTrlBase != NULL) {
       UfsHc->FreeBuffer (UfsHc, EFI_SIZE_TO_PAGES (Private->Nutrs * sizeof (UTP_TMRD)), Private->UtpTrlBase);
-    }
-
-    if (Private->TimerEvent != NULL) {
-      gBS->CloseEvent (Private->TimerEvent);
     }
 
     FreePool (Private);
@@ -1057,11 +953,8 @@ UfsPassThruDriverBindingStop (
   UFS_PASS_THRU_PRIVATE_DATA            *Private;
   EFI_EXT_SCSI_PASS_THRU_PROTOCOL       *ExtScsiPassThru;
   EDKII_UFS_HOST_CONTROLLER_PROTOCOL    *UfsHc;
-  UFS_PASS_THRU_TRANS_REQ               *TransReq;
-  LIST_ENTRY                            *Entry;
-  LIST_ENTRY                            *NextEntry;
 
-  DEBUG ((DEBUG_INFO, "==UfsPassThru Stop== Controller Controller = %x\n", Controller));
+  DEBUG ((EFI_D_INFO, "==UfsPassThru Stop== Controller Controller = %x\n", Controller));
 
   Status = gBS->OpenProtocol (
                   Controller,
@@ -1079,31 +972,10 @@ UfsPassThruDriverBindingStop (
   Private = UFS_PASS_THRU_PRIVATE_DATA_FROM_THIS (ExtScsiPassThru);
   UfsHc   = Private->UfsHostController;
 
-  //
-  // Cleanup the resources of I/O requests in the async I/O queue
-  //
-  if (!IsListEmpty(&Private->Queue)) {
-    EFI_LIST_FOR_EACH_SAFE (Entry, NextEntry, &Private->Queue) {
-      TransReq  = UFS_PASS_THRU_TRANS_REQ_FROM_THIS (Entry);
-
-      //
-      // TODO: Should find/add a proper host adapter return status for this
-      // case.
-      //
-      TransReq->Packet->HostAdapterStatus =
-        EFI_EXT_SCSI_STATUS_HOST_ADAPTER_PHASE_ERROR;
-
-      SignalCallerEvent (Private, TransReq);
-    }
-  }
-
-  Status = gBS->UninstallMultipleProtocolInterfaces (
+  Status = gBS->UninstallProtocolInterface (
                   Controller,
                   &gEfiExtScsiPassThruProtocolGuid,
-                  &(Private->ExtScsiPassThru),
-                  &gEfiUfsDeviceConfigProtocolGuid,
-                  &(Private->UfsDevConfig),
-                  NULL
+                  &(Private->ExtScsiPassThru)
                   );
 
   if (EFI_ERROR (Status)) {
@@ -1128,10 +1000,6 @@ UfsPassThruDriverBindingStop (
   }
   if (Private->UtpTrlBase != NULL) {
     UfsHc->FreeBuffer (UfsHc, EFI_SIZE_TO_PAGES (Private->Nutrs * sizeof (UTP_TMRD)), Private->UtpTrlBase);
-  }
-
-  if (Private->TimerEvent != NULL) {
-    gBS->CloseEvent (Private->TimerEvent);
   }
 
   FreePool (Private);

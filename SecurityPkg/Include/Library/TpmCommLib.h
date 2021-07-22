@@ -1,9 +1,15 @@
 /** @file
-  This library is only intended to be used by TPM modules.
+  Ihis library is only intended to be used by TPM modules.
   It provides basic TPM Interface Specification (TIS) and Command functions.
 
-Copyright (c) 2005 - 2018, Intel Corporation. All rights reserved.<BR>
-SPDX-License-Identifier: BSD-2-Clause-Patent
+Copyright (c) 2005 - 2012, Intel Corporation. All rights reserved.<BR>
+This program and the accompanying materials 
+are licensed and made available under the terms and conditions of the BSD License 
+which accompanies this distribution.  The full text of the license may be found at 
+http://opensource.org/licenses/bsd-license.php
+
+THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS, 
+WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
@@ -155,7 +161,7 @@ typedef TIS_PC_REGISTERS  *TIS_PC_REGISTERS_PTR;
 #define TIS_PC_ACC_ESTABLISH        BIT0
 
 ///
-/// When this bit is 1, TPM is in the Ready state,
+/// When this bit is 1, TPM is in the Ready state, 
 /// indicating it is ready to receive a new command.
 ///
 #define TIS_PC_STS_READY            BIT6
@@ -185,7 +191,7 @@ typedef TIS_PC_REGISTERS  *TIS_PC_REGISTERS_PTR;
 #define TIS_TIMEOUT_D               750 * 1000   // 750ms
 
 //
-// Max TPM command/response length
+// Max TPM command/reponse length
 //
 #define TPMCMDBUFLENGTH             1024
 
@@ -204,17 +210,17 @@ EFI_STATUS
 EFIAPI
 TisPcWaitRegisterBits (
   IN UINT8   *Register,
-  IN UINT8   BitSet,
-  IN UINT8   BitClear,
-  IN UINT32  TimeOut
+  IN UINT8   BitSet,   
+  IN UINT8   BitClear, 
+  IN UINT32  TimeOut   
   );
 
 /**
-  Get BurstCount by reading the burstCount field of a TIS register
+  Get BurstCount by reading the burstCount field of a TIS regiger 
   in the time of default TIS_TIMEOUT_D.
 
   @param[in]  TisReg                Pointer to TIS register.
-  @param[out] BurstCount            Pointer to a buffer to store the got BurstCount.
+  @param[out] BurstCount            Pointer to a buffer to store the got BurstConut.
 
   @retval     EFI_SUCCESS           Get BurstCount.
   @retval     EFI_INVALID_PARAMETER TisReg is NULL or BurstCount is NULL.
@@ -228,7 +234,7 @@ TisPcReadBurstCount (
   );
 
 /**
-  Set TPM chip to ready state by sending ready command TIS_PC_STS_READY
+  Set TPM chip to ready state by sending ready command TIS_PC_STS_READY 
   to Status Register in time.
 
   @param[in] TisReg                Pointer to TIS register.
@@ -244,7 +250,7 @@ TisPcPrepareCommand (
   );
 
 /**
-  Get the control of TPM chip by sending requestUse command TIS_PC_ACC_RQUUSE
+  Get the control of TPM chip by sending requestUse command TIS_PC_ACC_RQUUSE 
   to ACCESS Register in the time of default TIS_TIMEOUT_D.
 
   @param[in] TisReg                Pointer to TIS register.
@@ -267,7 +273,7 @@ TisPcRequestUseTpm (
   @param[in]  Data          Raw data to be digested.
   @param[in]  DataLen       Size of the raw data.
   @param[out] Digest        Pointer to a buffer that stores the final digest.
-
+  
   @retval     EFI_SUCCESS   Always successfully calculate the final digest.
 **/
 EFI_STATUS

@@ -3,7 +3,13 @@
 ; Main routine of the pre-SEC code up through the jump into SEC
 ;
 ; Copyright (c) 2008 - 2009, Intel Corporation. All rights reserved.<BR>
-; SPDX-License-Identifier: BSD-2-Clause-Patent
+; This program and the accompanying materials
+; are licensed and made available under the terms and conditions of the BSD License
+; which accompanies this distribution.  The full text of the license may be found at
+; http://opensource.org/licenses/bsd-license.php
+;
+; THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+; WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 ;
 ;------------------------------------------------------------------------------
 
@@ -18,11 +24,6 @@ BITS    16
 ; @param[in,out]  DI       'BP': boot-strap processor, or
 ;                          'AP': application processor
 ; @param[out]     RBP/EBP  Address of Boot Firmware Volume (BFV)
-; @param[out]     DS       Selector allowing flat access to all addresses
-; @param[out]     ES       Selector allowing flat access to all addresses
-; @param[out]     FS       Selector allowing flat access to all addresses
-; @param[out]     GS       Selector allowing flat access to all addresses
-; @param[out]     SS       Selector allowing flat access to all addresses
 ;
 ; @return         None  This routine jumps to SEC and does not return
 ;

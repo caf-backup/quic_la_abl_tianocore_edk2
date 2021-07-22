@@ -3,14 +3,20 @@ Semaphore mechanism to indicate to the BSP that an AP has exited SMM
 after SMBASE relocation.
 
 Copyright (c) 2009 - 2015, Intel Corporation. All rights reserved.<BR>
-SPDX-License-Identifier: BSD-2-Clause-Patent
+This program and the accompanying materials
+are licensed and made available under the terms and conditions of the BSD License
+which accompanies this distribution.  The full text of the license may be found at
+http://opensource.org/licenses/bsd-license.php
+
+THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
 #include "PiSmmCpuDxeSmm.h"
 
-X86_ASSEMBLY_PATCH_LABEL gPatchSmmRelocationOriginalAddressPtr32;
-X86_ASSEMBLY_PATCH_LABEL gPatchRebasedFlagAddr32;
+extern  UINT32    mSmmRelocationOriginalAddressPtr32;
+extern  UINT32    mRebasedFlagAddr32;
 
 UINTN             mSmmRelocationOriginalAddress;
 volatile BOOLEAN  *mRebasedFlag;
@@ -43,11 +49,7 @@ SemaphoreHook (
   UINTN                 TempValue;
 
   mRebasedFlag       = RebasedFlag;
-  PatchInstructionX86 (
-    gPatchRebasedFlagAddr32,
-    (UINT32)(UINTN)mRebasedFlag,
-    4
-    );
+  mRebasedFlagAddr32 = (UINT32)(UINTN)mRebasedFlag;
 
   CpuState = (SMRAM_SAVE_STATE_MAP *)(UINTN)(SMM_DEFAULT_SMBASE + SMRAM_SAVE_STATE_MAP_OFFSET);
   mSmmRelocationOriginalAddress = HookReturnFromSmm (
@@ -58,12 +60,8 @@ SemaphoreHook (
                                     );
 
   //
-  // Use temp value to fix ICC compiler warning
+  // Use temp value to fix ICC complier warning
   //
   TempValue = (UINTN)&mSmmRelocationOriginalAddress;
-  PatchInstructionX86 (
-    gPatchSmmRelocationOriginalAddressPtr32,
-    (UINT32)TempValue,
-    4
-    );
+  mSmmRelocationOriginalAddressPtr32 = (UINT32)TempValue;
 }

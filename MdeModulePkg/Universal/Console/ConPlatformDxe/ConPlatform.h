@@ -1,8 +1,14 @@
 /** @file
   Header file for Console Platfrom DXE Driver.
 
-Copyright (c) 2006 - 2018, Intel Corporation. All rights reserved.<BR>
-SPDX-License-Identifier: BSD-2-Clause-Patent
+Copyright (c) 2006 - 2011, Intel Corporation. All rights reserved.<BR>
+This program and the accompanying materials
+are licensed and made available under the terms and conditions of the BSD License
+which accompanies this distribution.  The full text of the license may be found at
+http://opensource.org/licenses/bsd-license.php
+
+THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
@@ -15,7 +21,6 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
 #include <Protocol/DevicePath.h>
 #include <Protocol/SimpleTextIn.h>
 #include <Protocol/PciIo.h>
-#include <Protocol/UsbIo.h>
 #include <Protocol/GraphicsOutput.h>
 
 #include <Guid/GlobalVariable.h>
@@ -31,7 +36,6 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
 #include <Library/UefiRuntimeServicesTableLib.h>
 #include <Library/DevicePathLib.h>
 #include <Library/MemoryAllocationLib.h>
-#include <Library/UefiBootManagerLib.h>
 
 //
 // Driver Binding Externs
@@ -51,7 +55,7 @@ typedef enum {
 } CONPLATFORM_VAR_OPERATION;
 
 /**
-  Test to see if specific protocol could be supported on the ControllerHandle.
+  Test to see if specific protocol could be supported on the ControllerHandle. 
 
   @param  This                Protocol instance pointer.
   @param  ControllerHandle    Handle of device to test.
@@ -69,7 +73,7 @@ ConPlatformDriverBindingSupported (
   );
 
 /**
-  Test to see if EFI_SIMPLE_TEXT_INPUT_PROTOCOL is supported on ControllerHandle.
+  Test to see if EFI_SIMPLE_TEXT_INPUT_PROTOCOL is supported on ControllerHandle. 
 
   @param  This                Protocol instance pointer.
   @param  ControllerHandle    Handle of device to test.
@@ -89,7 +93,7 @@ ConPlatformTextInDriverBindingSupported (
   );
 
 /**
-  Test to see if EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL is supported on ControllerHandle.
+  Test to see if EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL is supported on ControllerHandle. 
 
   @param  This                Protocol instance pointer.
   @param  ControllerHandle    Handle of device to test.
@@ -114,8 +118,9 @@ ConPlatformTextOutDriverBindingSupported (
   Start this driver on ControllerHandle by opening Simple Text Input Protocol,
   reading Device Path, and installing Console In Devcice GUID on ControllerHandle.
 
-  Append its device path into the console environment variables ConInDev.
-
+  If this devcie is not one hot-plug devce, append its device path into the 
+  console environment variables ConInDev.
+  
   @param  This                 Protocol instance pointer.
   @param  ControllerHandle     Handle of device to bind driver to
   @param  RemainingDevicePath  Optional parameter use to pick a specific child
@@ -135,14 +140,15 @@ ConPlatformTextInDriverBindingStart (
   );
 
 /**
-  Start this driver on the device for console output and standard error output.
+  Start this driver on the device for console output and stardard error output.
 
   Start this driver on ControllerHandle by opening Simple Text Output Protocol,
   reading Device Path, and installing Console Out Devcic GUID, Standard Error
   Device GUID on ControllerHandle.
 
-  Append its device path into the console environment variables ConOutDev, ErrOutDev.
-
+  If this devcie is not one hot-plug devce, append its device path into the 
+  console environment variables ConOutDev, StdErrDev.
+  
   @param  This                 Protocol instance pointer.
   @param  ControllerHandle     Handle of device to bind driver to
   @param  RemainingDevicePath  Optional parameter use to pick a specific child
@@ -162,7 +168,7 @@ ConPlatformTextOutDriverBindingStart (
   );
 
 /**
-  Stop this driver on ControllerHandle by removing Console In Devcice GUID
+  Stop this driver on ControllerHandle by removing Console In Devcice GUID 
   and closing the Simple Text Input protocol on ControllerHandle.
 
   @param  This              Protocol instance pointer.
@@ -185,7 +191,7 @@ ConPlatformTextInDriverBindingStop (
   );
 
 /**
-  Stop this driver on ControllerHandle by removing Console Out Devcice GUID
+  Stop this driver on ControllerHandle by removing Console Out Devcice GUID 
   and closing the Simple Text Output protocol on ControllerHandle.
 
   @param  This              Protocol instance pointer.
@@ -229,7 +235,7 @@ ConPlatformUnInstallProtocol (
   @param  Name             String part of EFI variable name
 
   @return Dynamically allocated memory that contains a copy of the EFI variable.
-          Caller is repsoncible freeing the buffer. Return NULL means Variable
+          Caller is repsoncible freeing the buffer. Return NULL means Variable 
           was not read.
 
 **/
@@ -285,6 +291,23 @@ ConPlatformUpdateDeviceVariable (
   IN  CHAR16                    *VariableName,
   IN  EFI_DEVICE_PATH_PROTOCOL  *DevicePath,
   IN  CONPLATFORM_VAR_OPERATION Operation
+  );
+
+/**
+  Check if the device supports hot-plug through its device path.
+
+  This function could be updated to check more types of Hot Plug devices.
+  Currently, it checks USB and PCCard device.
+
+  @param  DevicePath            Pointer to device's device path.
+
+  @retval TRUE                  The devcie is a hot-plug device
+  @retval FALSE                 The devcie is not a hot-plug device.
+
+**/
+BOOLEAN
+IsHotPlugDevice (
+  IN  EFI_DEVICE_PATH_PROTOCOL    *DevicePath
   );
 
 //

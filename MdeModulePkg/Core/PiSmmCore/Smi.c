@@ -1,21 +1,44 @@
 /** @file
   SMI management.
 
-  Copyright (c) 2009 - 2018, Intel Corporation. All rights reserved.<BR>
-  SPDX-License-Identifier: BSD-2-Clause-Patent
+  Copyright (c) 2009 - 2013, Intel Corporation. All rights reserved.<BR>
+  This program and the accompanying materials are licensed and made available 
+  under the terms and conditions of the BSD License which accompanies this 
+  distribution.  The full text of the license may be found at        
+  http://opensource.org/licenses/bsd-license.php                                            
+
+  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,                     
+  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.             
 
 **/
 
 #include "PiSmmCore.h"
 
-LIST_ENTRY  mSmiEntryList       = INITIALIZE_LIST_HEAD_VARIABLE (mSmiEntryList);
+//
+// SMM_HANDLER - used for each SMM handler
+//
 
-SMI_ENTRY   mRootSmiEntry = {
-  SMI_ENTRY_SIGNATURE,
-  INITIALIZE_LIST_HEAD_VARIABLE (mRootSmiEntry.AllEntries),
-  {0},
-  INITIALIZE_LIST_HEAD_VARIABLE (mRootSmiEntry.SmiHandlers),
-};
+#define SMI_ENTRY_SIGNATURE  SIGNATURE_32('s','m','i','e')
+
+ typedef struct {
+  UINTN       Signature;
+  LIST_ENTRY  AllEntries;  // All entries
+
+  EFI_GUID    HandlerType; // Type of interrupt
+  LIST_ENTRY  SmiHandlers; // All handlers
+} SMI_ENTRY;
+
+#define SMI_HANDLER_SIGNATURE  SIGNATURE_32('s','m','i','h')
+
+ typedef struct {
+  UINTN                         Signature;
+  LIST_ENTRY                    Link;        // Link on SMI_ENTRY.SmiHandlers
+  EFI_SMM_HANDLER_ENTRY_POINT2  Handler;     // The smm handler's entry point
+  SMI_ENTRY                     *SmiEntry;
+} SMI_HANDLER;
+
+LIST_ENTRY  mRootSmiHandlerList = INITIALIZE_LIST_HEAD_VARIABLE (mRootSmiHandlerList);
+LIST_ENTRY  mSmiEntryList       = INITIALIZE_LIST_HEAD_VARIABLE (mSmiEntryList);
 
 /**
   Finds the SMI entry for the requested handler type.
@@ -107,14 +130,15 @@ SmiManage (
   SMI_HANDLER  *SmiHandler;
   BOOLEAN      SuccessReturn;
   EFI_STATUS   Status;
-
+  
   Status = EFI_NOT_FOUND;
   SuccessReturn = FALSE;
   if (HandlerType == NULL) {
     //
     // Root SMI handler
     //
-    SmiEntry = &mRootSmiEntry;
+
+    Head = &mRootSmiHandlerList;
   } else {
     //
     // Non-root SMI handler
@@ -126,8 +150,9 @@ SmiManage (
       //
       return Status;
     }
+
+    Head = &SmiEntry->SmiHandlers;
   }
-  Head = &SmiEntry->SmiHandlers;
 
   for (Link = Head->ForwardLink; Link != Head; Link = Link->ForwardLink) {
     SmiHandler = CR (Link, SMI_HANDLER, Link, SMI_HANDLER_SIGNATURE);
@@ -165,7 +190,7 @@ SmiManage (
     case EFI_WARN_INTERRUPT_SOURCE_QUIESCED:
       //
       // If at least one of the handlers returns EFI_WARN_INTERRUPT_SOURCE_QUIESCED
-      // then the function will return EFI_SUCCESS.
+      // then the function will return EFI_SUCCESS. 
       //
       SuccessReturn = TRUE;
       break;
@@ -196,7 +221,7 @@ SmiManage (
 /**
   Registers a handler to execute within SMM.
 
-  @param  Handler        Handler service function pointer.
+  @param  Handler        Handler service funtion pointer.
   @param  HandlerType    Points to the handler type or NULL for root SMI handlers.
   @param  DispatchHandle On return, contains a unique handle which can be used to later unregister the handler function.
 
@@ -227,13 +252,13 @@ SmiHandlerRegister (
 
   SmiHandler->Signature = SMI_HANDLER_SIGNATURE;
   SmiHandler->Handler = Handler;
-  SmiHandler->CallerAddr = (UINTN)RETURN_ADDRESS (0);
 
   if (HandlerType == NULL) {
     //
     // This is root SMI handler
     //
-    SmiEntry = &mRootSmiEntry;
+    SmiEntry = NULL;
+    List = &mRootSmiHandlerList;
   } else {
     //
     // None root SMI handler
@@ -242,8 +267,9 @@ SmiHandlerRegister (
     if (SmiEntry == NULL) {
       return EFI_OUT_OF_RESOURCES;
     }
+
+    List = &SmiEntry->SmiHandlers;
   }
-  List = &SmiEntry->SmiHandlers;
 
   SmiHandler->SmiEntry = SmiEntry;
   InsertTailList (List, &SmiHandler->Link);
@@ -270,41 +296,14 @@ SmiHandlerUnRegister (
 {
   SMI_HANDLER  *SmiHandler;
   SMI_ENTRY    *SmiEntry;
-  LIST_ENTRY   *EntryLink;
-  LIST_ENTRY   *HandlerLink;
 
-  if (DispatchHandle == NULL) {
+  SmiHandler = (SMI_HANDLER *) DispatchHandle;
+
+  if (SmiHandler == NULL) {
     return EFI_INVALID_PARAMETER;
   }
 
-  //
-  // Look for it in root SMI handlers
-  //
-  SmiHandler = NULL;
-  for ( HandlerLink = GetFirstNode (&mRootSmiEntry.SmiHandlers)
-      ; !IsNull (&mRootSmiEntry.SmiHandlers, HandlerLink) && ((EFI_HANDLE) SmiHandler != DispatchHandle)
-      ; HandlerLink = GetNextNode (&mRootSmiEntry.SmiHandlers, HandlerLink)
-      ) {
-    SmiHandler = CR (HandlerLink, SMI_HANDLER, Link, SMI_HANDLER_SIGNATURE);
-  }
-
-  //
-  // Look for it in non-root SMI handlers
-  //
-  for ( EntryLink = GetFirstNode (&mSmiEntryList)
-      ; !IsNull (&mSmiEntryList, EntryLink) && ((EFI_HANDLE) SmiHandler != DispatchHandle)
-      ; EntryLink = GetNextNode (&mSmiEntryList, EntryLink)
-      ) {
-    SmiEntry = CR (EntryLink, SMI_ENTRY, AllEntries, SMI_ENTRY_SIGNATURE);
-    for ( HandlerLink = GetFirstNode (&SmiEntry->SmiHandlers)
-        ; !IsNull (&SmiEntry->SmiHandlers, HandlerLink) && ((EFI_HANDLE) SmiHandler != DispatchHandle)
-        ; HandlerLink = GetNextNode (&SmiEntry->SmiHandlers, HandlerLink)
-        ) {
-      SmiHandler = CR (HandlerLink, SMI_HANDLER, Link, SMI_HANDLER_SIGNATURE);
-    }
-  }
-
-  if ((EFI_HANDLE) SmiHandler != DispatchHandle) {
+  if (SmiHandler->Signature != SMI_HANDLER_SIGNATURE) {
     return EFI_INVALID_PARAMETER;
   }
 

@@ -31,11 +31,9 @@
  *
  **/
 
-#include <Library/BaseLib.h>
 #include <Library/BootLinux.h>
 #include <Library/PartitionTableUpdate.h>
 #include <Library/PrintLib.h>
-#include <Library/FdtRw.h>
 #include <LinuxLoaderLib.h>
 #include <Protocol/EFICardInfo.h>
 #include <Protocol/EFIChargerEx.h>
@@ -59,6 +57,7 @@ STATIC CONST CHAR8 *LogLevel = " quite";
 STATIC CONST CHAR8 *BatteryChgPause = " androidboot.mode=charger";
 STATIC CONST CHAR8 *MdtpActiveFlag = " mdtp";
 STATIC CONST CHAR8 *AlarmBootCmdLine = " androidboot.alarmboot=true";
+STATIC CHAR8 SystemdSlotEnv[] = " systemd.setenv=\"SLOT_SUFFIX=_a\"";
 
 /*Send slot suffix in cmdline with which we have booted*/
 STATIC CHAR8 *AndroidSlotSuffix = " androidboot.slot_suffix=";
@@ -67,7 +66,7 @@ STATIC CHAR8 *InitCmdline = INIT_BIN;
 STATIC CHAR8 *SkipRamFs = " skip_initramfs";
 
 /* Display command line related structures */
-#define MAX_DISPLAY_CMD_LINE 256
+#define MAX_DISPLAY_CMD_LINE (256 + MAX_DISPLAY_CMDLINE_LEN)
 STATIC CHAR8 DisplayCmdLine[MAX_DISPLAY_CMD_LINE];
 STATIC UINTN DisplayCmdLineLen = sizeof (DisplayCmdLine);
 
@@ -81,11 +80,6 @@ STATIC CONST CHAR8 *AndroidBootFstabSuffix =
                                       " androidboot.fstab_suffix=";
 STATIC CHAR8 *FstabSuffixEmmc = "emmc";
 STATIC CHAR8 *FstabSuffixDefault = "default";
-
-/* Memory offline arguments */
-STATIC CHAR8 *MemOff = " mem=";
-STATIC CONST CHAR8 *MemHpState = " memhp_default_state=online";
-STATIC CONST CHAR8 *MovableNode = " movable_node";
 
 EFI_STATUS
 TargetPauseForBatteryCharge (BOOLEAN *BatteryStatus)
@@ -283,6 +277,8 @@ TargetBatterySocOk (UINT32 *BatteryVoltage)
 STATIC VOID GetDisplayCmdline (VOID)
 {
   EFI_STATUS Status;
+  CHAR8 *Src = NULL;
+  UINT32 SrcLen = 0;
 
   Status = gRT->GetVariable ((CHAR16 *)L"DisplayPanelConfiguration",
                              &gQcomTokenSpaceGuid, NULL, &DisplayCmdLineLen,
@@ -290,6 +286,12 @@ STATIC VOID GetDisplayCmdline (VOID)
   if (Status != EFI_SUCCESS) {
     DEBUG ((EFI_D_ERROR, "Unable to get Panel Config, %r\n", Status));
   }
+
+  Status = ReadDisplayCmdLine (&Src, &SrcLen);
+  if (Status == EFI_SUCCESS) {
+    AsciiStrCatS (DisplayCmdLine, MAX_DISPLAY_CMD_LINE, Src);
+  }
+
 }
 
 /*
@@ -321,7 +323,8 @@ GetSystemPath (CHAR8 **SysPath, BootInfo *Info)
   }
 
   /* Append slot info for A/B Variant */
-  if (Info->MultiSlotBoot) {
+  if (Info->MultiSlotBoot &&
+      NAND != CheckRootDeviceType ()) {
      StrnCatS (PartitionName, MAX_GPT_NAME_SIZE, CurSlot.Suffix,
             StrLen (CurSlot.Suffix));
   }
@@ -352,10 +355,17 @@ GetSystemPath (CHAR8 **SysPath, BootInfo *Info)
       // The gluebi device that is to be passed to "root=" will be the first one
       // after all "regular" mtd devices have been populated.
       UINT32 PartitionCount = 0;
+      UINT32 MtdBlkIndex = 0;
       GetPartitionCount (&PartitionCount);
+      if (Info->MultiSlotBoot &&
+         (StrnCmp ((CONST CHAR16 *)L"_b", CurSlot.Suffix,
+          StrLen (CurSlot.Suffix)) == 0))
+         MtdBlkIndex = PartitionCount;
+      else
+         MtdBlkIndex = PartitionCount - 1;
       AsciiSPrint (*SysPath, MAX_PATH_SIZE,
                    " rootfstype=squashfs root=/dev/mtdblock%d ubi.mtd=%d",
-                   (PartitionCount - 1), (Index - 1));
+                   MtdBlkIndex, (Index - 1));
     } else {
       AsciiSPrint (*SysPath, MAX_PATH_SIZE,
           " rootfstype=ubifs rootflags=bulk_read root=ubi0:rootfs ubi.mtd=%d",
@@ -374,64 +384,6 @@ GetSystemPath (CHAR8 **SysPath, BootInfo *Info)
   DEBUG ((EFI_D_VERBOSE, "System Path - %a \n", *SysPath));
 
   return AsciiStrLen (*SysPath);
-}
-
-STATIC
-EFI_STATUS
-GetMemoryLimit (VOID *fdt, CHAR8 *MemOffAmt)
-{
-  UINT64 DdrSize = 0;
-  UINT64 MemLimit;
-  UINT32 i = 0;
-  INT32 MemOfflineOffset;
-  UINT64 *MemTable;
-  INT32 PropLen;
-  EFI_STATUS Status;
-
-  if (IsLEVariant ()) {
-    goto Unsupported;
-  }
-
-  Status = GetDdrSize (&DdrSize);
-  if (EFI_ERROR (Status)) {
-    DEBUG ((EFI_D_ERROR, "Error getting DDR size %r\n", Status));
-    return Status;
-  }
-
-  MemLimit = DdrSize;
-  MemOfflineOffset = FdtPathOffset (fdt, "/mem-offline");
-
-  if (DdrSize < MEM_OFF_MIN ||
-      MemOfflineOffset < 0) {
-    goto Unsupported;
-  }
-
-  /* get table of offline sizes and subtract the size based off of DDR size */
-  MemTable = (UINT64 *)fdt_getprop_w (fdt, MemOfflineOffset, "offline-sizes",
-                                      &PropLen);
-  if (!MemTable ||
-       PropLen < 0) {
-    goto Unsupported;
-  }
-
-  if (DdrSize >= SwapBytes64 (MemTable[0])) {
-    for (i = (PropLen / sizeof (UINT64)) - 2; i >= 0; i -= 2) {
-      if (DdrSize >= SwapBytes64 (MemTable[i])) {
-        MemLimit -= SwapBytes64 (MemTable[i + 1]);
-        break;
-      }
-    }
-  }
-
-  MemLimit /= MB_SIZE;
-
-  AsciiSPrint (MemOffAmt, MEM_OFF_SIZE, "%dMB", MemLimit);
-
-  return EFI_SUCCESS;
-
-Unsupported:
-  DEBUG ((EFI_D_INFO, "Offlining Memory Not Supported\n"));
-  return EFI_UNSUPPORTED;
 }
 
 STATIC
@@ -533,13 +485,20 @@ UpdateCmdLineParams (UpdateCmdLineParamList *Param,
   if (Param->MultiSlotBoot &&
      !IsBootDevImage ()) {
      /* Slot suffix */
-    Src = Param->AndroidSlotSuffix;
-    AsciiStrCatS (Dst, MaxCmdLineLen, Src);
-
     UnicodeStrToAsciiStr (GetCurrentSlotSuffix ().Suffix,
                           Param->SlotSuffixAscii);
-    Src = Param->SlotSuffixAscii;
-    AsciiStrCatS (Dst, MaxCmdLineLen, Src);
+    if (IsSystemdBootslotEnabled ()) {
+      INT32 StrLen = 0;
+      StrLen = AsciiStrLen (SystemdSlotEnv);
+      SystemdSlotEnv[StrLen - 2] = Param->SlotSuffixAscii[1];
+      Src = Param->SystemdSlotEnv;
+      AsciiStrCatS (Dst, MaxCmdLineLen, Src);
+    } else {
+      Src = Param->AndroidSlotSuffix;
+      AsciiStrCatS (Dst, MaxCmdLineLen, Src);
+      Src = Param->SlotSuffixAscii;
+      AsciiStrCatS (Dst, MaxCmdLineLen, Src);
+    }
   }
 
   if ((IsBuildAsSystemRootImage () &&
@@ -590,17 +549,6 @@ UpdateCmdLineParams (UpdateCmdLineParamList *Param,
     Param->LEVerityCmdLine = NULL;
   }
 
-  if (Param->MemOffAmt != NULL) {
-    Src = MemOff;
-    AsciiStrCatS (Dst, MaxCmdLineLen, Src);
-    Src = Param->MemOffAmt;
-    AsciiStrCatS (Dst, MaxCmdLineLen, Src);
-    Src = MemHpState;
-    AsciiStrCatS (Dst, MaxCmdLineLen, Src);
-    Src = MovableNode;
-    AsciiStrCatS (Dst, MaxCmdLineLen, Src);
-  }
-
   return EFI_SUCCESS;
 }
 
@@ -613,8 +561,7 @@ UpdateCmdLine (CONST CHAR8 *CmdLine,
                BOOLEAN AlarmBoot,
                CONST CHAR8 *VBCmdLine,
                CHAR8 **FinalCmdLine,
-               UINT32 HeaderVersion,
-               VOID *fdt)
+               UINT32 HeaderVersion)
 {
   EFI_STATUS Status;
   UINT32 CmdLineLen = 0;
@@ -635,7 +582,6 @@ UpdateCmdLine (CONST CHAR8 *CmdLine,
   CHAR8 *LEVerityCmdLine = NULL;
   UINT32 LEVerityCmdLineLen = 0;
   CHAR8 RootDevStr[BOOT_DEV_NAME_SIZE_MAX];
-  CHAR8 MemOffAmt[MEM_OFF_SIZE];
 
   Status = BoardSerialNum (StrSerialNum, sizeof (StrSerialNum));
   if (Status != EFI_SUCCESS) {
@@ -734,8 +680,12 @@ UpdateCmdLine (CONST CHAR8 *CmdLine,
   MultiSlotBoot = PartitionHasMultiSlot ((CONST CHAR16 *)L"boot");
   if (MultiSlotBoot &&
      !IsBootDevImage ()) {
+    if (IsSystemdBootslotEnabled ()) {
+      CmdLineLen += AsciiStrLen (SystemdSlotEnv);
+    } else {
     /* Add additional length for slot suffix */
-    CmdLineLen += AsciiStrLen (AndroidSlotSuffix) + MAX_SLOT_SUFFIX_SZ;
+      CmdLineLen += AsciiStrLen (AndroidSlotSuffix) + MAX_SLOT_SUFFIX_SZ;
+    }
   }
 
   if ((IsBuildAsSystemRootImage () &&
@@ -788,18 +738,6 @@ UpdateCmdLine (CONST CHAR8 *CmdLine,
   CmdLineLen += AsciiStrLen (Param.FstabSuffix);
   Param.AndroidBootFstabSuffix = AndroidBootFstabSuffix;
 
-  Status = GetMemoryLimit (fdt, MemOffAmt);
-  if (Status == EFI_SUCCESS) {
-    CmdLineLen += AsciiStrLen (MemOff);
-    CmdLineLen += AsciiStrLen (MemOffAmt);
-    CmdLineLen += AsciiStrLen (MemHpState);
-    CmdLineLen += AsciiStrLen (MovableNode);
-
-    Param.MemOffAmt = MemOffAmt;
-  } else {
-    Param.MemOffAmt = NULL;
-  }
-
   /* 1 extra byte for NULL */
   CmdLineLen += 1;
 
@@ -833,6 +771,7 @@ UpdateCmdLine (CONST CHAR8 *CmdLine,
   Param.DtbIdxStr = DtbIdxStr;
   Param.LEVerityCmdLine = LEVerityCmdLine;
   Param.HeaderVersion = HeaderVersion;
+  Param.SystemdSlotEnv = SystemdSlotEnv;
 
   Status = UpdateCmdLineParams (&Param, FinalCmdLine);
   if (Status != EFI_SUCCESS) {

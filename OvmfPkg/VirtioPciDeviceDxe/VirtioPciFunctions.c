@@ -5,9 +5,14 @@
   Copyright (C) 2012, Red Hat, Inc.
   Copyright (c) 2012, Intel Corporation. All rights reserved.<BR>
   Copyright (C) 2013, ARM Ltd.
-  Copyright (C) 2017, AMD Inc, All rights reserved.<BR>
 
-  SPDX-License-Identifier: BSD-2-Clause-Patent
+  This program and the accompanying materials are licensed and made available
+  under the terms and conditions of the BSD License which accompanies this
+  distribution. The full text of the license may be found at
+  http://opensource.org/licenses/bsd-license.php
+
+  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS, WITHOUT
+  WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 #include <Library/BaseMemoryLib.h>
@@ -96,12 +101,10 @@ EFI_STATUS
 EFIAPI
 VirtioPciGetDeviceFeatures (
   IN VIRTIO_DEVICE_PROTOCOL *This,
-  OUT UINT64                *DeviceFeatures
+  OUT UINT32                *DeviceFeatures
   )
 {
   VIRTIO_PCI_DEVICE         *Dev;
-  EFI_STATUS                Status;
-  UINT32                    Features32;
 
   if (DeviceFeatures == NULL) {
     return EFI_INVALID_PARAMETER;
@@ -109,12 +112,27 @@ VirtioPciGetDeviceFeatures (
 
   Dev = VIRTIO_PCI_DEVICE_FROM_VIRTIO_DEVICE (This);
 
-  Status = VirtioPciIoRead (Dev, VIRTIO_PCI_OFFSET_DEVICE_FEATURES,
-             sizeof (UINT32), sizeof (UINT32), &Features32);
-  if (!EFI_ERROR (Status)) {
-    *DeviceFeatures = Features32;
+  return VirtioPciIoRead (Dev, VIRTIO_PCI_OFFSET_DEVICE_FEATURES, sizeof (UINT32),
+      sizeof (UINT32), DeviceFeatures);
+}
+
+EFI_STATUS
+EFIAPI
+VirtioPciGetQueueAddress (
+  IN  VIRTIO_DEVICE_PROTOCOL *This,
+  OUT UINT32                 *QueueAddress
+  )
+{
+  VIRTIO_PCI_DEVICE         *Dev;
+
+  if (QueueAddress == NULL) {
+    return EFI_INVALID_PARAMETER;
   }
-  return Status;
+
+  Dev = VIRTIO_PCI_DEVICE_FROM_VIRTIO_DEVICE (This);
+
+  return VirtioPciIoRead (Dev, VIRTIO_PCI_OFFSET_QUEUE_ADDRESS, sizeof (UINT32),
+      sizeof (UINT32), QueueAddress);
 }
 
 EFI_STATUS
@@ -159,16 +177,13 @@ EFI_STATUS
 EFIAPI
 VirtioPciSetGuestFeatures (
   IN VIRTIO_DEVICE_PROTOCOL  *This,
-  IN UINT64                   Features
+  IN UINT32                   Features
   )
 {
   VIRTIO_PCI_DEVICE *Dev;
 
   Dev = VIRTIO_PCI_DEVICE_FROM_VIRTIO_DEVICE (This);
 
-  if (Features > MAX_UINT32) {
-    return EFI_UNSUPPORTED;
-  }
   return VirtioPciIoWrite (Dev, VIRTIO_PCI_OFFSET_GUEST_FEATURES,
       sizeof (UINT32), Features);
 }
@@ -176,26 +191,23 @@ VirtioPciSetGuestFeatures (
 EFI_STATUS
 EFIAPI
 VirtioPciSetQueueAddress (
-  IN VIRTIO_DEVICE_PROTOCOL  *This,
-  IN VRING                   *Ring,
-  IN UINT64                  RingBaseShift
+  VIRTIO_DEVICE_PROTOCOL    *This,
+  UINT32                    Address
   )
 {
   VIRTIO_PCI_DEVICE *Dev;
 
-  ASSERT (RingBaseShift == 0);
-
   Dev = VIRTIO_PCI_DEVICE_FROM_VIRTIO_DEVICE (This);
 
   return VirtioPciIoWrite (Dev, VIRTIO_PCI_OFFSET_QUEUE_ADDRESS, sizeof (UINT32),
-      (UINT32)((UINTN)Ring->Base >> EFI_PAGE_SHIFT));
+      Address);
 }
 
 EFI_STATUS
 EFIAPI
 VirtioPciSetQueueSel (
-  IN  VIRTIO_DEVICE_PROTOCOL    *This,
-  IN  UINT16                    Sel
+  VIRTIO_DEVICE_PROTOCOL    *This,
+  UINT16                    Sel
   )
 {
   VIRTIO_PCI_DEVICE *Dev;
@@ -209,8 +221,8 @@ VirtioPciSetQueueSel (
 EFI_STATUS
 EFIAPI
 VirtioPciSetQueueAlignment (
-  IN  VIRTIO_DEVICE_PROTOCOL *This,
-  IN  UINT32                  Alignment
+  VIRTIO_DEVICE_PROTOCOL *This,
+  UINT32                  Alignment
   )
 {
   return EFI_SUCCESS;
@@ -219,8 +231,8 @@ VirtioPciSetQueueAlignment (
 EFI_STATUS
 EFIAPI
 VirtioPciSetPageSize (
-  IN  VIRTIO_DEVICE_PROTOCOL *This,
-  IN  UINT32                  PageSize
+  VIRTIO_DEVICE_PROTOCOL *This,
+  UINT32                  PageSize
   )
 {
   return (PageSize == EFI_PAGE_SIZE) ? EFI_SUCCESS : EFI_UNSUPPORTED;
@@ -229,8 +241,8 @@ VirtioPciSetPageSize (
 EFI_STATUS
 EFIAPI
 VirtioPciSetQueueNotify (
-  IN  VIRTIO_DEVICE_PROTOCOL *This,
-  IN  UINT16                 Index
+  VIRTIO_DEVICE_PROTOCOL *This,
+  UINT16                 Index
   )
 {
   VIRTIO_PCI_DEVICE *Dev;
@@ -244,8 +256,8 @@ VirtioPciSetQueueNotify (
 EFI_STATUS
 EFIAPI
 VirtioPciSetQueueSize (
-  IN  VIRTIO_DEVICE_PROTOCOL *This,
-  IN  UINT16                 Size
+  VIRTIO_DEVICE_PROTOCOL *This,
+  UINT16                 Size
   )
 {
   //
@@ -258,8 +270,8 @@ VirtioPciSetQueueSize (
 EFI_STATUS
 EFIAPI
 VirtioPciSetDeviceStatus (
-  IN  VIRTIO_DEVICE_PROTOCOL *This,
-  IN  UINT8                  DeviceStatus
+  VIRTIO_DEVICE_PROTOCOL *This,
+  UINT8                  DeviceStatus
   )
 {
   VIRTIO_PCI_DEVICE *Dev;
@@ -268,61 +280,4 @@ VirtioPciSetDeviceStatus (
 
   return VirtioPciIoWrite (Dev, VIRTIO_PCI_OFFSET_QUEUE_DEVICE_STATUS,
       sizeof (UINT8), DeviceStatus);
-}
-
-EFI_STATUS
-EFIAPI
-VirtioPciAllocateSharedPages (
-  IN  VIRTIO_DEVICE_PROTOCOL  *This,
-  IN  UINTN                   NumPages,
-  OUT VOID                    **HostAddress
-  )
-{
-  VOID        *Buffer;
-
-  Buffer = AllocatePages (NumPages);
-  if (Buffer == NULL) {
-    return EFI_OUT_OF_RESOURCES;
-  }
-
-  *HostAddress = Buffer;
-  return EFI_SUCCESS;
-}
-
-VOID
-EFIAPI
-VirtioPciFreeSharedPages (
-  IN  VIRTIO_DEVICE_PROTOCOL  *This,
-  IN  UINTN                   NumPages,
-  IN  VOID                    *HostAddress
-  )
-{
-  FreePages (HostAddress, NumPages);
-}
-
-EFI_STATUS
-EFIAPI
-VirtioPciMapSharedBuffer (
-  IN      VIRTIO_DEVICE_PROTOCOL  *This,
-  IN      VIRTIO_MAP_OPERATION    Operation,
-  IN      VOID                    *HostAddress,
-  IN OUT  UINTN                   *NumberOfBytes,
-  OUT     EFI_PHYSICAL_ADDRESS    *DeviceAddress,
-  OUT     VOID                    **Mapping
-  )
-{
-  *DeviceAddress = (EFI_PHYSICAL_ADDRESS) (UINTN) HostAddress;
-  *Mapping = NULL;
-
-  return EFI_SUCCESS;
-}
-
-EFI_STATUS
-EFIAPI
-VirtioPciUnmapSharedBuffer (
-  IN VIRTIO_DEVICE_PROTOCOL    *This,
-  IN VOID                      *Mapping
-  )
-{
-  return EFI_SUCCESS;
 }

@@ -3,7 +3,13 @@
 
   Copyright (c) 2008 - 2009, Apple Inc. All rights reserved.<BR>
 
-  SPDX-License-Identifier: BSD-2-Clause-Patent
+  This program and the accompanying materials
+  are licensed and made available under the terms and conditions of the BSD License
+  which accompanies this distribution.  The full text of the license may be found at
+  http://opensource.org/licenses/bsd-license.php
+
+  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
@@ -157,7 +163,7 @@ FileGetPosition (
   @param[in]  Position  The byte position from the start of the file to set.
 
   @retval  EFI_SUCCESS       The position was set.
-  @retval  EFI_DEVICE_ERROR  The semi-hosting positioning operation failed.
+  @retval  EFI_DEVICE_ERROR  The semi-hosting positionning operation failed.
   @retval  EFI_UNSUPPORTED   The seek request for nonzero is not valid on open
                              directories.
 

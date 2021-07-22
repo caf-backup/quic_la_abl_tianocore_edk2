@@ -10,7 +10,7 @@
 
   The XenStore is ASCII string based, and has a structure and semantics
   similar to a filesystem.  There are files and directories, the directories
-  able to contain files or other directories.  The depth of the hierarchy
+  able to contain files or other directories.  The depth of the hierachy
   is only limited by the XenStore's maximum path length.
 
   The communication channel between the XenStore service and other
@@ -35,7 +35,23 @@
   This file may be distributed separately from the Linux kernel, or
   incorporated into other software packages, subject to the following license:
 
-  SPDX-License-Identifier: MIT
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this source file (the "Software"), to deal in the Software without
+  restriction, including without limitation the rights to use, copy, modify,
+  merge, publish, distribute, sublicense, and/or sell copies of the Software,
+  and to permit persons to whom the Software is furnished to do so, subject to
+  the following conditions:
+
+  The above copyright notice and this permission notice shall be included in
+  all copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+  IN THE SOFTWARE.
 **/
 
 #include "XenStore.h"
@@ -138,7 +154,7 @@ typedef struct {
    */
   LIST_ENTRY WatchEvents;
 
-  /** Lock protecting the watch callback list. */
+  /** Lock protecting the watch calback list. */
   EFI_LOCK WatchEventsLock;
 
   /**
@@ -287,17 +303,14 @@ XenStoreJoin (
   )
 {
   CHAR8 *Buf;
-  UINTN BufSize;
 
   /* +1 for '/' and +1 for '\0' */
-  BufSize = AsciiStrLen (DirectoryPath) + AsciiStrLen (Node) + 2;
-  Buf = AllocatePool (BufSize);
-  ASSERT (Buf != NULL);
-
-  if (Node[0] == '\0') {
-    AsciiSPrint (Buf, BufSize, "%a", DirectoryPath);
-  } else {
-    AsciiSPrint (Buf, BufSize, "%a/%a", DirectoryPath, Node);
+  Buf = AllocateZeroPool (
+          AsciiStrLen (DirectoryPath) + AsciiStrLen (Node) + 2);
+  AsciiStrCat (Buf, DirectoryPath);
+  if (Node[0] != '\0') {
+    AsciiStrCat (Buf, "/");
+    AsciiStrCat (Buf, Node);
   }
 
   return Buf;
@@ -697,6 +710,7 @@ static XenStoreErrors gXenStoreErrors[] = {
   { XENSTORE_STATUS_EISCONN, "EISCONN" },
   { XENSTORE_STATUS_E2BIG, "E2BIG" }
 };
+#define ARRAY_SIZE(x) (sizeof(x) / sizeof(x[0]))
 
 STATIC
 XENSTORE_STATUS
@@ -761,7 +775,7 @@ XenStoreReadReply (
 }
 
 /**
-  Send a message with an optionally multi-part body to the XenStore service.
+  Send a message with an optionally muti-part body to the XenStore service.
 
   @param Transaction    The transaction to use for this request.
   @param RequestType    The type of message to send.
@@ -978,9 +992,9 @@ NotifyEventChannelCheckForEvent (
   IN VOID *Context
   )
 {
-  XENSTORE_PRIVATE *xsp;
-  xsp = (XENSTORE_PRIVATE *)Context;
-  if (TestAndClearBit (xsp->EventChannel, xsp->Dev->SharedInfo->evtchn_pending)) {
+  XENSTORE_PRIVATE *xs;
+  xs = (XENSTORE_PRIVATE *)Context;
+  if (TestAndClearBit (xs->EventChannel, xs->Dev->SharedInfo->evtchn_pending)) {
     gBS->SignalEvent (Event);
   }
 }
@@ -993,12 +1007,12 @@ NotifyEventChannelCheckForEvent (
 STATIC
 EFI_STATUS
 XenStoreInitComms (
-  XENSTORE_PRIVATE *xsp
+  XENSTORE_PRIVATE *xs
   )
 {
   EFI_STATUS Status;
   EFI_EVENT TimerEvent;
-  struct xenstore_domain_interface *XenStore = xsp->XenStore;
+  struct xenstore_domain_interface *XenStore = xs->XenStore;
 
   Status = gBS->CreateEvent (EVT_TIMER, 0, NULL, NULL, &TimerEvent);
   Status = gBS->SetTimer (TimerEvent, TimerRelative,
@@ -1015,8 +1029,8 @@ XenStoreInitComms (
   gBS->CloseEvent (TimerEvent);
 
   Status = gBS->CreateEvent (EVT_NOTIFY_WAIT, TPL_NOTIFY,
-                             NotifyEventChannelCheckForEvent, xsp,
-                             &xsp->EventChannelEvent);
+                             NotifyEventChannelCheckForEvent, xs,
+                             &xs->EventChannelEvent);
   ASSERT_EFI_ERROR (Status);
 
   return Status;
@@ -1059,6 +1073,9 @@ XenStoreInit (
 
   /* Initialize the shared memory rings to talk to xenstored */
   Status = XenStoreInitComms (&xs);
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
 
   return Status;
 }
@@ -1281,14 +1298,16 @@ XenStoreTransactionEnd (
 {
   CHAR8 AbortStr[2];
 
-  AbortStr[0] = Abort ? 'F' : 'T';
-  AbortStr[1] = '\0';
+  if (Abort) {
+    AsciiStrCpy (AbortStr, "F");
+  } else {
+    AsciiStrCpy (AbortStr, "T");
+  }
 
   return XenStoreSingle (Transaction, XS_TRANSACTION_END, AbortStr, NULL, NULL);
 }
 
 XENSTORE_STATUS
-EFIAPI
 XenStoreVSPrint (
   IN CONST XENSTORE_TRANSACTION *Transaction,
   IN CONST CHAR8           *DirectoryPath,
@@ -1300,11 +1319,8 @@ XenStoreVSPrint (
   CHAR8 *Buf;
   XENSTORE_STATUS Status;
   UINTN BufSize;
-  VA_LIST Marker2;
 
-  VA_COPY (Marker2, Marker);
-  BufSize = SPrintLengthAsciiFormat (FormatString, Marker2) + 1;
-  VA_END (Marker2);
+  BufSize = SPrintLengthAsciiFormat (FormatString, Marker) + 1;
   Buf = AllocateZeroPool (BufSize);
   AsciiVSPrint (Buf, BufSize, FormatString, Marker);
   Status = XenStoreWrite (Transaction, DirectoryPath, Node, Buf);

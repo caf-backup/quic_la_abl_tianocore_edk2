@@ -1,17 +1,22 @@
 /** @file
-  Partition driver that produces logical BlockIo devices from a physical
+  Partition driver that produces logical BlockIo devices from a physical 
   BlockIo device. The logical BlockIo devices are based on the format
-  of the raw block devices media. Currently "El Torito CD-ROM", UDF, Legacy
+  of the raw block devices media. Currently "El Torito CD-ROM", Legacy 
   MBR, and GPT partition schemes are supported.
 
-Copyright (c) 2018 Qualcomm Datacenter Technologies, Inc.
-Copyright (c) 2006 - 2018, Intel Corporation. All rights reserved.<BR>
-SPDX-License-Identifier: BSD-2-Clause-Patent
+Copyright (c) 2006 - 2011, Intel Corporation. All rights reserved.<BR>
+This program and the accompanying materials
+are licensed and made available under the terms and conditions of the BSD License
+which accompanies this distribution.  The full text of the license may be found at
+http://opensource.org/licenses/bsd-license.php
+
+THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
-#ifndef _PARTITION_H_
-#define _PARTITION_H_
+#ifndef _PARTITION_H_ 
+#define _PARTITION_H_ 
 
 #include <Uefi.h>
 #include <Protocol/BlockIo.h>
@@ -22,7 +27,6 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
 #include <Protocol/DriverBinding.h>
 #include <Protocol/DiskIo.h>
 #include <Protocol/DiskIo2.h>
-#include <Protocol/PartitionInfo.h>
 #include <Library/DebugLib.h>
 #include <Library/UefiDriverEntryPoint.h>
 #include <Library/BaseLib.h>
@@ -34,33 +38,31 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
 
 #include <IndustryStandard/Mbr.h>
 #include <IndustryStandard/ElTorito.h>
-#include <IndustryStandard/Udf.h>
+
 
 //
 // Partition private data
 //
 #define PARTITION_PRIVATE_DATA_SIGNATURE  SIGNATURE_32 ('P', 'a', 'r', 't')
 typedef struct {
-  UINT64                       Signature;
+  UINT64                    Signature;
 
-  EFI_HANDLE                   Handle;
-  EFI_DEVICE_PATH_PROTOCOL     *DevicePath;
-  EFI_BLOCK_IO_PROTOCOL        BlockIo;
-  EFI_BLOCK_IO2_PROTOCOL       BlockIo2;
-  EFI_BLOCK_IO_MEDIA           Media;
-  EFI_BLOCK_IO_MEDIA           Media2;//For BlockIO2
-  EFI_PARTITION_INFO_PROTOCOL  PartitionInfo;
+  EFI_HANDLE                Handle;
+  EFI_DEVICE_PATH_PROTOCOL  *DevicePath;
+  EFI_BLOCK_IO_PROTOCOL     BlockIo;
+  EFI_BLOCK_IO2_PROTOCOL    BlockIo2;
+  EFI_BLOCK_IO_MEDIA        Media;
+  EFI_BLOCK_IO_MEDIA        Media2;//For BlockIO2
 
-  EFI_DISK_IO_PROTOCOL         *DiskIo;
-  EFI_DISK_IO2_PROTOCOL        *DiskIo2;
-  EFI_BLOCK_IO_PROTOCOL        *ParentBlockIo;
-  EFI_BLOCK_IO2_PROTOCOL       *ParentBlockIo2;
-  UINT64                       Start;
-  UINT64                       End;
-  UINT32                       BlockSize;
-  BOOLEAN                      InStop;
+  EFI_DISK_IO_PROTOCOL      *DiskIo;
+  EFI_DISK_IO2_PROTOCOL     *DiskIo2;
+  EFI_BLOCK_IO_PROTOCOL     *ParentBlockIo;
+  EFI_BLOCK_IO2_PROTOCOL    *ParentBlockIo2;
+  UINT64                    Start;
+  UINT64                    End;
+  UINT32                    BlockSize;
 
-  EFI_GUID                     TypeGuid;
+  EFI_GUID                  *EspGuid;
 
 } PARTITION_PRIVATE_DATA;
 
@@ -318,11 +320,10 @@ PartitionComponentNameGetControllerName (
   @param[in]  ParentBlockIo2    Parent BlockIo2 interface.
   @param[in]  ParentDevicePath  Parent Device Path.
   @param[in]  DevicePathNode    Child Device Path node.
-  @param[in]  PartitionInfo     Child Partition Information interface.
   @param[in]  Start             Start Block.
   @param[in]  End               End Block.
   @param[in]  BlockSize         Child block size.
-  @param[in]  TypeGuid          Parition Type Guid.
+  @param[in]  InstallEspGuid    Flag to install EFI System Partition GUID on handle.
 
   @retval EFI_SUCCESS       A child handle was added.
   @retval other             A child handle was not added.
@@ -338,25 +339,10 @@ PartitionInstallChildHandle (
   IN  EFI_BLOCK_IO2_PROTOCOL       *ParentBlockIo2,
   IN  EFI_DEVICE_PATH_PROTOCOL     *ParentDevicePath,
   IN  EFI_DEVICE_PATH_PROTOCOL     *DevicePathNode,
-  IN  EFI_PARTITION_INFO_PROTOCOL  *PartitionInfo,
   IN  EFI_LBA                      Start,
   IN  EFI_LBA                      End,
   IN  UINT32                       BlockSize,
-  IN  EFI_GUID                     *TypeGuid
-  );
-
-/**
-  Test to see if there is any child on ControllerHandle.
-
-  @param[in]  ControllerHandle    Handle of device to test.
-
-  @retval TRUE                    There are children on the ControllerHandle.
-  @retval FALSE                   No child is on the ControllerHandle.
-
-**/
-BOOLEAN
-HasChildren (
-  IN EFI_HANDLE           ControllerHandle
+  IN  BOOLEAN                      InstallEspGuid
   );
 
 /**
@@ -425,7 +411,7 @@ PartitionInstallElToritoChildHandles (
   @param[in]  BlockIo           Parent BlockIo interface.
   @param[in]  BlockIo2          Parent BlockIo2 interface.
   @param[in]  DevicePath        Parent Device Path.
-
+   
   @retval EFI_SUCCESS       A child handle was added.
   @retval EFI_MEDIA_CHANGED Media change was detected.
   @retval Others            MBR partition was not found.
@@ -433,34 +419,6 @@ PartitionInstallElToritoChildHandles (
 **/
 EFI_STATUS
 PartitionInstallMbrChildHandles (
-  IN  EFI_DRIVER_BINDING_PROTOCOL  *This,
-  IN  EFI_HANDLE                   Handle,
-  IN  EFI_DISK_IO_PROTOCOL         *DiskIo,
-  IN  EFI_DISK_IO2_PROTOCOL        *DiskIo2,
-  IN  EFI_BLOCK_IO_PROTOCOL        *BlockIo,
-  IN  EFI_BLOCK_IO2_PROTOCOL       *BlockIo2,
-  IN  EFI_DEVICE_PATH_PROTOCOL     *DevicePath
-  );
-
-/**
-  Install child handles if the Handle supports UDF/ECMA-167 volume format.
-
-  @param[in]  This        Calling context.
-  @param[in]  Handle      Parent Handle.
-  @param[in]  DiskIo      Parent DiskIo interface.
-  @param[in]  DiskIo2     Parent DiskIo2 interface.
-  @param[in]  BlockIo     Parent BlockIo interface.
-  @param[in]  BlockIo2    Parent BlockIo2 interface.
-  @param[in]  DevicePath  Parent Device Path
-
-
-  @retval EFI_SUCCESS         Child handle(s) was added.
-  @retval EFI_MEDIA_CHANGED   Media changed Detected.
-  @retval other               no child handle was added.
-
-**/
-EFI_STATUS
-PartitionInstallUdfChildHandles (
   IN  EFI_DRIVER_BINDING_PROTOCOL  *This,
   IN  EFI_HANDLE                   Handle,
   IN  EFI_DISK_IO_PROTOCOL         *DiskIo,

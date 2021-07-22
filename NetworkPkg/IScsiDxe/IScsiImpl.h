@@ -1,8 +1,14 @@
 /** @file
   The shared head file for iSCSI driver.
 
-Copyright (c) 2004 - 2018, Intel Corporation. All rights reserved.<BR>
-SPDX-License-Identifier: BSD-2-Clause-Patent
+Copyright (c) 2004 - 2012, Intel Corporation. All rights reserved.<BR>
+This program and the accompanying materials
+are licensed and made available under the terms and conditions of the BSD License
+which accompanies this distribution.  The full text of the license may be found at
+http://opensource.org/licenses/bsd-license.php
+
+THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
@@ -10,8 +16,6 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
 #define _ISCSI_IMPL_H_
 
 #include <Uefi.h>
-
-#include <IndustryStandard/Dhcp.h>
 
 #include <Protocol/ComponentName.h>
 #include <Protocol/ComponentName2.h>
@@ -22,18 +26,12 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
 #include <Protocol/Ip6.h>
 #include <Protocol/Dhcp4.h>
 #include <Protocol/Dhcp6.h>
-#include <Protocol/Dns4.h>
-#include <Protocol/Dns6.h>
 #include <Protocol/Tcp4.h>
 #include <Protocol/Tcp6.h>
-#include <Protocol/Ip4Config2.h>
-#include <Protocol/Ip6Config.h>
 
 #include <Protocol/AuthenticationInfo.h>
 #include <Protocol/IScsiInitiatorName.h>
 #include <Protocol/ScsiPassThruExt.h>
-#include <Protocol/AdapterInformation.h>
-#include <Protocol/NetworkInterfaceIdentifier.h>
 
 #include <Library/HiiLib.h>
 #include <Library/UefiHiiServicesLib.h>
@@ -61,10 +59,8 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
 #include "IScsiCHAP.h"
 #include "IScsiDhcp.h"
 #include "IScsiDhcp6.h"
-
 #include "IScsiIbft.h"
 #include "IScsiMisc.h"
-#include "IScsiDns.h"
 #include "IScsiConfig.h"
 
 #define ISCSI_AUTH_INITIAL        0
@@ -195,7 +191,7 @@ struct _ISCSI_DRIVER_DATA {
   EFI_EXT_SCSI_PASS_THRU_MODE     ExtScsiPassThruMode;
   EFI_HANDLE                      ExtScsiPassThruHandle;
   EFI_DEVICE_PATH_PROTOCOL        *DevicePath;
-  EFI_HANDLE                      ChildHandle;
+  EFI_HANDLE                      ChildHandle;  
   ISCSI_SESSION                   *Session;
 };
 

@@ -3,22 +3,29 @@
   This driver produces Virtio Device Protocol instances for Virtio Mmio devices.
 
   Copyright (C) 2013, ARM Ltd.
-  Copyright (C) 2017, AMD Inc. All rights reserved.<BR>
 
-  SPDX-License-Identifier: BSD-2-Clause-Patent
+  This program and the accompanying materials are licensed and made available
+  under the terms and conditions of the BSD License which accompanies this
+  distribution. The full text of the license may be found at
+  http://opensource.org/licenses/bsd-license.php
+
+  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS, WITHOUT
+  WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
 #include <Library/BaseMemoryLib.h>
+#include <Library/MemoryAllocationLib.h>
 #include <Library/UefiBootServicesTableLib.h>
 
 #include "VirtioMmioDevice.h"
 
-STATIC CONST VIRTIO_DEVICE_PROTOCOL mMmioDeviceProtocolTemplate = {
+static VIRTIO_DEVICE_PROTOCOL mMmioDeviceProtocolTemplate = {
     0,                                     // Revision
     0,                                     // SubSystemDeviceId
     VirtioMmioGetDeviceFeatures,           // GetDeviceFeatures
     VirtioMmioSetGuestFeatures,            // SetGuestFeatures
+    VirtioMmioGetQueueAddress,             // GetQueueAddress
     VirtioMmioSetQueueAddress,             // SetQueueAddress
     VirtioMmioSetQueueSel,                 // SetQueueSel
     VirtioMmioSetQueueNotify,              // SetQueueNotify
@@ -29,11 +36,7 @@ STATIC CONST VIRTIO_DEVICE_PROTOCOL mMmioDeviceProtocolTemplate = {
     VirtioMmioGetDeviceStatus,             // GetDeviceStatus
     VirtioMmioSetDeviceStatus,             // SetDeviceStatus
     VirtioMmioDeviceWrite,                 // WriteDevice
-    VirtioMmioDeviceRead,                  // ReadDevice
-    VirtioMmioAllocateSharedPages,         // AllocateSharedPages
-    VirtioMmioFreeSharedPages,             // FreeSharedPages
-    VirtioMmioMapSharedBuffer,             // MapSharedBuffer
-    VirtioMmioUnmapSharedBuffer            // UnmapSharedBuffer
+    VirtioMmioDeviceRead                   // ReadDevice
 };
 
 /**

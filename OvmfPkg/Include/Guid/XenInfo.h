@@ -2,7 +2,13 @@
   XenInfo HOB passed by PEI into DXE.
 
 Copyright (c) 2011, Andrei Warkentin <andreiw@motorola.com>
-SPDX-License-Identifier: BSD-2-Clause-Patent
+This program and the accompanying materials are licensed and made available under
+the terms and conditions of the BSD License that accompanies this distribution.
+The full text of the license may be found at
+http://opensource.org/licenses/bsd-license.php.
+
+THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
@@ -18,6 +24,10 @@ typedef struct {
   ///
   VOID *HyperPages;
   ///
+  /// Location of the hvm_info page.
+  ///
+  VOID *HvmInfo;
+  ///
   /// Hypervisor major version.
   ///
   UINT16 VersionMajor;
@@ -25,10 +35,6 @@ typedef struct {
   /// Hypervisor minor version.
   ///
   UINT16 VersionMinor;
-  ///
-  /// Pointer to the RSDP found in the hvm_start_info provided to a PVH guest
-  ///
-  VOID *RsdpPvh;
 } EFI_XEN_INFO;
 
 extern EFI_GUID gEfiXenInfoGuid;

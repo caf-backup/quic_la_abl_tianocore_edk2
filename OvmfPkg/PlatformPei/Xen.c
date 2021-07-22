@@ -1,10 +1,16 @@
 /**@file
   Xen Platform PEI support
 
-  Copyright (c) 2006 - 2016, Intel Corporation. All rights reserved.<BR>
+  Copyright (c) 2006 - 2014, Intel Corporation. All rights reserved.<BR>
   Copyright (c) 2011, Andrei Warkentin <andreiw@motorola.com>
 
-  SPDX-License-Identifier: BSD-2-Clause-Patent
+  This program and the accompanying materials
+  are licensed and made available under the terms and conditions of the BSD License
+  which accompanies this distribution.  The full text of the license may be found at
+  http://opensource.org/licenses/bsd-license.php
+
+  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
@@ -64,7 +70,7 @@ XenGetE820Map (
 
 /**
   Connects to the Hypervisor.
-
+ 
   @param  XenLeaf     CPUID index used to connect.
 
   @return EFI_STATUS
@@ -97,6 +103,9 @@ XenConnect (
           XenVersion >> 16, XenVersion & 0xFFFF));
   mXenInfo.VersionMajor = (UINT16)(XenVersion >> 16);
   mXenInfo.VersionMinor = (UINT16)(XenVersion & 0xFFFF);
+
+  /* TBD: Locate hvm_info and reserve it away. */
+  mXenInfo.HvmInfo = NULL;
 
   BuildGuidDataHob (
     &gEfiXenInfoGuid,
@@ -162,7 +171,6 @@ XenPublishRamRegions (
   //
   // Parse RAM in E820 map
   //
-  E820EntriesCount = 0;
   Status = XenGetE820Map (&E820Map, &E820EntriesCount);
 
   ASSERT_EFI_ERROR (Status);
@@ -181,7 +189,11 @@ XenPublishRamRegions (
         continue;
       }
 
-      AddMemoryBaseSizeHob (Entry->BaseAddr, Entry->Length);
+      if (Entry->BaseAddr >= BASE_4GB) {
+        AddUntestedMemoryBaseSizeHob (Entry->BaseAddr, Entry->Length);
+      } else {
+        AddMemoryBaseSizeHob (Entry->BaseAddr, Entry->Length);
+      }
 
       MtrrSetMemoryAttribute (Entry->BaseAddr, Entry->Length, CacheWriteBack);
     }
@@ -201,8 +213,6 @@ InitializeXen (
   VOID
   )
 {
-  RETURN_STATUS PcdStatus;
-
   if (mXenLeaf == 0) {
     return EFI_NOT_FOUND;
   }
@@ -213,10 +223,9 @@ InitializeXen (
   // Reserve away HVMLOADER reserved memory [0xFC000000,0xFD000000).
   // This needs to match HVMLOADER RESERVED_MEMBASE/RESERVED_MEMSIZE.
   //
-  AddReservedMemoryBaseSizeHob (0xFC000000, 0x1000000, FALSE);
+  AddReservedMemoryBaseSizeHob (0xFC000000, 0x1000000);
 
-  PcdStatus = PcdSetBoolS (PcdPciDisableBusEnumeration, TRUE);
-  ASSERT_RETURN_ERROR (PcdStatus);
+  PcdSetBool (PcdPciDisableBusEnumeration, TRUE);
 
   return EFI_SUCCESS;
 }

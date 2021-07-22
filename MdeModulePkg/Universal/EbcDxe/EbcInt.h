@@ -3,7 +3,13 @@
   main interpreter routines.
 
 Copyright (c) 2006 - 2011, Intel Corporation. All rights reserved.<BR>
-SPDX-License-Identifier: BSD-2-Clause-Patent
+This program and the accompanying materials
+are licensed and made available under the terms and conditions of the BSD License
+which accompanies this distribution.  The full text of the license may be found at
+http://opensource.org/licenses/bsd-license.php
+
+THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
@@ -17,12 +23,9 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
 #include <Protocol/Ebc.h>
 #include <Protocol/EbcVmTest.h>
 #include <Protocol/EbcSimpleDebugger.h>
-#include <Protocol/PeCoffImageEmulator.h>
 
 #include <Library/BaseLib.h>
-#include <Library/CacheMaintenanceLib.h>
 #include <Library/DebugLib.h>
-#include <Library/PeCoffLib.h>
 #include <Library/UefiDriverEntryPoint.h>
 #include <Library/BaseMemoryLib.h>
 #include <Library/UefiBootServicesTableLib.h>
@@ -30,6 +33,13 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
 
 extern VM_CONTEXT                    *mVmPtr;
 
+//
+// Bits of exception flags field of VM context
+//
+#define EXCEPTION_FLAG_FATAL    0x80000000  // can't continue
+#define EXCEPTION_FLAG_ERROR    0x40000000  // bad, but try to continue
+#define EXCEPTION_FLAG_WARNING  0x20000000  // harmless problem
+#define EXCEPTION_FLAG_NONE     0x00000000  // for normal return
 //
 // Flags passed to the internal create-thunks function.
 //
@@ -84,6 +94,28 @@ EbcAddImageThunk (
   IN EFI_HANDLE      ImageHandle,
   IN VOID            *ThunkBuffer,
   IN UINT32          ThunkSize
+  );
+
+//
+// The interpreter calls these when an exception is detected,
+// or as a periodic callback.
+//
+/**
+  The VM interpreter calls this function when an exception is detected.
+
+  @param  ExceptionType          Specifies the processor exception detected.
+  @param  ExceptionFlags         Specifies the exception context.
+  @param  VmPtr                  Pointer to a VM context for passing info to the
+                                 EFI debugger.
+
+  @retval EFI_SUCCESS            This function completed successfully.
+
+**/
+EFI_STATUS
+EbcDebugSignalException (
+  IN EFI_EXCEPTION_TYPE                   ExceptionType,
+  IN EXCEPTION_FLAGS                      ExceptionFlags,
+  IN VM_CONTEXT                           *VmPtr
   );
 
 //
@@ -242,19 +274,5 @@ typedef struct {
 #define EBC_PROTOCOL_PRIVATE_DATA_FROM_THIS(a) \
       CR(a, EBC_PROTOCOL_PRIVATE_DATA, EbcProtocol, EBC_PROTOCOL_PRIVATE_DATA_SIGNATURE)
 
-
-/**
-  Allocates a buffer of type EfiBootServicesCode.
-
-  @param  AllocationSize        The number of bytes to allocate.
-
-  @return A pointer to the allocated buffer or NULL if allocation fails.
-
-**/
-VOID *
-EFIAPI
-EbcAllocatePoolForThunk (
-  IN UINTN  AllocationSize
-  );
 
 #endif // #ifndef _EBC_INT_H_

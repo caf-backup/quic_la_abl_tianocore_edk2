@@ -1,9 +1,15 @@
 /** @file
   GCC inline implementation of BaseLib processor specific functions.
+  
+  Copyright (c) 2006 - 2010, Intel Corporation. All rights reserved.<BR>
+  Portions copyright (c) 2008 - 2009, Apple Inc. All rights reserved.<BR> 
+  This program and the accompanying materials
+  are licensed and made available under the terms and conditions of the BSD License
+  which accompanies this distribution.  The full text of the license may be found at
+  http://opensource.org/licenses/bsd-license.php.
 
-  Copyright (c) 2006 - 2018, Intel Corporation. All rights reserved.<BR>
-  Portions copyright (c) 2008 - 2009, Apple Inc. All rights reserved.<BR>
-  SPDX-License-Identifier: BSD-2-Clause-Patent
+  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
@@ -27,7 +33,7 @@ MemoryFence (
   )
 {
   // This is a little bit of overkill and it is more about the compiler that it is
-  // actually processor synchronization. This is like the _ReadWriteBarrier
+  // actually processor synchronization. This is like the _ReadWriteBarrier 
   // Microsoft specific intrinsic
   __asm__ __volatile__ ("":::"memory");
 }
@@ -60,7 +66,7 @@ EFIAPI
 DisableInterrupts (
   VOID
   )
-{
+{  
   __asm__ __volatile__ ("cli"::: "memory");
 }
 
@@ -124,14 +130,14 @@ AsmReadMsr64 (
 {
   UINT32 LowData;
   UINT32 HighData;
-
+  
   __asm__ __volatile__ (
     "rdmsr"
     : "=a" (LowData),   // %0
       "=d" (HighData)   // %1
     : "c"  (Index)      // %2
     );
-
+    
   return (((UINT64)HighData) << 32) | LowData;
 }
 
@@ -164,7 +170,7 @@ AsmWriteMsr64 (
 
   LowData  = (UINT32)(Value);
   HighData = (UINT32)(Value >> 32);
-
+  
   __asm__ __volatile__ (
     "wrmsr"
     :
@@ -172,7 +178,7 @@ AsmWriteMsr64 (
       "a" (LowData),
       "d" (HighData)
     );
-
+    
   return Value;
 }
 
@@ -195,13 +201,13 @@ AsmReadEflags (
   )
 {
   UINTN Eflags;
-
+  
   __asm__ __volatile__ (
     "pushfq         \n\t"
     "pop     %0         "
     : "=r" (Eflags)       // %0
     );
-
+    
   return Eflags;
 }
 
@@ -224,12 +230,12 @@ AsmReadCr0 (
   )
 {
   UINTN   Data;
-
+  
   __asm__ __volatile__ (
-    "mov  %%cr0,%0"
+    "mov  %%cr0,%0" 
     : "=r" (Data)           // %0
     );
-
+  
   return Data;
 }
 
@@ -251,12 +257,12 @@ AsmReadCr2 (
   )
 {
   UINTN Data;
-
+  
   __asm__ __volatile__ (
-    "mov  %%cr2,  %0"
+    "mov  %%cr2,  %0" 
     : "=r" (Data)           // %0
     );
-
+  
   return Data;
 }
 
@@ -277,12 +283,12 @@ AsmReadCr3 (
   )
 {
   UINTN Data;
-
+  
   __asm__ __volatile__ (
-    "mov  %%cr3,  %0"
+    "mov  %%cr3,  %0" 
     : "=r" (Data)           // %0
     );
-
+  
   return Data;
 }
 
@@ -304,12 +310,12 @@ AsmReadCr4 (
   )
 {
   UINTN Data;
-
+  
   __asm__ __volatile__ (
-    "mov  %%cr4,  %0"
+    "mov  %%cr4,  %0" 
     : "=r" (Data)           // %0
     );
-
+  
   return Data;
 }
 
@@ -435,12 +441,12 @@ AsmReadDr0 (
   )
 {
   UINTN Data;
-
+  
   __asm__ __volatile__ (
     "mov  %%dr0, %0"
     : "=r" (Data)
     );
-
+  
   return Data;
 }
 
@@ -462,12 +468,12 @@ AsmReadDr1 (
   )
 {
   UINTN Data;
-
+  
   __asm__ __volatile__ (
     "mov  %%dr1, %0"
     : "=r" (Data)
     );
-
+  
   return Data;
 }
 
@@ -489,12 +495,12 @@ AsmReadDr2 (
   )
 {
   UINTN Data;
-
+  
   __asm__ __volatile__ (
     "mov  %%dr2, %0"
     : "=r" (Data)
     );
-
+  
   return Data;
 }
 
@@ -516,12 +522,12 @@ AsmReadDr3 (
   )
 {
   UINTN Data;
-
+  
   __asm__ __volatile__ (
     "mov  %%dr3, %0"
     : "=r" (Data)
     );
-
+  
   return Data;
 }
 
@@ -543,12 +549,12 @@ AsmReadDr4 (
   )
 {
   UINTN Data;
-
+  
   __asm__ __volatile__ (
     "mov  %%dr4, %0"
     : "=r" (Data)
     );
-
+  
   return Data;
 }
 
@@ -570,12 +576,12 @@ AsmReadDr5 (
   )
 {
   UINTN Data;
-
+  
   __asm__ __volatile__ (
     "mov  %%dr5, %0"
     : "=r" (Data)
     );
-
+  
   return Data;
 }
 
@@ -597,12 +603,12 @@ AsmReadDr6 (
   )
 {
   UINTN Data;
-
+  
   __asm__ __volatile__ (
     "mov  %%dr6, %0"
     : "=r" (Data)
     );
-
+  
   return Data;
 }
 
@@ -624,12 +630,12 @@ AsmReadDr7 (
   )
 {
   UINTN Data;
-
+  
   __asm__ __volatile__ (
     "mov  %%dr7, %0"
     : "=r" (Data)
     );
-
+  
   return Data;
 }
 
@@ -858,12 +864,12 @@ AsmReadCs (
   )
 {
   UINT16  Data;
-
+  
   __asm__ __volatile__ (
     "mov   %%cs, %0"
     :"=a" (Data)
     );
-
+    
   return Data;
 }
 
@@ -884,12 +890,12 @@ AsmReadDs (
   )
 {
   UINT16  Data;
-
+  
   __asm__ __volatile__ (
     "mov  %%ds, %0"
     :"=a" (Data)
     );
-
+    
   return Data;
 }
 
@@ -910,12 +916,12 @@ AsmReadEs (
   )
 {
   UINT16  Data;
-
+  
   __asm__ __volatile__ (
     "mov  %%es, %0"
     :"=a" (Data)
     );
-
+    
   return Data;
 }
 
@@ -936,12 +942,12 @@ AsmReadFs (
   )
 {
   UINT16  Data;
-
+  
   __asm__ __volatile__ (
     "mov  %%fs, %0"
     :"=a" (Data)
     );
-
+    
   return Data;
 }
 
@@ -962,12 +968,12 @@ AsmReadGs (
   )
 {
   UINT16  Data;
-
+  
   __asm__ __volatile__ (
     "mov  %%gs, %0"
     :"=a" (Data)
     );
-
+    
   return Data;
 }
 
@@ -988,12 +994,12 @@ AsmReadSs (
   )
 {
   UINT16  Data;
-
+  
   __asm__ __volatile__ (
     "mov  %%ds, %0"
     :"=a" (Data)
     );
-
+    
   return Data;
 }
 
@@ -1014,12 +1020,12 @@ AsmReadTr (
   )
 {
   UINT16  Data;
-
+  
   __asm__ __volatile__ (
     "str  %0"
     : "=r" (Data)
     );
-
+    
   return Data;
 }
 
@@ -1066,7 +1072,7 @@ InternalX86WriteGdtr (
     :
     : "m" (*Gdtr)
     );
-
+    
 }
 
 
@@ -1131,12 +1137,12 @@ AsmReadLdtr (
   )
 {
   UINT16  Data;
-
+  
   __asm__ __volatile__ (
     "sldt  %0"
     : "=g" (Data)   // %0
     );
-
+    
   return Data;
 }
 
@@ -1184,7 +1190,7 @@ InternalX86FxSave (
     "fxsave %0"
     :
     : "m" (*Buffer)  // %0
-    );
+    );    
 }
 
 
@@ -1233,7 +1239,7 @@ AsmReadMm0 (
     "movd   %%mm0,  %0    \n\t"
     : "=r"  (Data)       // %0
     );
-
+    
   return Data;
 }
 
@@ -1259,7 +1265,7 @@ AsmReadMm1 (
     "movd   %%mm1,  %0    \n\t"
     : "=r"  (Data)       // %0
     );
-
+    
   return Data;
 }
 
@@ -1285,7 +1291,7 @@ AsmReadMm2 (
     "movd  %%mm2,  %0    \n\t"
     : "=r"  (Data)       // %0
     );
-
+    
   return Data;
 }
 
@@ -1311,7 +1317,7 @@ AsmReadMm3 (
     "movd  %%mm3,  %0    \n\t"
     : "=r"  (Data)       // %0
     );
-
+    
   return Data;
 }
 
@@ -1337,7 +1343,7 @@ AsmReadMm4 (
     "movd  %%mm4,  %0    \n\t"
     : "=r"  (Data)       // %0
     );
-
+    
   return Data;
 }
 
@@ -1363,7 +1369,7 @@ AsmReadMm5 (
     "movd  %%mm5,  %0    \n\t"
     : "=r"  (Data)       // %0
     );
-
+    
   return Data;
 }
 
@@ -1389,7 +1395,7 @@ AsmReadMm6 (
     "movd  %%mm6,  %0    \n\t"
     : "=r"  (Data)       // %0
     );
-
+    
   return Data;
 }
 
@@ -1415,7 +1421,7 @@ AsmReadMm7 (
     "movd  %%mm7,  %0    \n\t"
     : "=r"  (Data)       // %0
     );
-
+    
   return Data;
 }
 
@@ -1437,7 +1443,7 @@ AsmWriteMm0 (
 {
   __asm__ __volatile__ (
     "movd  %0, %%mm0"  // %0
-    :
+    :  
     : "m" (Value)
     );
 }
@@ -1460,7 +1466,7 @@ AsmWriteMm1 (
 {
   __asm__ __volatile__ (
     "movd  %0, %%mm1"  // %0
-    :
+    :  
     : "m" (Value)
     );
 }
@@ -1483,7 +1489,7 @@ AsmWriteMm2 (
 {
   __asm__ __volatile__ (
     "movd  %0, %%mm2"  // %0
-    :
+    :  
     : "m" (Value)
     );
 }
@@ -1506,7 +1512,7 @@ AsmWriteMm3 (
 {
   __asm__ __volatile__ (
     "movd  %0, %%mm3"  // %0
-    :
+    :  
     : "m" (Value)
     );
 }
@@ -1529,7 +1535,7 @@ AsmWriteMm4 (
 {
   __asm__ __volatile__ (
     "movd  %0, %%mm4"  // %0
-    :
+    :  
     : "m" (Value)
     );
 }
@@ -1552,7 +1558,7 @@ AsmWriteMm5 (
 {
   __asm__ __volatile__ (
     "movd  %0, %%mm5"  // %0
-    :
+    :  
     : "m" (Value)
     );
 }
@@ -1575,7 +1581,7 @@ AsmWriteMm6 (
 {
   __asm__ __volatile__ (
     "movd  %0, %%mm6"  // %0
-    :
+    :  
     : "m" (Value)
     );
 }
@@ -1598,7 +1604,7 @@ AsmWriteMm7 (
 {
   __asm__ __volatile__ (
     "movd  %0, %%mm7"  // %0
-    :
+    :  
     : "m" (Value)
     );
 }
@@ -1621,14 +1627,14 @@ AsmReadTsc (
 {
   UINT32  LowData;
   UINT32  HiData;
-
+  
   __asm__ __volatile__ (
     "rdtsc"
     : "=a" (LowData),
       "=d" (HiData)
     );
-
-  return (((UINT64)HiData) << 32) | LowData;
+  
+  return (((UINT64)HiData) << 32) | LowData;  
 }
 
 
@@ -1651,15 +1657,15 @@ AsmReadPmc (
 {
   UINT32  LowData;
   UINT32  HiData;
-
+  
   __asm__ __volatile__ (
     "rdpmc"
     : "=a" (LowData),
       "=d" (HiData)
     : "c"  (Index)
     );
-
-  return (((UINT64)HiData) << 32) | LowData;
+  
+  return (((UINT64)HiData) << 32) | LowData;  
 }
 
 
@@ -1694,7 +1700,7 @@ AsmMonitor (
       "c" (Ecx),
       "d" (Edx)
     );
-
+    
   return Eax;
 }
 
@@ -1722,12 +1728,12 @@ AsmMwait (
 {
   __asm__ __volatile__ (
     "mwait"
-    :
+    : 
     : "a"  (Eax),
       "c"  (Ecx)
     );
-
-  return Eax;
+    
+  return Eax;    
 }
 
 
@@ -1762,7 +1768,7 @@ AsmInvd (
   )
 {
   __asm__ __volatile__ ("invd":::"memory");
-
+    
 }
 
 
@@ -1790,10 +1796,10 @@ AsmFlushCacheLine (
   __asm__ __volatile__ (
     "clflush (%0)"
     :
-    : "r" (LinearAddress)
+    : "r" (LinearAddress) 
     : "memory"
     );
-
+    
     return LinearAddress;
 }
 

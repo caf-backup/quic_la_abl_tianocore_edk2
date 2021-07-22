@@ -1,15 +1,20 @@
 ## @file
 # Override built in module os to provide support for long file path
 #
-# Copyright (c) 2014 - 2018, Intel Corporation. All rights reserved.<BR>
-# SPDX-License-Identifier: BSD-2-Clause-Patent
+# Copyright (c) 2014, Intel Corporation. All rights reserved.<BR>
+# This program and the accompanying materials
+# are licensed and made available under the terms and conditions of the BSD License
+# which accompanies this distribution.  The full text of the license may be found at
+# http://opensource.org/licenses/bsd-license.php
+#
+# THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+# WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 #
 
-from __future__ import absolute_import
 import os
-from . import LongFilePathOsPath
+import LongFilePathOsPath
 from Common.LongFilePathSupport import LongFilePath
-import time
+from Common.LongFilePathSupport import UniToStr
 
 path = LongFilePathOsPath
 
@@ -17,14 +22,7 @@ def access(path, mode):
     return os.access(LongFilePath(path), mode)
 
 def remove(path):
-   Timeout = 0.0
-   while Timeout < 5.0:
-       try:
-           return os.remove(LongFilePath(path))
-       except:
-           time.sleep(0.1)
-           Timeout = Timeout + 0.1
-   return os.remove(LongFilePath(path))
+    return os.remove(LongFilePath(path))
 
 def removedirs(name):
     return os.removedirs(LongFilePath(name))
@@ -35,7 +33,7 @@ def rmdir(path):
 def mkdir(path):
     return os.mkdir(LongFilePath(path))
 
-def makedirs(name, mode=0o777):
+def makedirs(name, mode=0777):
     return os.makedirs(LongFilePath(name), mode)
 
 def rename(old, new):
@@ -57,12 +55,8 @@ def listdir(path):
     List = []
     uList = os.listdir(u"%s" % LongFilePath(path))
     for Item in uList:
-        List.append(Item)
+        List.append(UniToStr(Item))
     return List
-
-if hasattr(os, 'replace'):
-    def replace(src, dst):
-        return os.replace(LongFilePath(src), LongFilePath(dst))
 
 environ = os.environ
 getcwd = os.getcwd

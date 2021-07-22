@@ -6,7 +6,7 @@
 /* By Hubert Holin (Hubert.Holin@Bigfoot.com), 1998.		*/
 /*															*/
 /* This is completely free stuff, do whatever you want with	*/
-/* it (but then, I will take no responsibility for whatever	*/
+/* it (but then, I will take no responsability for whatever	*/
 /* may happen if you do either... caveat emptor!).			*/
 /*															*/
 /************************************************************/
@@ -24,12 +24,12 @@ PCCTS_NAMESPACE_STD
 
 
 // NOTES:	The semantics of the copy constructor
-//			and the affectation operator may be unwarranted...
+//			and the affectation operator may be unwaranted...
 //			and the stream may not be reset.
 //
 //			It would have been so much nicer for nextChar()
 //			to throw (of for the DLGInputStream to change status)
-//			upon hitting EOF than to return an "int"...
+//			upon hiting EOF than to return an "int"...
 
 template	<
 				class E,

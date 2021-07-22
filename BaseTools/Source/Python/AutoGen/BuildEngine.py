@@ -1,14 +1,19 @@
 ## @file
 # The engine for building files
 #
-# Copyright (c) 2007 - 2018, Intel Corporation. All rights reserved.<BR>
-# SPDX-License-Identifier: BSD-2-Clause-Patent
+# Copyright (c) 2007 - 2014, Intel Corporation. All rights reserved.<BR>
+# This program and the accompanying materials
+# are licensed and made available under the terms and conditions of the BSD License
+# which accompanies this distribution.  The full text of the license may be found at
+# http://opensource.org/licenses/bsd-license.php
+#
+# THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+# WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 #
 
 ##
 # Import Modules
 #
-from __future__ import print_function
 import Common.LongFilePathOs as os
 import re
 import copy
@@ -18,11 +23,8 @@ from Common.LongFilePathSupport import OpenLongFilePath as open
 from Common.GlobalData import *
 from Common.BuildToolError import *
 from Common.Misc import tdict, PathClass
-from Common.StringUtils import NormPath
+from Common.String import NormPath
 from Common.DataType import *
-from Common.TargetTxtClassObject import TargetTxtDict
-gDefaultBuildRuleFile = 'build_rule.txt'
-AutoGenReqBuildRuleVerNum = '0.1'
 
 import Common.EdkLogger as EdkLogger
 
@@ -45,10 +47,21 @@ def ListFileMacro(FileType):
     return "%s_LIST" % FileListMacro(FileType)
 
 class TargetDescBlock(object):
-    def __init__(self, Inputs, Outputs, Commands, Dependencies):
-        self.InitWorker(Inputs, Outputs, Commands, Dependencies)
+    _Cache_ = {}    # {TargetFile : TargetDescBlock object}
 
-    def InitWorker(self, Inputs, Outputs, Commands, Dependencies):
+    # Factory method
+    def __new__(Class, Inputs, Outputs, Commands, Dependencies):
+        if Outputs[0] in Class._Cache_:
+            Tdb = Class._Cache_[Outputs[0]]
+            for File in Inputs:
+                Tdb.AddInput(File)
+        else:
+            Tdb = super(TargetDescBlock, Class).__new__(Class)
+            Tdb._Init(Inputs, Outputs, Commands, Dependencies)
+            #Class._Cache_[Outputs[0]] = Tdb
+        return Tdb
+
+    def _Init(self, Inputs, Outputs, Commands, Dependencies):
         self.Inputs = Inputs
         self.Outputs = Outputs
         self.Commands = Commands
@@ -65,7 +78,7 @@ class TargetDescBlock(object):
         return hash(self.Target.Path)
 
     def __eq__(self, Other):
-        if isinstance(Other, type(self)):
+        if type(Other) == type(self):
             return Other.Target.Path == self.Target.Path
         else:
             return str(Other) == self.Target.Path
@@ -76,6 +89,10 @@ class TargetDescBlock(object):
 
     def IsMultipleInput(self):
         return len(self.Inputs) > 1
+
+    @staticmethod
+    def Renew():
+        TargetDescBlock._Cache_ = {}
 
 ## Class for one build rule
 #
@@ -89,8 +106,8 @@ class FileBuildRule:
 
     ## constructor
     #
-    #   @param  Input       The dictionary representing input file(s) for a rule
-    #   @param  Output      The list representing output file(s) for a rule
+    #   @param  Input       The dictionary represeting input file(s) for a rule
+    #   @param  Output      The list represeting output file(s) for a rule
     #   @param  Command     The list containing commands to generate the output from input
     #
     def __init__(self, Type, Input, Output, Command, ExtraDependency=None):
@@ -107,7 +124,7 @@ class FileBuildRule:
         self.IncListFileMacro = self.INC_LIST_MACRO
 
         self.SourceFileType = Type
-        # source files listed not in TAB_STAR or "?" pattern format
+        # source files listed not in "*" or "?" pattern format
         if not ExtraDependency:
             self.ExtraSourceFileList = []
         else:
@@ -144,18 +161,19 @@ class FileBuildRule:
 
         # Check input files
         self.IsMultipleInput = False
-        self.SourceFileExtList = set()
+        self.SourceFileExtList = []
         for File in Input:
             Base, Ext = os.path.splitext(File)
-            if Base.find(TAB_STAR) >= 0:
-                # There's TAB_STAR in the file name
+            if Base.find("*") >= 0:
+                # There's "*" in the file name
                 self.IsMultipleInput = True
                 self.GenFileListMacro = True
             elif Base.find("?") < 0:
-                # There's no TAB_STAR and "?" in file name
+                # There's no "*" and "?" in file name
                 self.ExtraSourceFileList.append(File)
                 continue
-            self.SourceFileExtList.add(Ext)
+            if Ext not in self.SourceFileExtList:
+                self.SourceFileExtList.append(Ext)
 
         # Check output files
         self.DestFileList = []
@@ -176,9 +194,17 @@ class FileBuildRule:
         CommandString = "\n\t".join(self.CommandList)
         return "%s : %s\n\t%s" % (DestString, SourceString, CommandString)
 
-    def Instantiate(self, Macros = None):
-        if Macros is None:
-            Macros = {}
+    ## Check if given file extension is supported by this rule
+    #
+    #   @param  FileExt     The extension of a file
+    #
+    #   @retval True        If the extension is supported
+    #   @retval False       If the extension is not supported
+    #
+    def IsSupported(self, FileExt):
+        return FileExt in self.SourceFileExtList
+
+    def Instantiate(self, Macros={}):
         NewRuleObject = copy.copy(self)
         NewRuleObject.BuildTargets = {}
         NewRuleObject.DestFileList = []
@@ -192,7 +218,7 @@ class FileBuildRule:
     #   @param  RelativeToDir   The relative path of the source file
     #   @param  PathSeparator   Path separator
     #
-    #   @retval     tuple       (Source file in full path, List of individual sourcefiles, Destination file, List of build commands)
+    #   @retval     tuple       (Source file in full path, List of individual sourcefiles, Destionation file, List of build commands)
     #
     def Apply(self, SourceFile, BuildRuleOrder=None):
         if not self.CommandList or not self.DestFileList:
@@ -263,7 +289,7 @@ class FileBuildRule:
                         # Command line should be regenerated since some macros are different
                         #
                         CommandList = self._BuildCommand(BuildRulePlaceholderDict)
-                        TargetDesc.InitWorker([SourceFile], DstFile, CommandList, self.ExtraSourceFileList)
+                        TargetDesc._Init([SourceFile], DstFile, CommandList, self.ExtraSourceFileList)
                         break
             else:
                 TargetDesc.AddInput(SourceFile)
@@ -317,15 +343,15 @@ class BuildRule:
     #   @param  LineIndex           The line number from which the parsing will begin
     #   @param  SupportedFamily     The list of supported tool chain families
     #
-    def __init__(self, File=None, Content=None, LineIndex=0, SupportedFamily=[TAB_COMPILER_MSFT, "INTEL", "GCC", "RVCT"]):
+    def __init__(self, File=None, Content=None, LineIndex=0, SupportedFamily=["MSFT", "INTEL", "GCC", "RVCT"]):
         self.RuleFile = File
         # Read build rules from file if it's not none
-        if File is not None:
+        if File != None:
             try:
                 self.RuleContent = open(File, 'r').readlines()
             except:
                 EdkLogger.error("build", FILE_OPEN_FAILURE, ExtraData=File)
-        elif Content is not None:
+        elif Content != None:
             self.RuleContent = Content
         else:
             EdkLogger.error("build", PARAMETER_MISSING, ExtraData="No rule file or string given")
@@ -339,8 +365,8 @@ class BuildRule:
         self._State = ""
         self._RuleInfo = tdict(True, 2)     # {toolchain family : {"InputFile": {}, "OutputFile" : [], "Command" : []}}
         self._FileType = ''
-        self._BuildTypeList = set()
-        self._ArchList = set()
+        self._BuildTypeList = []
+        self._ArchList = []
         self._FamilyList = []
         self._TotalToolChainFamilySet = set()
         self._RuleObjectList = [] # FileBuildRule object list
@@ -349,7 +375,7 @@ class BuildRule:
         self.Parse()
 
         # some intrinsic rules
-        self.RuleDatabase[TAB_DEFAULT_BINARY_FILE, TAB_COMMON, TAB_COMMON, TAB_COMMON] = self._BinaryFileRule
+        self.RuleDatabase[TAB_DEFAULT_BINARY_FILE, "COMMON", "COMMON", "COMMON"] = self._BinaryFileRule
         self.FileTypeList.add(TAB_DEFAULT_BINARY_FILE)
 
     ## Parse the build rule strings
@@ -359,10 +385,10 @@ class BuildRule:
             # Clean up the line and replace path separator with native one
             Line = self.RuleContent[Index].strip().replace(self._PATH_SEP, os.path.sep)
             self.RuleContent[Index] = Line
-
+            
             # find the build_rule_version
-            if Line and Line[0] == "#" and Line.find(TAB_BUILD_RULE_VERSION) != -1:
-                if Line.find("=") != -1 and Line.find("=") < (len(Line) - 1) and (Line[(Line.find("=") + 1):]).split():
+            if Line and Line[0] == "#" and Line.find(TAB_BUILD_RULE_VERSION) <> -1:
+                if Line.find("=") <> -1 and Line.find("=") < (len(Line)-1) and (Line[(Line.find("=") + 1):]).split():
                     self._FileVersion = (Line[(Line.find("=") + 1):]).split()[0]
             # skip empty or comment line
             if Line == "" or Line[0] == "#":
@@ -395,7 +421,7 @@ class BuildRule:
     #   @param  LineIndex   The line index of build rule text
     #
     def ParseSubSection(self, LineIndex):
-        # currently nothing here
+        # currenly nothing here
         pass
 
     ## Placeholder for not supported sections
@@ -408,9 +434,9 @@ class BuildRule:
     ## Merge section information just got into rule database
     def EndOfSection(self):
         Database = self.RuleDatabase
-        # if there's specific toolchain family, 'COMMON' doesn't make sense any more
-        if len(self._TotalToolChainFamilySet) > 1 and TAB_COMMON in self._TotalToolChainFamilySet:
-            self._TotalToolChainFamilySet.remove(TAB_COMMON)
+        # if there's specific toochain family, 'COMMON' doesn't make sense any more
+        if len(self._TotalToolChainFamilySet) > 1 and 'COMMON' in self._TotalToolChainFamilySet:
+            self._TotalToolChainFamilySet.remove('COMMON')
         for Family in self._TotalToolChainFamilySet:
             Input = self._RuleInfo[Family, self._InputFile]
             Output = self._RuleInfo[Family, self._OutputFile]
@@ -430,30 +456,30 @@ class BuildRule:
     #
     def ParseSectionHeader(self, LineIndex):
         self._RuleInfo = tdict(True, 2)
-        self._BuildTypeList = set()
-        self._ArchList = set()
+        self._BuildTypeList = []
+        self._ArchList = []
         self._FamilyList = []
         self._TotalToolChainFamilySet = set()
         FileType = ''
         RuleNameList = self.RuleContent[LineIndex][1:-1].split(',')
         for RuleName in RuleNameList:
-            Arch = TAB_COMMON
-            BuildType = TAB_COMMON
+            Arch = 'COMMON'
+            BuildType = 'COMMON'
             TokenList = [Token.strip().upper() for Token in RuleName.split('.')]
             # old format: Build.File-Type
             if TokenList[0] == "BUILD":
                 if len(TokenList) == 1:
                     EdkLogger.error("build", FORMAT_INVALID, "Invalid rule section",
-                                    File=self.RuleFile, Line=LineIndex + 1,
+                                    File=self.RuleFile, Line=LineIndex+1,
                                     ExtraData=self.RuleContent[LineIndex])
 
                 FileType = TokenList[1]
                 if FileType == '':
                     EdkLogger.error("build", FORMAT_INVALID, "No file type given",
-                                    File=self.RuleFile, Line=LineIndex + 1,
+                                    File=self.RuleFile, Line=LineIndex+1,
                                     ExtraData=self.RuleContent[LineIndex])
-                if self._FileTypePattern.match(FileType) is None:
-                    EdkLogger.error("build", FORMAT_INVALID, File=self.RuleFile, Line=LineIndex + 1,
+                if self._FileTypePattern.match(FileType) == None:
+                    EdkLogger.error("build", FORMAT_INVALID, File=self.RuleFile, Line=LineIndex+1,
                                     ExtraData="Only character, number (non-first character), '_' and '-' are allowed in file type")
             # new format: File-Type.Build-Type.Arch
             else:
@@ -462,24 +488,26 @@ class BuildRule:
                 elif FileType != TokenList[0]:
                     EdkLogger.error("build", FORMAT_INVALID,
                                     "Different file types are not allowed in the same rule section",
-                                    File=self.RuleFile, Line=LineIndex + 1,
+                                    File=self.RuleFile, Line=LineIndex+1,
                                     ExtraData=self.RuleContent[LineIndex])
                 if len(TokenList) > 1:
                     BuildType = TokenList[1]
                 if len(TokenList) > 2:
                     Arch = TokenList[2]
-            self._BuildTypeList.add(BuildType)
-            self._ArchList.add(Arch)
+            if BuildType not in self._BuildTypeList:
+                self._BuildTypeList.append(BuildType)
+            if Arch not in self._ArchList:
+                self._ArchList.append(Arch)
 
-        if TAB_COMMON in self._BuildTypeList and len(self._BuildTypeList) > 1:
+        if 'COMMON' in self._BuildTypeList and len(self._BuildTypeList) > 1:
             EdkLogger.error("build", FORMAT_INVALID,
                             "Specific build types must not be mixed with common one",
-                            File=self.RuleFile, Line=LineIndex + 1,
+                            File=self.RuleFile, Line=LineIndex+1,
                             ExtraData=self.RuleContent[LineIndex])
-        if TAB_COMMON in self._ArchList and len(self._ArchList) > 1:
+        if 'COMMON' in self._ArchList and len(self._ArchList) > 1:
             EdkLogger.error("build", FORMAT_INVALID,
                             "Specific ARCH must not be mixed with common one",
-                            File=self.RuleFile, Line=LineIndex + 1,
+                            File=self.RuleFile, Line=LineIndex+1,
                             ExtraData=self.RuleContent[LineIndex])
 
         self._FileType = FileType
@@ -503,13 +531,13 @@ class BuildRule:
             elif SectionType != Type:
                 EdkLogger.error("build", FORMAT_INVALID,
                                 "Two different section types are not allowed in the same sub-section",
-                                File=self.RuleFile, Line=LineIndex + 1,
+                                File=self.RuleFile, Line=LineIndex+1,
                                 ExtraData=self.RuleContent[LineIndex])
 
             if len(TokenList) > 1:
                 Family = TokenList[1].strip().upper()
             else:
-                Family = TAB_COMMON
+                Family = "COMMON"
 
             if Family not in FamilyList:
                 FamilyList.append(Family)
@@ -517,43 +545,45 @@ class BuildRule:
         self._FamilyList = FamilyList
         self._TotalToolChainFamilySet.update(FamilyList)
         self._State = SectionType.upper()
-        if TAB_COMMON in FamilyList and len(FamilyList) > 1:
+        if 'COMMON' in FamilyList and len(FamilyList) > 1:
             EdkLogger.error("build", FORMAT_INVALID,
                             "Specific tool chain family should not be mixed with general one",
-                            File=self.RuleFile, Line=LineIndex + 1,
+                            File=self.RuleFile, Line=LineIndex+1,
                             ExtraData=self.RuleContent[LineIndex])
         if self._State not in self._StateHandler:
-            EdkLogger.error("build", FORMAT_INVALID, File=self.RuleFile, Line=LineIndex + 1,
+            EdkLogger.error("build", FORMAT_INVALID, File=self.RuleFile, Line=LineIndex+1,
                             ExtraData="Unknown subsection: %s" % self.RuleContent[LineIndex])
     ## Parse <InputFile> sub-section
     #
     #   @param  LineIndex   The line index of build rule text
     #
-    def ParseInputFileSubSection(self, LineIndex):
+    def ParseInputFile(self, LineIndex):
         FileList = [File.strip() for File in self.RuleContent[LineIndex].split(",")]
         for ToolChainFamily in self._FamilyList:
-            if self._RuleInfo[ToolChainFamily, self._State] is None:
-                self._RuleInfo[ToolChainFamily, self._State] = []
-            self._RuleInfo[ToolChainFamily, self._State].extend(FileList)
+            InputFiles = self._RuleInfo[ToolChainFamily, self._State]
+            if InputFiles == None:
+                InputFiles = []
+                self._RuleInfo[ToolChainFamily, self._State] = InputFiles
+            InputFiles.extend(FileList)
 
     ## Parse <ExtraDependency> sub-section
-    ## Parse <OutputFile> sub-section
-    ## Parse <Command> sub-section
     #
     #   @param  LineIndex   The line index of build rule text
     #
-    def ParseCommonSubSection(self, LineIndex):
+    def ParseCommon(self, LineIndex):
         for ToolChainFamily in self._FamilyList:
-            if self._RuleInfo[ToolChainFamily, self._State] is None:
-                self._RuleInfo[ToolChainFamily, self._State] = []
-            self._RuleInfo[ToolChainFamily, self._State].append(self.RuleContent[LineIndex])
+            Items = self._RuleInfo[ToolChainFamily, self._State]
+            if Items == None:
+                Items = []
+                self._RuleInfo[ToolChainFamily, self._State] = Items
+            Items.append(self.RuleContent[LineIndex])
 
     ## Get a build rule via [] operator
     #
     #   @param  FileExt             The extension of a file
     #   @param  ToolChainFamily     The tool chain family name
-    #   @param  BuildVersion        The build version number. TAB_STAR means any rule
-    #                               is applicable.
+    #   @param  BuildVersion        The build version number. "*" means any rule
+    #                               is applicalbe.
     #
     #   @retval FileType        The file type string
     #   @retval FileBuildRule   The object of FileBuildRule
@@ -581,49 +611,12 @@ class BuildRule:
         _Section           : ParseSection,
         _SubSectionHeader  : ParseSubSectionHeader,
         _SubSection        : ParseSubSection,
-        _InputFile         : ParseInputFileSubSection,
-        _OutputFile        : ParseCommonSubSection,
-        _ExtraDependency   : ParseCommonSubSection,
-        _Command           : ParseCommonSubSection,
+        _InputFile         : ParseInputFile,
+        _OutputFile        : ParseCommon,
+        _ExtraDependency   : ParseCommon,
+        _Command           : ParseCommon,
         _UnknownSection    : SkipSection,
     }
-
-class ToolBuildRule():
-
-    def __new__(cls, *args, **kw):
-        if not hasattr(cls, '_instance'):
-            orig = super(ToolBuildRule, cls)
-            cls._instance = orig.__new__(cls, *args, **kw)
-        return cls._instance
-
-    def __init__(self):
-        if not hasattr(self, 'ToolBuildRule'):
-            self._ToolBuildRule = None
-
-    @property
-    def ToolBuildRule(self):
-        if not self._ToolBuildRule:
-            self._GetBuildRule()
-        return self._ToolBuildRule
-
-    def _GetBuildRule(self):
-        BuildRuleFile = None
-        TargetObj = TargetTxtDict()
-        TargetTxt = TargetObj.Target
-        if TAB_TAT_DEFINES_BUILD_RULE_CONF in TargetTxt.TargetTxtDictionary:
-            BuildRuleFile = TargetTxt.TargetTxtDictionary[TAB_TAT_DEFINES_BUILD_RULE_CONF]
-        if not BuildRuleFile:
-            BuildRuleFile = gDefaultBuildRuleFile
-        RetVal = BuildRule(BuildRuleFile)
-        if RetVal._FileVersion == "":
-            RetVal._FileVersion = AutoGenReqBuildRuleVerNum
-        else:
-            if RetVal._FileVersion < AutoGenReqBuildRuleVerNum :
-                # If Build Rule's version is less than the version number required by the tools, halting the build.
-                EdkLogger.error("build", AUTOGEN_ERROR,
-                                ExtraData="The version number [%s] of build_rule.txt is less than the version number required by the AutoGen.(the minimum required version number is [%s])"\
-                                 % (RetVal._FileVersion, AutoGenReqBuildRuleVerNum))
-        self._ToolBuildRule = RetVal
 
 # This acts like the main() function for the script, unless it is 'import'ed into another
 # script.
@@ -632,19 +625,19 @@ if __name__ == '__main__':
     EdkLogger.Initialize()
     if len(sys.argv) > 1:
         Br = BuildRule(sys.argv[1])
-        print(str(Br[".c", SUP_MODULE_DXE_DRIVER, "IA32", TAB_COMPILER_MSFT][1]))
-        print()
-        print(str(Br[".c", SUP_MODULE_DXE_DRIVER, "IA32", "INTEL"][1]))
-        print()
-        print(str(Br[".c", SUP_MODULE_DXE_DRIVER, "IA32", "GCC"][1]))
-        print()
-        print(str(Br[".ac", "ACPI_TABLE", "IA32", TAB_COMPILER_MSFT][1]))
-        print()
-        print(str(Br[".h", "ACPI_TABLE", "IA32", "INTEL"][1]))
-        print()
-        print(str(Br[".ac", "ACPI_TABLE", "IA32", TAB_COMPILER_MSFT][1]))
-        print()
-        print(str(Br[".s", SUP_MODULE_SEC, "IPF", "COMMON"][1]))
-        print()
-        print(str(Br[".s", SUP_MODULE_SEC][1]))
+        print str(Br[".c", "DXE_DRIVER", "IA32", "MSFT"][1])
+        print
+        print str(Br[".c", "DXE_DRIVER", "IA32", "INTEL"][1])
+        print
+        print str(Br[".c", "DXE_DRIVER", "IA32", "GCC"][1])
+        print
+        print str(Br[".ac", "ACPI_TABLE", "IA32", "MSFT"][1])
+        print
+        print str(Br[".h", "ACPI_TABLE", "IA32", "INTEL"][1])
+        print
+        print str(Br[".ac", "ACPI_TABLE", "IA32", "MSFT"][1])
+        print
+        print str(Br[".s", "SEC", "IPF", "COMMON"][1])
+        print
+        print str(Br[".s", "SEC"][1])
 

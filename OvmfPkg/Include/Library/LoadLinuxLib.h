@@ -2,7 +2,13 @@
   Load/boot UEFI Linux.
 
   Copyright (c) 2011 - 2013, Intel Corporation. All rights reserved.<BR>
-  SPDX-License-Identifier: BSD-2-Clause-Patent
+  This program and the accompanying materials
+  are licensed and made available under the terms and conditions of the BSD License
+  which accompanies this distribution.  The full text of the license may be found at
+  http://opensource.org/licenses/bsd-license.php
+
+  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
@@ -38,7 +44,7 @@ LoadLinuxCheckKernelSetup (
   @param[in]     KernelSetup - The kernel setup image
   @param[in]     KernelSize - The kernel size on disk.
 
-  @retval    0                An error occurred
+  @retval    0                An error occured
   @retval    !0               The initial size required by the kernel to
                               begin execution.
 

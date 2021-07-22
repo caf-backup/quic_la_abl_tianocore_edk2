@@ -1,9 +1,16 @@
 /** @file
 BOT Transportation implementation.
 
-Copyright (c) 2006 - 2018, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2006, Intel Corporation. All rights reserved.<BR>
+  
+This program and the accompanying materials
+are licensed and made available under the terms and conditions
+of the BSD License which accompanies this distribution.  The
+full text of the license may be found at
+http://opensource.org/licenses/bsd-license.php
 
-SPDX-License-Identifier: BSD-2-Clause-Patent
+THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
@@ -166,7 +173,7 @@ PeiUsbRead10 (
   IN  UINTN             NumberOfBlocks
   );
 
-/**
+/**  
   Check if there is media according to sense data.
 
   @param  SenseData   Pointer to sense data.
@@ -182,7 +189,7 @@ IsNoMedia (
   IN  UINTN                 SenseCounts
   );
 
-/**
+/**  
   Check if there is media error according to sense data.
 
   @param  SenseData   Pointer to sense data.
@@ -198,7 +205,7 @@ IsMediaError (
   IN  UINTN                 SenseCounts
   );
 
-/**
+/**  
   Check if media is changed according to sense data.
 
   @param  SenseData   Pointer to sense data.

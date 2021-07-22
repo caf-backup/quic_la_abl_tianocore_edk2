@@ -2,7 +2,13 @@
 Include file for the WinNt Library
 
 Copyright (c) 2006 - 2014, Intel Corporation. All rights reserved.<BR>
-SPDX-License-Identifier: BSD-2-Clause-Patent
+This program and the accompanying materials
+are licensed and made available under the terms and conditions of the BSD License
+which accompanies this distribution.  The full text of the license may be found at
+http://opensource.org/licenses/bsd-license.php
+
+THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
@@ -28,7 +34,7 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
 
 //
 // Win32 include files do not compile clean with /W4, so we use the warning
-// pragma to suppress the warnings for Win32 only. This way our code can still
+// pragma to suppress the warnings for Win32 only. This way our code can stil
 // compile at /W4 (highest warning level) with /WX (warnings cause build
 // errors).
 //

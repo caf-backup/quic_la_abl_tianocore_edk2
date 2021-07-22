@@ -1,9 +1,14 @@
 /** @file
   Header file for Terminal driver.
 
-Copyright (c) 2006 - 2019, Intel Corporation. All rights reserved.<BR>
-Copyright (C) 2016 Silicon Graphics, Inc. All rights reserved.<BR>
-SPDX-License-Identifier: BSD-2-Clause-Patent
+Copyright (c) 2006 - 2014, Intel Corporation. All rights reserved.<BR>
+This program and the accompanying materials
+are licensed and made available under the terms and conditions of the BSD License
+which accompanies this distribution.  The full text of the license may be found at
+http://opensource.org/licenses/bsd-license.php
+
+THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 **/
 
@@ -75,23 +80,10 @@ typedef struct _TERMINAL_CONSOLE_IN_EX_NOTIFY {
   EFI_KEY_NOTIFY_FUNCTION               KeyNotificationFn;
   LIST_ENTRY                            NotifyEntry;
 } TERMINAL_CONSOLE_IN_EX_NOTIFY;
-
-typedef enum {
-  TerminalTypePcAnsi,
-  TerminalTypeVt100,
-  TerminalTypeVt100Plus,
-  TerminalTypeVtUtf8,
-  TerminalTypeTtyTerm,
-  TerminalTypeLinux,
-  TerminalTypeXtermR6,
-  TerminalTypeVt400,
-  TerminalTypeSCO
-} TERMINAL_TYPE;
-
 typedef struct {
   UINTN                               Signature;
   EFI_HANDLE                          Handle;
-  TERMINAL_TYPE                       TerminalType;
+  UINT8                               TerminalType;
   EFI_SERIAL_IO_PROTOCOL              *SerialIo;
   EFI_DEVICE_PATH_PROTOCOL            *DevicePath;
   EFI_SIMPLE_TEXT_INPUT_PROTOCOL      SimpleInput;
@@ -102,7 +94,6 @@ typedef struct {
   RAW_DATA_FIFO                       *RawFiFo;
   UNICODE_FIFO                        *UnicodeFiFo;
   EFI_KEY_FIFO                        *EfiKeyFiFo;
-  EFI_KEY_FIFO                        *EfiKeyFiFoForNotify;
   EFI_UNICODE_STRING_TABLE            *ControllerNameTable;
   EFI_EVENT                           TimerEvent;
   EFI_EVENT                           TwoSecondTimeOut;
@@ -121,7 +112,6 @@ typedef struct {
   BOOLEAN                             OutputEscChar;
   EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL   SimpleInputEx;
   LIST_ENTRY                          NotifyList;
-  EFI_EVENT                           KeyNotifyProcessEvent;
 } TERMINAL_DEV;
 
 #define INPUT_STATE_DEFAULT               0x00
@@ -130,9 +120,7 @@ typedef struct {
 #define INPUT_STATE_LEFTOPENBRACKET       0x04
 #define INPUT_STATE_O                     0x08
 #define INPUT_STATE_2                     0x10
-#define INPUT_STATE_LEFTOPENBRACKET_TTY   0x20
-#define INPUT_STATE_1                     0x40
-#define INPUT_STATE_LEFTOPENBRACKET_2ND   0x80
+#define INPUT_STATE_LEFTOPENBRACKET_2     0x20
 
 #define RESET_STATE_DEFAULT               0x00
 #define RESET_STATE_ESC_R                 0x01
@@ -147,6 +135,12 @@ typedef union {
   UINT8 Utf8_2[2];
   UINT8 Utf8_3[3];
 } UTF8_CHAR;
+
+#define PCANSITYPE                0
+#define VT100TYPE                 1
+#define VT100PLUSTYPE             2
+#define VTUTF8TYPE                3
+#define TTYTERMTYPE               4
 
 #define LEFTOPENBRACKET           0x5b  // '['
 #define ACAP                      0x41
@@ -163,7 +157,6 @@ typedef union {
 #define BACKGROUND_CONTROL_OFFSET 11
 #define ROW_OFFSET                2
 #define COLUMN_OFFSET             5
-#define FW_BACK_OFFSET            2
 
 typedef struct {
   UINT16  Unicode;
@@ -343,12 +336,9 @@ TerminalConInSetState (
   @param  This                     Protocol instance pointer.
   @param  KeyData                  A pointer to a buffer that is filled in with the
                                    keystroke information data for the key that was
-                                   pressed. If KeyData.Key, KeyData.KeyState.KeyToggleState
-                                   and KeyData.KeyState.KeyShiftState are 0, then any incomplete
-                                   keystroke will trigger a notification of the KeyNotificationFunction.
+                                   pressed.
   @param  KeyNotificationFunction  Points to the function to be called when the key
-                                   sequence is typed specified by KeyData. This notification function
-                                   should be called at <=TPL_CALLBACK.
+                                   sequence is typed specified by KeyData.
   @param  NotifyHandle             Points to the unique handle assigned to the
                                    registered notification.
 
@@ -854,8 +844,7 @@ TerminalRemoveConsoleDevVariable (
 /**
   Build termial device path according to terminal type.
 
-  @param  TerminalType           The terminal type is PC ANSI, VT100, VT100+, VT-UTF8, TTY-Term,
-                                 Linux, XtermR6, VT400 and SCO.
+  @param  TerminalType           The terminal type is PC ANSI, VT100, VT100+ or VT-UTF8.
   @param  ParentDevicePath       Parent device path.
   @param  TerminalDevicePath     Returned terminal device path, if building successfully.
 
@@ -866,7 +855,7 @@ TerminalRemoveConsoleDevVariable (
 **/
 EFI_STATUS
 SetTerminalDevicePath (
-  IN  TERMINAL_TYPE               TerminalType,
+  IN  UINT8                       TerminalType,
   IN  EFI_DEVICE_PATH_PROTOCOL    *ParentDevicePath,
   OUT EFI_DEVICE_PATH_PROTOCOL    **TerminalDevicePath
   );
@@ -953,67 +942,6 @@ IsRawFiFoFull (
 /**
   Insert one pre-fetched key into the FIFO buffer.
 
-  @param  EfiKeyFiFo            Pointer to instance of EFI_KEY_FIFO.
-  @param  Input                 The key will be input.
-
-  @retval TRUE                  If insert successfully.
-  @retval FALSE                 If FIFO buffer is full before key insertion,
-                                and the key is lost.
-
-**/
-BOOLEAN
-EfiKeyFiFoForNotifyInsertOneKey (
-  EFI_KEY_FIFO                  *EfiKeyFiFo,
-  EFI_INPUT_KEY                 *Input
-  );
-
-/**
-  Remove one pre-fetched key out of the FIFO buffer.
-
-  @param  EfiKeyFiFo            Pointer to instance of EFI_KEY_FIFO.
-  @param  Output                The key will be removed.
-
-  @retval TRUE                  If insert successfully.
-  @retval FALSE                 If FIFO buffer is empty before remove operation.
-
-**/
-BOOLEAN
-EfiKeyFiFoForNotifyRemoveOneKey (
-  EFI_KEY_FIFO                  *EfiKeyFiFo,
-  EFI_INPUT_KEY                 *Output
-  );
-
-/**
-  Clarify whether FIFO buffer is empty.
-
-  @param  EfiKeyFiFo            Pointer to instance of EFI_KEY_FIFO.
-
-  @retval TRUE                  If FIFO buffer is empty.
-  @retval FALSE                 If FIFO buffer is not empty.
-
-**/
-BOOLEAN
-IsEfiKeyFiFoForNotifyEmpty (
-  IN EFI_KEY_FIFO               *EfiKeyFiFo
-  );
-
-/**
-  Clarify whether FIFO buffer is full.
-
-  @param  EfiKeyFiFo            Pointer to instance of EFI_KEY_FIFO.
-
-  @retval TRUE                  If FIFO buffer is full.
-  @retval FALSE                 If FIFO buffer is not full.
-
-**/
-BOOLEAN
-IsEfiKeyFiFoForNotifyFull (
-  EFI_KEY_FIFO                  *EfiKeyFiFo
-  );
-
-/**
-  Insert one pre-fetched key into the FIFO buffer.
-
   @param  TerminalDevice       Terminal driver private structure.
   @param  Key                  The key will be input.
 
@@ -1091,7 +1019,7 @@ UnicodeFiFoInsertOneKey (
 
 /**
   Remove one pre-fetched key out of the Unicode FIFO buffer.
-  The caller should guarantee that Unicode FIFO buffer is not empty
+  The caller should guarantee that Unicode FIFO buffer is not empty 
   by IsUnicodeFiFoEmpty ().
 
   @param  TerminalDevice       Terminal driver private structure.
@@ -1132,6 +1060,18 @@ IsUnicodeFiFoFull (
   TERMINAL_DEV  *TerminalDevice
   );
 
+/**
+  Count Unicode FIFO buffer.
+
+  @param  TerminalDevice       Terminal driver private structure
+
+  @return The count in bytes of Unicode FIFO.
+
+**/
+UINT8
+UnicodeFiFoGetKeyCount (
+  TERMINAL_DEV    *TerminalDevice
+  );
 
 /**
   Translate raw data into Unicode (according to different encode), and
@@ -1216,28 +1156,6 @@ AnsiRawDataToUnicode (
   | F12     | 0x16 |           | ESC @    |          |
   +=========+======+===========+==========+==========+
 
-Putty function key map:
-  +=========+======+===========+=============+=============+=============+=========+
-  |         | EFI  |           |             |             |             |         |
-  |         | Scan |           |             |  Normal     |             |         |
-  |   KEY   | Code |  VT100+   | Xterm R6    |  VT400      | Linux       | SCO     |
-  +=========+======+===========+=============+=============+=============+=========+
-  | F1      | 0x0B | ESC O P   | ESC O P     | ESC [ 1 1 ~ | ESC [ [ A   | ESC [ M |
-  | F2      | 0x0C | ESC O Q   | ESC O Q     | ESC [ 1 2 ~ | ESC [ [ B   | ESC [ N |
-  | F3      | 0x0D | ESC O R   | ESC O R     | ESC [ 1 3 ~ | ESC [ [ C   | ESC [ O |
-  | F4      | 0x0E | ESC O S   | ESC O S     | ESC [ 1 4 ~ | ESC [ [ D   | ESC [ P |
-  | F5      | 0x0F | ESC O T   | ESC [ 1 5 ~ | ESC [ 1 5 ~ | ESC [ [ E   | ESC [ Q |
-  | F6      | 0x10 | ESC O U   | ESC [ 1 7 ~ | ESC [ 1 7 ~ | ESC [ 1 7 ~ | ESC [ R |
-  | F7      | 0x11 | ESC O V   | ESC [ 1 8 ~ | ESC [ 1 8 ~ | ESC [ 1 8 ~ | ESC [ S |
-  | F8      | 0x12 | ESC O W   | ESC [ 1 9 ~ | ESC [ 1 9 ~ | ESC [ 1 9 ~ | ESC [ T |
-  | F9      | 0x13 | ESC O X   | ESC [ 2 0 ~ | ESC [ 2 0 ~ | ESC [ 2 0 ~ | ESC [ U |
-  | F10     | 0x14 | ESC O Y   | ESC [ 2 1 ~ | ESC [ 2 1 ~ | ESC [ 2 1 ~ | ESC [ V |
-  | Escape  | 0x17 | ESC       | ESC         | ESC         | ESC         | ESC     |
-  | F11     | 0x15 | ESC O Z   | ESC [ 2 3 ~ | ESC [ 2 3 ~ | ESC [ 2 3 ~ | ESC [ W |
-  | F12     | 0x16 | ESC O [   | ESC [ 2 4 ~ | ESC [ 2 4 ~ | ESC [ 2 4 ~ | ESC [ X |
-  +=========+======+===========+=============+=============+=============+=========+
-
-
   Special Mappings
   ================
   ESC R ESC r ESC R = Reset System
@@ -1303,10 +1221,10 @@ VTUTF8TestString (
   Translate one Unicode character into VT-UTF8 characters.
 
   UTF8 Encoding Table
-  Bits per Character | Unicode Character Range | Unicode Binary  Encoding |  UTF8 Binary Encoding
-        0-7           |     0x0000 - 0x007F      |     00000000 0xxxxxxx     |   0xxxxxxx
-        8-11          |     0x0080 - 0x07FF      |     00000xxx xxxxxxxx     |   110xxxxx 10xxxxxx
-       12-16          |     0x0800 - 0xFFFF      |     xxxxxxxx xxxxxxxx     |   1110xxxx 10xxxxxx 10xxxxxx
+  Bits per Character | Unicode Character Range | Unicode Binary  Encoding |	UTF8 Binary Encoding
+        0-7	         |     0x0000 - 0x007F	    |     00000000 0xxxxxxx	   |   0xxxxxxx
+        8-11 	       |     0x0080 - 0x07FF	    |     00000xxx xxxxxxxx 	  |   110xxxxx 10xxxxxx
+       12-16	        |     0x0800 - 0xFFFF	    |     xxxxxxxx xxxxxxxx	   |   1110xxxx 10xxxxxx 10xxxxxx
 
 
   @param  Unicode          Unicode character need translating.
@@ -1342,10 +1260,10 @@ GetOneValidUtf8Char (
   Translate VT-UTF8 characters into one Unicode character.
 
   UTF8 Encoding Table
-  Bits per Character | Unicode Character Range | Unicode Binary  Encoding |  UTF8 Binary Encoding
-        0-7           |     0x0000 - 0x007F      |     00000000 0xxxxxxx     |   0xxxxxxx
-        8-11          |     0x0080 - 0x07FF      |     00000xxx xxxxxxxx     |   110xxxxx 10xxxxxx
-       12-16          |     0x0800 - 0xFFFF      |     xxxxxxxx xxxxxxxx     |   1110xxxx 10xxxxxx 10xxxxxx
+  Bits per Character | Unicode Character Range | Unicode Binary  Encoding |	UTF8 Binary Encoding
+        0-7	         |     0x0000 - 0x007F	    |     00000000 0xxxxxxx	   |   0xxxxxxx
+        8-11 	       |     0x0080 - 0x07FF	    |     00000xxx xxxxxxxx 	  |   110xxxxx 10xxxxxx
+       12-16	        |     0x0800 - 0xFFFF	    |     xxxxxxxx xxxxxxxx	   |   1110xxxx 10xxxxxx 10xxxxxx
 
 
   @param  Utf8Char         VT-UTF8 character set needs translating.
@@ -1440,19 +1358,4 @@ TerminalConInTimerHandler (
   IN EFI_EVENT            Event,
   IN VOID                 *Context
   );
-
-
-/**
-  Process key notify.
-
-  @param  Event                 Indicates the event that invoke this function.
-  @param  Context               Indicates the calling context.
-**/
-VOID
-EFIAPI
-KeyNotifyProcessHandler (
-  IN  EFI_EVENT                 Event,
-  IN  VOID                      *Context
-  );
-
 #endif
