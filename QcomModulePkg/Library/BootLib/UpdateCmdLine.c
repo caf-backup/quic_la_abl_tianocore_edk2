@@ -82,6 +82,8 @@ STATIC CHAR8 IPv4AddrBufCmdLine[MAX_IP_ADDR_BUF];
 STATIC CHAR8 IPv6AddrBufCmdLine[MAX_IP_ADDR_BUF];
 STATIC CHAR8 MacEthAddrBufCmdLine[MAX_IP_ADDR_BUF];
 
+STATIC CHAR8 *ResumeCmdLine = NULL;
+
 /* Display command line related structures */
 #define MAX_DISPLAY_CMD_LINE 256
 STATIC CHAR8 DisplayCmdLine[MAX_DISPLAY_CMD_LINE];
@@ -307,7 +309,8 @@ STATIC VOID GetDisplayCmdline (VOID)
  * Returns length = 0 when there is failure.
  */
 UINT32
-GetSystemPath (CHAR8 **SysPath, BootInfo *Info)
+GetSystemPath (CHAR8 **SysPath, BOOLEAN MultiSlotBoot, BOOLEAN BootIntoRecovery,
+		CHAR16 *ReqPartition, CHAR8 *Key)
 {
   INT32 Index;
   UINT32 Lun;
@@ -322,17 +325,25 @@ GetSystemPath (CHAR8 **SysPath, BootInfo *Info)
     return 0;
   }
 
+  if (ReqPartition == NULL ||
+      Key == NULL) {
+    DEBUG ((EFI_D_ERROR, "Invalid parameters: NULL\n"));
+    FreePool(*SysPath);
+    *SysPath = NULL;
+    return 0;
+  }
+
   if (IsLEVariant () &&
-      Info->BootIntoRecovery) {
+      BootIntoRecovery) {
     StrnCpyS (PartitionName, MAX_GPT_NAME_SIZE, (CONST CHAR16 *)L"recoveryfs",
             StrLen ((CONST CHAR16 *)L"recoveryfs"));
   } else {
-    StrnCpyS (PartitionName, MAX_GPT_NAME_SIZE, (CONST CHAR16 *)L"system",
-            StrLen ((CONST CHAR16 *)L"system"));
+    StrnCpyS (PartitionName, MAX_GPT_NAME_SIZE, ReqPartition,
+            StrLen (ReqPartition));
   }
 
   /* Append slot info for A/B Variant */
-  if (Info->MultiSlotBoot &&
+  if (MultiSlotBoot &&
       NAND != CheckRootDeviceType ()) {
      StrnCatS (PartitionName, MAX_GPT_NAME_SIZE, CurSlot.Suffix,
             StrLen (CurSlot.Suffix));
@@ -355,7 +366,7 @@ GetSystemPath (CHAR8 **SysPath, BootInfo *Info)
   }
 
   if (!AsciiStrCmp ("EMMC", RootDevStr)) {
-    AsciiSPrint (*SysPath, MAX_PATH_SIZE, " root=/dev/mmcblk0p%d", Index);
+    AsciiSPrint (*SysPath, MAX_PATH_SIZE, " %s=/dev/mmcblk0p%d", Key, Index);
   } else if (!AsciiStrCmp ("NAND", RootDevStr)) {
     /* NAND is being treated as GPT partition, hence reduce the index by 1 as
      * PartitionIndex (0) should be ignored for correct mapping of partition.
@@ -366,7 +377,7 @@ GetSystemPath (CHAR8 **SysPath, BootInfo *Info)
       UINT32 PartitionCount = 0;
       UINT32 MtdBlkIndex = 0;
       GetPartitionCount (&PartitionCount);
-      if (Info->MultiSlotBoot &&
+      if (MultiSlotBoot &&
          (StrnCmp ((CONST CHAR16 *)L"_b", CurSlot.Suffix,
           StrLen (CurSlot.Suffix)) == 0))
          MtdBlkIndex = PartitionCount;
@@ -381,7 +392,8 @@ GetSystemPath (CHAR8 **SysPath, BootInfo *Info)
           (Index - 1));
     }
   } else if (!AsciiStrCmp ("UFS", RootDevStr)) {
-    AsciiSPrint (*SysPath, MAX_PATH_SIZE, " root=/dev/sd%c%d",
+    AsciiSPrint (*SysPath, MAX_PATH_SIZE, " %a=/dev/sd%c%d",
+		 Key,
                  LunCharMapping[Lun],
                  GetPartitionIdxInLun (PartitionName, Lun));
   } else {
@@ -393,6 +405,21 @@ GetSystemPath (CHAR8 **SysPath, BootInfo *Info)
   DEBUG ((EFI_D_VERBOSE, "System Path - %a \n", *SysPath));
 
   return AsciiStrLen (*SysPath);
+}
+
+UINT32
+GetResumeCmdLine(CHAR8 **ResumeCmdLine, CHAR16 *ReqPartition)
+{
+  BOOLEAN MultiSlotBoot;
+  UINT32 len = 0;
+
+  MultiSlotBoot = PartitionHasMultiSlot ((CONST CHAR16 *)L"swap_a");
+  len = GetSystemPath (ResumeCmdLine, MultiSlotBoot, FALSE, (CHAR16 *)L"swap_a", (CHAR8 *)"resume");
+  if (len == 0) {
+     DEBUG ((EFI_D_ERROR, "GetSystemPath failed\n"));
+     return 0;
+  }
+  return len;
 }
 
 STATIC
@@ -569,6 +596,11 @@ UpdateCmdLineParams (UpdateCmdLineParamList *Param,
 
   if (Param->SilentBootModeCmdLine !=NULL) {
     Src = Param->SilentBootModeCmdLine;
+    AsciiStrCatS (Dst, MaxCmdLineLen, Src);
+  }
+
+  if (IsHibernationEnabled()) {
+    Src = Param->ResumeCmdLine;
     AsciiStrCatS (Dst, MaxCmdLineLen, Src);
   }
 
@@ -788,6 +820,10 @@ UpdateCmdLine (CONST CHAR8 *CmdLine,
     CmdLineLen += AsciiStrLen (MacEthAddrBufCmdLine);
   }
 
+  if (IsHibernationEnabled()) {
+    CmdLineLen += GetResumeCmdLine(&ResumeCmdLine, (CHAR16 *)L"swap_a");
+  }
+
   Param.Recovery = Recovery;
   Param.MultiSlotBoot = MultiSlotBoot;
   Param.AlarmBoot = AlarmBoot;
@@ -824,6 +860,10 @@ UpdateCmdLine (CONST CHAR8 *CmdLine,
     Param.EarlyIPv4CmdLine = IPv4AddrBufCmdLine;
     Param.EarlyIPv6CmdLine = IPv6AddrBufCmdLine;
     Param.EarlyEthMacCmdLine = MacEthAddrBufCmdLine;
+  }
+
+  if (IsHibernationEnabled()) {
+    Param.ResumeCmdLine = ResumeCmdLine;
   }
 
   Status = UpdateCmdLineParams (&Param, FinalCmdLine);
