@@ -1575,7 +1575,7 @@ BOOLEAN IsSystemdBootslotEnabled (VOID)
 }
 #endif
 
-#if HIBERNATION_SUPPORT
+#if HIBERNATION_SUPPORT_INSECURE
 BOOLEAN IsHibernationEnabled (VOID)
 {
   return TRUE;

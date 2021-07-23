@@ -50,7 +50,7 @@
 #define MAX_NUM_FS 10
 #define DEFAULT_STACK_CHK_GUARD 0xc0c0c0c0
 
-#if HIBERNATION_SUPPORT
+#if HIBERNATION_SUPPORT_INSECURE
 void BootIntoHibernationImage(BootInfo *Info);
 #endif
 
@@ -293,7 +293,7 @@ LinuxLoaderEntry (IN EFI_HANDLE ImageHandle, IN EFI_SYSTEM_TABLE *SystemTable)
     Info.BootIntoRecovery = BootIntoRecovery;
     Info.BootReasonAlarm = BootReasonAlarm;
     Info.SilentBootMode = SilentBootMode;
-  #if HIBERNATION_SUPPORT
+  #if HIBERNATION_SUPPORT_INSECURE
     BootIntoHibernationImage(&Info);
   #endif
     Status = LoadImageAndAuth(&Info, FALSE);
