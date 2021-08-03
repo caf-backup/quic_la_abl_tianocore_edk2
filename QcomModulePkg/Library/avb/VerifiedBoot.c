@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -345,6 +345,27 @@ LoadVendorBootImageHeader (BootInfo *Info,
 
   return LoadImageHeader (Pname, VendorImageHdrBuffer, VendorImageHdrSize);
 }
+
+STATIC EFI_STATUS
+LoadBootImageHeader (BootInfo *Info,
+                          VOID **BootImageHdrBuffer,
+                          UINT32 *BootImageHdrSize)
+{
+  EFI_STATUS Status = EFI_SUCCESS;
+  CHAR16 Pname[MAX_GPT_NAME_SIZE] = {0};
+
+  StrnCpyS (Pname, ARRAY_SIZE (Pname),
+            (CHAR16 *)L"boot", StrLen ((CHAR16 *)L"boot"));
+
+  if (Info->MultiSlotBoot) {
+    GUARD (StrnCatS (Pname, ARRAY_SIZE (Pname),
+                     GetCurrentSlotSuffix ().Suffix,
+                     StrLen (GetCurrentSlotSuffix ().Suffix)));
+  }
+
+  return LoadImageHeader (Pname, BootImageHdrBuffer, BootImageHdrSize);
+}
+
 
 STATIC EFI_STATUS
 LoadBootImageNoAuth (BootInfo *Info, UINT32 *PageSize, BOOLEAN *FastbootPath)
@@ -938,14 +959,14 @@ exit:
     return Status;
 }
 
-static BOOLEAN GetHeaderVersion (AvbSlotVerifyData *SlotData)
+static BOOLEAN GetHeaderVersion (AvbSlotVerifyData *SlotData, CHAR8 *ImageName)
 {
   BOOLEAN HeaderVersion = 0;
   UINTN LoadedIndex = 0;
   for (LoadedIndex = 0; LoadedIndex < SlotData->num_loaded_partitions;
          LoadedIndex++) {
     if (avb_strcmp (SlotData->loaded_partitions[LoadedIndex].partition_name,
-      "recovery") == 0 )
+      ImageName) == 0 )
       return ( (boot_img_hdr *)
         (SlotData->loaded_partitions[LoadedIndex].data))->header_version;
   }
@@ -1158,7 +1179,7 @@ LoadImageAndAuthVB2 (BootInfo *Info)
       Info->BootState = RED;
       goto out;
     }
-    BOOLEAN HeaderVersion = GetHeaderVersion (SlotData);
+    BOOLEAN HeaderVersion = GetHeaderVersion (SlotData, "recovery");
     DEBUG ( (EFI_D_VERBOSE, "Recovery HeaderVersion %d \n", HeaderVersion));
 
     if (HeaderVersion == BOOT_HEADER_VERSION_ZERO ||
@@ -1173,6 +1194,26 @@ LoadImageAndAuthVB2 (BootInfo *Info)
     }
   } else {
     Slot CurrentSlot;
+    VOID *ImageHdrBuffer = NULL;
+    UINT32 ImageHdrSize = 0;
+
+    Status = LoadBootImageHeader (Info, &ImageHdrBuffer, &ImageHdrSize);
+
+    if (Status != EFI_SUCCESS ||
+        ImageHdrBuffer ==  NULL) {
+      DEBUG ((EFI_D_ERROR, "ERROR: Failed to load image header: %r\n", Status));
+      Info->BootState = RED;
+      goto out;
+    } else if (ImageHdrSize < sizeof (boot_img_hdr)) {
+      DEBUG ((EFI_D_ERROR,
+              "ERROR: Invalid image header size: %u\n", ImageHdrSize));
+      Info->BootState = RED;
+      Status = EFI_BAD_BUFFER_SIZE;
+      goto out;
+    }
+
+    Info->HeaderVersion = ((boot_img_hdr *)(ImageHdrBuffer))->header_version;
+    DEBUG ((EFI_D_VERBOSE, "Header version  %d\n", Info->HeaderVersion));
 
     if (!Info->NumLoadedImages) {
       AddRequestedPartition (RequestedPartitionAll, IMG_BOOT);
@@ -1186,15 +1227,20 @@ LoadImageAndAuthVB2 (BootInfo *Info)
         CurrentSlot = GetCurrentSlotSuffix ();
     }
 
-    if (IsValidPartition (&CurrentSlot, L"vendor_boot")) {
+    /* Load vendor boot in following conditions
+     * 1. In Case of header version 3
+     * 2. valid partititon.
+     */
+
+    if (IsValidPartition (&CurrentSlot, L"vendor_boot") &&
+       (Info->HeaderVersion >= BOOT_HEADER_VERSION_THREE)) {
       AddRequestedPartition (RequestedPartitionAll, IMG_VENDOR_BOOT);
       NumRequestedPartition += 1;
     } else {
-      DEBUG ((EFI_D_VERBOSE, "Invalid vendor_boot partition. Skipping\n"));
+      DEBUG ((EFI_D_ERROR, "Invalid vendor_boot partition. Skipping\n"));
     }
-
     Result = avb_slot_verify (Ops, (CONST CHAR8 *CONST *)RequestedPartition,
-                SlotSuffix, VerifyFlags, VerityFlags, &SlotData);
+                  SlotSuffix, VerifyFlags, VerityFlags, &SlotData);
   }
 
   if (SlotData == NULL) {
