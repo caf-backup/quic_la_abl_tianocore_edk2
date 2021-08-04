@@ -139,7 +139,9 @@ UpdateBootParams (BootParamlist *BootParamlistPtr)
 {
   UINT64 KernelSizeReserved;
   UINT64 KernelLoadAddr;
-
+#ifdef RAMDISK_RELOCATION_ENABLED
+  UINT64 RamDiskLoadAddress = 0xE0000000;
+#endif
   if (BootParamlistPtr == NULL ) {
     DEBUG ((EFI_D_ERROR, "Invalid input parameters\n"));
     return EFI_INVALID_PARAMETER;
@@ -187,6 +189,14 @@ UpdateBootParams (BootParamlist *BootParamlistPtr)
      and DT maximum supported size. This allows best possible utilization
      of buffer for kernel relocation and take care of dynamic change in size
      of ramdisk. Add pagesize as a buffer space */
+
+#ifdef RAMDISK_RELOCATION_ENABLED
+  BootParamlistPtr->RamdiskLoadAddr = RamDiskLoadAddress;
+  BootParamlistPtr->DeviceTreeLoadAddr = (BootParamlistPtr->KernelEndAddr -
+	                                 (DT_SIZE_2MB +
+					  BootParamlistPtr->PageSize));
+#else
+  DEBUG ((EFI_D_INFO, "Outside RAMDISK_RELOCATION_ENABLED \n"));
   BootParamlistPtr->RamdiskLoadAddr = (BootParamlistPtr->KernelEndAddr -
                             (LOCAL_ROUND_TO_PAGE (
                                           BootParamlistPtr->RamdiskSize +
@@ -196,6 +206,7 @@ UpdateBootParams (BootParamlist *BootParamlistPtr)
   BootParamlistPtr->DeviceTreeLoadAddr = (BootParamlistPtr->RamdiskLoadAddr -
                                           (DT_SIZE_2MB +
                                           BootParamlistPtr->PageSize));
+#endif
 
   if (BootParamlistPtr->DeviceTreeLoadAddr <=
                       BootParamlistPtr->KernelLoadAddr) {
@@ -723,8 +734,12 @@ LoadAddrAndDTUpdate (BootInfo *Info, BootParamlist *BootParamlistPtr)
 {
   EFI_STATUS Status;
   UINT64 RamdiskLoadAddr;
-  UINT64 RamdiskEndAddr = 0;
   UINT32 TotalRamdiskSize;
+#ifdef RAMDISK_RELOCATION_ENABLED
+  UINT64 RamdiskEndAddr = 0xEA800000;
+#else
+  UINT64 RamdiskEndAddr = 0;
+#endif
 
   if (BootParamlistPtr == NULL) {
     DEBUG ((EFI_D_ERROR, "Invalid input parameters\n"));
