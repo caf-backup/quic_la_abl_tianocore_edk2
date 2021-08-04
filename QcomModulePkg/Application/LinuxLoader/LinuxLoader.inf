@@ -37,7 +37,9 @@
 	EmbeddedPkg/EmbeddedPkg.dec
 	ArmPlatformPkg/ArmPlatformPkg.dec
 	MdeModulePkg/MdeModulePkg.dec
+	StdLib/StdLib.dec
 	QcomModulePkg/QcomModulePkg.dec
+
 
 [LibraryClasses]
 	DxeServicesTableLib
@@ -61,6 +63,7 @@
 	EfiFileLib
 	FastbootLib
 	UbsanLib
+        AesLib
 
 [Guids]
 	gEfiFileInfoGuid
