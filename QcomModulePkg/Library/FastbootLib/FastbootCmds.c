@@ -995,6 +995,57 @@ FastbootUpdateAttr (CONST CHAR16 *SlotSuffix)
   }
 }
 
+#ifdef NAD_PARTITION
+/* UBI Volume flashing */
+STATIC
+EFI_STATUS
+HandleUbiVolFlash (
+  IN CHAR16  *VolumeName,
+  IN UINT32 VolumeMaxSize,
+  IN VOID   *Image,
+  IN UINT64   Size)
+{
+  EFI_STATUS Status = EFI_SUCCESS;
+  UINT32 UbiPageSize;
+  UINT32 UbiBlockSize;
+  EFI_UBI_FLASHER_PROTOCOL *Ubi;
+  UBI_FLASHER_HANDLE UbiFlasherHandle;
+  CHAR8 VolumeNameAscii[MAX_GPT_NAME_SIZE] = {'\0'};
+
+  Status = gBS->LocateProtocol (&gEfiUbiFlasherProtocolGuid,
+                                NULL,
+                                (VOID **) &Ubi);
+  if (EFI_ERROR (Status)) {
+    DEBUG ((EFI_D_ERROR, "UBI Volume flashing not supported.\n"));
+    return Status;
+  }
+
+  UnicodeStrToAsciiStr (VolumeName, VolumeNameAscii);
+  Status = Ubi->UbiFlasherOpen (VolumeNameAscii,
+                                &UbiFlasherHandle,
+                                &UbiPageSize,
+                                &UbiBlockSize);
+  if (EFI_ERROR (Status)) {
+    DEBUG ((EFI_D_ERROR, "Failed to open UBI volume.\n"));
+    return Status;
+  }
+
+  /* UBI_NUM_IMAGES can replace with number of sparse images being flashed. */
+  Status = Ubi->UbiFlasherWrite (UbiFlasherHandle, 1, Image, Size);
+  if (EFI_ERROR (Status)) {
+    DEBUG ((EFI_D_ERROR, "Failed to write UBI volume.\n"));
+  }
+
+  Status = Ubi->UbiFlasherClose (UbiFlasherHandle);
+  if (EFI_ERROR (Status)) {
+    DEBUG ((EFI_D_ERROR, "Failed to close UBI volume.\n"));
+    return Status;
+  }
+
+  return Status;
+}
+#endif
+
 /* Raw Image flashing */
 STATIC
 EFI_STATUS
@@ -1010,7 +1061,17 @@ HandleRawImgFlash (IN CHAR16 *PartitionName,
   CHAR16 SlotSuffix[MAX_SLOT_SUFFIX_SZ];
   BOOLEAN MultiSlotBoot = PartitionHasMultiSlot ((CONST CHAR16 *)L"boot");
   BOOLEAN HasSlot = FALSE;
+#ifdef NAD_PARTITION
+  CHAR16 OrigPartitionName[MAX_GPT_NAME_SIZE];
+#endif
 
+#ifdef NAD_PARTITION
+  /* The MultiSlot logic may not be applicable for all volumes, thus we need
+   * to retain the original partition name for volume flashing.
+  */
+  StrnCpyS (OrigPartitionName, PartitionMaxSize,
+                PartitionName, PartitionMaxSize);
+#endif
   /* For multislot boot the partition may not support a/b slots.
    * Look for default partition, if it does not exist then try for a/b
    */
@@ -1019,8 +1080,15 @@ HandleRawImgFlash (IN CHAR16 *PartitionName,
                                    MAX_SLOT_SUFFIX_SZ);
 
   Status = PartitionGetInfo (PartitionName, &BlockIo, &Handle);
-  if (Status != EFI_SUCCESS)
+  if (Status != EFI_SUCCESS) {
+#ifdef NAD_PARTITION
+    DEBUG ((EFI_D_ERROR, "[%s] Partition Not Found - trying volume\n",
+            OrigPartitionName));
+    Status = HandleUbiVolFlash (OrigPartitionName,
+            ARRAY_SIZE (OrigPartitionName), Image, Size);
+#endif
     return Status;
+  }
   if (!BlockIo) {
     DEBUG ((EFI_D_ERROR, "BlockIo for %a is corrupted\n", PartitionName));
     return EFI_VOLUME_CORRUPTED;
