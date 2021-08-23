@@ -38,6 +38,12 @@ else
 	VERIFIED_BOOT := VERIFIED_BOOT=0
 endif
 
+ifeq ($(IS_EARLY_ETH_ENABLED), 1)
+	EARLY_ETH_ENABLED := EARLY_ETH_ENABLED=1
+else
+	EARLY_ETH_ENABLED := EARLY_ETH_ENABLED=0
+endif
+
 ifeq ($(BOARD_BUILD_SYSTEM_ROOT_IMAGE),true)
         BUILD_SYSTEM_ROOT_IMAGE := BUILD_SYSTEM_ROOT_IMAGE=1
 else
@@ -122,6 +128,63 @@ else
 	CLANG35_GCC_TOOLCHAIN := $(ANDROID_TOP)/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-$(TARGET_GCC_VERSION)
 endif
 
+# SECIMAGE_BASE : sectools folder path
+ifneq ($(wildcard $(QCPATH)/sectools),)
+   SECIMAGE_BASE := $(QCPATH)/sectools
+else
+   SECIMAGE_BASE := $(QCPATH)/common/scripts/SecImage
+endif
+
+ifeq ($(USE_SOC_HW_VERSION), true)
+   soc_hw_version = $(SOC_HW_VERSION)
+   soc_vers = $(SOC_VERS)
+endif
+
+SIGN_ID := abl
+
+ifeq ($(USE_SOC_HW_VERSION), true)
+  # XML_FILE : this file will be used for singing abl and it might be different for each target
+   ifeq ($(SECIMAGE_BASE), $(QCPATH)/sectools)
+      ifeq ($(call is-board-platform-in-list,lahaina holi),true)
+        XML_FILE := secimage_eccv3.xml
+      else
+        XML_FILE := secimagev3.xml
+      endif
+   else
+     XML_FILE := secimagev2.xml
+   endif
+   define sec-image-generate
+	@echo Generating signed appsbl using secimage tool for $(strip $(QTI_GENSECIMAGE_MSM_IDS))
+	@rm -rf $(PRODUCT_OUT)/signed
+	$(hide) SECIMAGE_LOCAL_DIR=$(SECIMAGE_BASE) USES_SEC_POLICY_MULTIPLE_DEFAULT_SIGN=$(USES_SEC_POLICY_MULTIPLE_DEFAULT_SIGN) \
+			USES_SEC_POLICY_DEFAULT_SUBFOLDER_SIGN=$(USES_SEC_POLICY_DEFAULT_SUBFOLDER_SIGN) \
+			USES_SEC_POLICY_INTEGRITY_CHECK=$(USES_SEC_POLICY_INTEGRITY_CHECK) python $(SECIMAGE_BASE)/sectools_builder.py \
+		-i $(TARGET_EMMC_BOOTLOADER) \
+		-t $(PRODUCT_OUT)/signed \
+		-g $(SIGN_ID) \
+		--soc_hw_version $(soc_hw_version) \
+                --soc_vers $(soc_vers) \
+                --config=$(SECIMAGE_BASE)/config/integration/$(XML_FILE) \
+		--install_base_dir=$(PRODUCT_OUT) \
+		 > $(PRODUCT_OUT)/secimage.log 2>&1
+	@echo Completed secimage signed appsbl \(logs in $(PRODUCT_OUT)/secimage.log\)
+   endef
+else
+   define sec-image-generate
+        @echo Generating signed appsbl using secimage tool for $(strip $(QTI_GENSECIMAGE_MSM_IDS))
+        @rm -rf $(PRODUCT_OUT)/signed
+        $(hide) SECIMAGE_LOCAL_DIR=$(SECIMAGE_BASE) USES_SEC_POLICY_MULTIPLE_DEFAULT_SIGN=$(USES_SEC_POLICY_MULTIPLE_DEFAULT_SIGN) \
+                        USES_SEC_POLICY_DEFAULT_SUBFOLDER_SIGN=$(USES_SEC_POLICY_DEFAULT_SUBFOLDER_SIGN) \
+                        USES_SEC_POLICY_INTEGRITY_CHECK=$(USES_SEC_POLICY_INTEGRITY_CHECK) python $(SECIMAGE_BASE)/sectools_builder.py \
+                -i $(TARGET_EMMC_BOOTLOADER) \
+                -t $(PRODUCT_OUT)/signed \
+                -g $(SIGN_ID) \
+                --config=$(SECIMAGE_BASE)/config/integration/secimage.xml \
+                --install_base_dir=$(PRODUCT_OUT) \
+                 > $(PRODUCT_OUT)/secimage.log 2>&1
+        @echo Completed secimage signed appsbl \(logs in $(PRODUCT_OUT)/secimage.log\)
+   endef
+endif
 
 # ABL ELF output
 TARGET_ABL := $(PRODUCT_OUT)/abl.elf
@@ -145,6 +208,7 @@ $(TARGET_ABL): $(LOCAL_ABL_SRC_FILE) | $(ABL_OUT) $(INSTALLED_KEYSTOREIMAGE_TARG
 		$(VERIFIED_BOOT) \
 		$(VERIFIED_BOOT_2) \
 		$(VERIFIED_BOOT_LE) \
+		$(EARLY_ETH_ENABLED) \
 		$(USER_BUILD_VARIANT) \
 		$(DISABLE_PARALLEL_DOWNLOAD_FLASH) \
 		$(AB_RETRYCOUNT_DISABLE) \
@@ -160,3 +224,7 @@ $(TARGET_ABL): $(LOCAL_ABL_SRC_FILE) | $(ABL_OUT) $(INSTALLED_KEYSTOREIMAGE_TARG
 		CLANG_GCC_TOOLCHAIN=$(CLANG35_GCC_TOOLCHAIN)\
 		TARGET_ARCHITECTURE=$(TARGET_ARCHITECTURE) \
 		BOARD_BOOTLOADER_PRODUCT_NAME=$(BOARD_BOOTLOADER_PRODUCT_NAME)
+
+SIGN_ABL := $(PRODUCT_OUT)/temp_signed
+$(SIGN_ABL) : $(TARGET_EMMC_BOOTLOADER)
+	$(hide) $(call sec-image-generate)
