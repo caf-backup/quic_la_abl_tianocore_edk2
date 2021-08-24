@@ -180,6 +180,9 @@
       GCC:*_*_*_PP_FLAGS = -DLINUX_BOOT_CPU_SELECTION_ENABLED
       GCC:*_*_*_PP_FLAGS = -DTARGET_LINUX_BOOT_CPU_ID=$(TARGET_LINUX_BOOT_CPU_ID)
   !endif
+  !if $(RAMDISK_RECOVERYFS)
+      GCC:*_*_*_CC_FLAGS = -DRAMDISK_RECOVERYFS
+  !endif
 
 [PcdsFixedAtBuild.common]
 

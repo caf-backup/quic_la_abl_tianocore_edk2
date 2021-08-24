@@ -215,4 +215,5 @@ UINT64 SetandGetLoadAddr (BootParamlist *BootParamlistPtr, AddrType Type);
 BOOLEAN IsNANDSquashFsSupport (VOID);
 BOOLEAN IsDefinedMTDUbiBebLimit (VOID);
 BOOLEAN IsHibernationEnabled (VOID);
+BOOLEAN IsRamdiskRecoveryfs (VOID);
 #endif

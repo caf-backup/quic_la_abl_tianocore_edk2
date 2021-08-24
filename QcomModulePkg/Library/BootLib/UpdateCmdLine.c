@@ -322,8 +322,13 @@ GetSystemPath (CHAR8 **SysPath, BOOLEAN MultiSlotBoot, BOOLEAN FlashlessBoot,
 
   if (IsLEVariant () &&
       BootIntoRecovery) {
-    StrnCpyS (PartitionName, MAX_GPT_NAME_SIZE, (CONST CHAR16 *)L"recoveryfs",
-              StrLen ((CONST CHAR16 *)L"recoveryfs"));
+    if (IsRamdiskRecoveryfs ()) {
+      AsciiSPrint (*SysPath, MAX_PATH_SIZE, " rootfstype=ramfs root=/dev/ram0");
+      return AsciiStrLen (*SysPath);
+    } else {
+      StrnCpyS (PartitionName, MAX_GPT_NAME_SIZE, (CONST CHAR16 *)L"recoveryfs",
+                StrLen ((CONST CHAR16 *)L"recoveryfs"));
+    }
   } else {
     StrnCpyS (PartitionName, MAX_GPT_NAME_SIZE, ReqPartition,
               StrLen (ReqPartition));

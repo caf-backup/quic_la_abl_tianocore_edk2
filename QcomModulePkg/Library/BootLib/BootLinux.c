@@ -1747,3 +1747,15 @@ BOOLEAN IsHibernationEnabled (VOID)
   return FALSE;
 }
 #endif
+
+#ifdef RAMDISK_RECOVERYFS
+BOOLEAN IsRamdiskRecoveryfs (VOID)
+{
+  return TRUE;
+}
+#else
+BOOLEAN IsRamdiskRecoveryfs (VOID)
+{
+  return FALSE;
+}
+#endif
