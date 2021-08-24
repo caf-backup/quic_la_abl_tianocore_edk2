@@ -2649,7 +2649,7 @@ CmdContinue (IN CONST CHAR8 *Arg, IN VOID *Data, IN UINT32 Size)
   BootInfo Info = {0};
 
   Info.MultiSlotBoot = PartitionHasMultiSlot ((CONST CHAR16 *)L"boot");
-  Status = LoadImageAndAuth (&Info, FALSE);
+  Status = LoadImageAndAuth (&Info, FALSE, FALSE);
   if (Status != EFI_SUCCESS) {
     AsciiSPrint (Resp, sizeof (Resp), "Failed to load image from partition: %r",
                  Status);
@@ -2829,7 +2829,7 @@ CmdBoot (CONST CHAR8 *Arg, VOID *Data, UINT32 Size)
     }
   }
 
-  Status = LoadImageAndAuth (&Info, FALSE);
+  Status = LoadImageAndAuth (&Info, FALSE, FALSE);
   if (Status != EFI_SUCCESS) {
     AsciiSPrint (Resp, sizeof (Resp),
                  "Failed to load/authenticate boot image: %r", Status);
