@@ -48,14 +48,24 @@ GetEarlyEthInfoFromPartition (CHAR8 *ipv4buf, CHAR8 *ipv6buf, CHAR8 *macbuf)
   UINT32 DataSize = 0;
   UINT32 Pidx;
   UINT32 Qidx;
+  UINT32 Qcount;
   CHAR8 BootDeviceType[BOOT_DEV_NAME_SIZE_MAX];
 
+#if EARLY_ETH_AS_DLKM
+  memset (ipv4buf, '\0', MAX_IP_ADDR_BUF);
+  AsciiStrnCpyS (ipv4buf, MAX_IP_ADDR_BUF, " dwmac_qcom_eth.eipv4=", 22);
+  memset (ipv6buf, '\0', MAX_IP_ADDR_BUF);
+  AsciiStrnCpyS (ipv6buf, MAX_IP_ADDR_BUF, " dwmac_qcom_eth.eipv6=", 22);
+  memset (macbuf, '\0', MAX_IP_ADDR_BUF);
+  AsciiStrnCpyS (macbuf, MAX_IP_ADDR_BUF, " dwmac_qcom_eth.ermac=", 22);
+#else
   memset (ipv4buf, '\0', MAX_IP_ADDR_BUF);
   AsciiStrnCpyS (ipv4buf, MAX_IP_ADDR_BUF, " eipv4=", 7);
   memset (ipv6buf, '\0', MAX_IP_ADDR_BUF);
   AsciiStrnCpyS (ipv6buf, MAX_IP_ADDR_BUF, " eipv6=", 7);
   memset (macbuf, '\0', MAX_IP_ADDR_BUF);
   AsciiStrnCpyS (macbuf, MAX_IP_ADDR_BUF, " ermac=", 7);
+#endif
 
   GetRootDeviceType (BootDeviceType, BOOT_DEV_NAME_SIZE_MAX);
 
@@ -86,6 +96,11 @@ GetEarlyEthInfoFromPartition (CHAR8 *ipv4buf, CHAR8 *ipv6buf, CHAR8 *macbuf)
   rawbuf = (CHAR8 *)Buffer;
 
   /* Extract ipv4 address string */
+#if EARLY_ETH_AS_DLKM
+  Qcount = 22;
+#else
+  Qcount = 7;
+#endif
   Pidx = IP_ADDR_STR_OFFSET;
   Qidx = 0;
   while (((CHAR8)rawbuf[Pidx] != EARLY_ADDR_TERMINATOR)
@@ -95,7 +110,7 @@ GetEarlyEthInfoFromPartition (CHAR8 *ipv4buf, CHAR8 *ipv6buf, CHAR8 *macbuf)
          || ((rawbuf[Pidx] > 47)
          && (rawbuf[Pidx] < 58)))
     {
-       ipv4buf[Qidx + 7] = rawbuf[Pidx];
+       ipv4buf[Qidx + Qcount] = rawbuf[Pidx];
        Pidx++;
        Qidx++;
     } else {
@@ -120,7 +135,7 @@ GetEarlyEthInfoFromPartition (CHAR8 *ipv4buf, CHAR8 *ipv6buf, CHAR8 *macbuf)
        || ((rawbuf[Pidx] > 64)
        && (rawbuf[Pidx] < 71)))
     {
-       ipv6buf[Qidx + 7] = rawbuf[Pidx];
+       ipv6buf[Qidx + Qcount] = rawbuf[Pidx];
        Pidx++;
        Qidx++;
     } else {
@@ -143,7 +158,7 @@ GetEarlyEthInfoFromPartition (CHAR8 *ipv4buf, CHAR8 *ipv6buf, CHAR8 *macbuf)
        || ((rawbuf[Pidx] > 64)
        && (rawbuf[Pidx] < 71)))
     {
-       macbuf[Qidx + 7] = rawbuf[Pidx];
+       macbuf[Qidx + Qcount] = rawbuf[Pidx];
        Pidx++;
        Qidx++;
     } else {
