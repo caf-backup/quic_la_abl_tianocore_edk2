@@ -1036,6 +1036,7 @@ BootLinux (BootInfo *Info)
 
   PreparePlatformHardware ();
 
+  BootStatsSetTimeStamp (BS_BL_END);
   BootStatsSetTimeStamp (BS_KERNEL_ENTRY);
 
   if (IsVmEnabled ()) {
@@ -1569,6 +1570,18 @@ BOOLEAN IsSystemdBootslotEnabled (VOID)
 }
 #else
 BOOLEAN IsSystemdBootslotEnabled (VOID)
+{
+  return FALSE;
+}
+#endif
+
+#if HIBERNATION_SUPPORT_INSECURE
+BOOLEAN IsHibernationEnabled (VOID)
+{
+  return TRUE;
+}
+#else
+BOOLEAN IsHibernationEnabled (VOID)
 {
   return FALSE;
 }

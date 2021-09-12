@@ -1,5 +1,4 @@
-/*
- * Copyright (c) 2016, 2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2019, 2021, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -27,20 +26,23 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef __BOOT_STATS_H
-#define __BOOT_STATS_H
+#ifndef __EARLY_ETHERNET__
+#define __EARLY_ETHERNET__
 
-typedef enum {
-  BS_BL_START = 0,
-  BS_BL_END,
-  BS_KERNEL_ENTRY,
-  BS_KERNEL_LOAD_START,
-  BS_KERNEL_LOAD_DONE,
-  BS_BOOTIMAGE_CHECKSUM_START,
-  BS_BOOTIMAGE_CHECKSUM_DONE,
-  BS_MAX,
-} BS_ENTRY;
+#define MAX_IP_ADDR_BUF      64
+#define EARLY_ADDR_TERMINATOR   '#'
+#define IP_ADDR_STR_OFFSET   0
+#define MAC_ADDR_LEN   17
 
-void
-BootStatsSetTimeStamp (BS_ENTRY BootStatId);
+/**
+ *  Reads partition and try to extract IP addresses
+ *  and MAC address if found.
+ *
+ * @return EFI_STATUS
+ */
+EFI_STATUS
+GetEarlyEthInfoFromPartition (CHAR8 *ipv4buf, CHAR8 *ipv6buf, CHAR8 *macbuf);
+
+BOOLEAN
+EarlyEthEnabled ();
 #endif
