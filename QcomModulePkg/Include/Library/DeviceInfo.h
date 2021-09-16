@@ -54,6 +54,7 @@ typedef struct device_info {
   UINT32 user_public_key_length;
   CHAR8 user_public_key[MAX_USER_KEY_SIZE];
   UINT64 rollback_index[MAX_VB_PARTITIONS];
+  UINTN golden_snapshot;
 } DeviceInfo;
 
 struct verified_boot_verity_mode {
@@ -66,6 +67,7 @@ struct verified_boot_state_name {
   CHAR8 *name;
 };
 
+BOOLEAN IsSnapshotGolden (VOID);
 BOOLEAN IsUnlocked (VOID);
 BOOLEAN IsUnlockCritical (VOID);
 BOOLEAN IsEnforcing (VOID);
@@ -90,4 +92,6 @@ StoreUserKey (CHAR8 *UserKey, UINT32 UserKeySize);
 EFI_STATUS
 GetUserKey (CHAR8 **UserKey, UINT32 *UserKeySize);
 EFI_STATUS EraseUserKey (VOID);
+EFI_STATUS
+SetSnapshotGolden (UINTN Val);
 #endif
