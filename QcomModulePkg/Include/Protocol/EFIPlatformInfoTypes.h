@@ -79,6 +79,9 @@ typedef enum {
   EFI_PLATFORMINFO_TYPE_IOT = 0x20,  /**< IOT device. */
   EFI_PLATFORMINFO_TYPE_ATP = 0x21,  /**< ATP device. */
   EFI_PLATFORMINFO_TYPE_IDP = 0x22,  /**< IDP device. */
+  EFI_PLATFORMINFO_TYPE_AEDK = 0x23, /**< AEDK device. */
+  EFI_PLATFORMINFO_TYPE_WDP = 0x24,  /**< WDP device. */
+  EFI_PLATFORMINFO_TYPE_QAM = 0x25,  /**< IDP device. */
 
   EFI_PLATFORMINFO_NUM_TYPES, /**< Number of known targets
                                                  (including unknown). @newpage
