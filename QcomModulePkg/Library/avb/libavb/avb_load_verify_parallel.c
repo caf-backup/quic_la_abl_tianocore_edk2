@@ -226,8 +226,8 @@ INT32 BootPartitionLoad(VOID* Arg) {
 
   KernIntf->Sem->SemPost(SemLoadSecond, FALSE);
 
-  ThreadStackNodeRemove (CurrentThread);
   ThreadBootLoad->Status = Status;
+  ThreadStackNodeRemove (CurrentThread);
   KernIntf->Thread->ThreadExit (0);
   return 0;
 }
@@ -296,10 +296,11 @@ INT32 BootPartitionVerify(VOID* Arg) {
 
   KernIntf->Sem->SemWait (SemLoadSecond);
 
-  if(ThreadBootVerify->Status != AVB_SLOT_VERIFY_RESULT_OK)
+  if(Status != AVB_SLOT_VERIFY_RESULT_OK)
   {
 	  ThreadBootVerify->Status = Status;
 	  KernIntf->Sem->SemPost(SemMainThread, FALSE);
+	  ThreadStackNodeRemove (CurrentThread);
 	  KernIntf->Thread->ThreadExit (0);
   }
 
@@ -313,7 +314,7 @@ INT32 BootPartitionVerify(VOID* Arg) {
                                   ThreadBootVerify->SplitImageSize,
                                   ThreadBootVerify->IsFinal);
   }
-    else{
+  else{
     Status = VerifyPartitionSha512 (Sha512Ctx,
                                   ThreadBootVerify->part_name,
                                   ThreadBootVerify->DescDigest,
@@ -323,18 +324,11 @@ INT32 BootPartitionVerify(VOID* Arg) {
                                   ThreadBootVerify->IsFinal);
   }
 
-
-  ThreadStackNodeRemove (CurrentThread);
-  if(ThreadBootVerify->Status != AVB_SLOT_VERIFY_RESULT_OK || Status!= AVB_SLOT_VERIFY_RESULT_OK )
-  {
-	if(Status != AVB_SLOT_VERIFY_RESULT_OK)
-		ThreadBootVerify->Status = Status;
-
-  }
   ThreadBootVerify->Status = Status;
   DEBUG ((EFI_D_INFO, "BootPartitionVerify-Second Return: %d\n", Status));
 
   KernIntf->Sem->SemPost(SemMainThread, FALSE);
+  ThreadStackNodeRemove (CurrentThread);
   KernIntf->Thread->ThreadExit (0);
   return 0;
 }
