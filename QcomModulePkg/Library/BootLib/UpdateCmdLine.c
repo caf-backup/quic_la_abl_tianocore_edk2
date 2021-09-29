@@ -390,9 +390,15 @@ GetSystemPath (CHAR8 **SysPath, BOOLEAN MultiSlotBoot, BOOLEAN FlashlessBoot,
           } else {
              DEBUG ((EFI_D_ERROR, "%d  = root index  \n", MtdBlkIndex));
           }
+#ifdef NAD_PARTITION
+          AsciiSPrint (*SysPath, MAX_PATH_SIZE,
+                   " rootfstype=squashfs ubi.mtd=%d,0,%d ubi.block=0,0 root=/dev/ubiblock0_0",
+                   (Index - 1), MTD_UBI_BEB_LIMIT_PER1024);
+#else
           AsciiSPrint (*SysPath, MAX_PATH_SIZE,
                    " rootfstype=squashfs root=/dev/mtdblock%d ubi.mtd=%d,0,%d",
                    MtdBlkIndex, (Index - 1), MTD_UBI_BEB_LIMIT_PER1024);
+#endif
       } else {
          if(BootIntoRecovery && IsRecoveryVolumeUsed()){
              MtdBlkIndex = RECOVERYFS_VOLUME_INDEX;

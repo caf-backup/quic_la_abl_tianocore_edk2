@@ -45,7 +45,11 @@
 #define BOOT_BASE_BAND " androidboot.baseband="
 #define BATT_MIN_VOLT 3200
 
+#ifdef NAD_PARTITION
+#define MAX_PATH_SIZE 96
+#else
 #define MAX_PATH_SIZE 72
+#endif
 #define SERIAL_NUM_SIZE 64
 
 typedef struct BootInfo BootInfo;
