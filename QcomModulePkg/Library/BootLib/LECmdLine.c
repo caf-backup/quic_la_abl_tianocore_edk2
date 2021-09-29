@@ -36,7 +36,11 @@
 #define MAX_VERITY_CMD_LINE 512
 #define MAX_VERITY_SECTOR_LEN 12
 #define MAX_VERITY_HASH_LEN 65
+#ifdef NAD_PARTITION
+STATIC CONST CHAR8 *VeritySystemPartitionStr = "/dev/ubiblock0_0";
+#else
 STATIC CONST CHAR8 *VeritySystemPartitionStr = "/dev/mmcblk0p";
+#endif
 STATIC CONST CHAR8 *VerityName = "verity";
 STATIC CONST CHAR8 *VerityAppliedOn = "system";
 STATIC CONST CHAR8 *VerityEncriptionName = "sha256";
@@ -220,6 +224,10 @@ GetLEVerityCmdLine (CONST CHAR8 *SourceCmdLine,
     /* Get system partition index */
     MultiSlotBoot = PartitionHasMultiSlot ((CONST CHAR16 *)L"boot");
 
+#ifdef NAD_PARTITION
+    StrnCpyS (PartitionName, MAX_GPT_NAME_SIZE, (CONST CHAR16 *)L"nad_ubi",
+          StrLen ((CONST CHAR16 *)L"nad_ubi"));
+#else
     StrnCpyS (PartitionName, MAX_GPT_NAME_SIZE, (CONST CHAR16 *)L"system",
           StrLen ((CONST CHAR16 *)L"system"));
     if (MultiSlotBoot) {
@@ -228,6 +236,7 @@ GetLEVerityCmdLine (CONST CHAR8 *SourceCmdLine,
             StrLen (GetCurrentSlotSuffix ().Suffix));
       DEBUG ((EFI_D_VERBOSE, "Partition name:%s\n", PartitionName));
     }
+#endif
     Index = GetPartitionIndex (PartitionName);
 
     if (Index == INVALID_PTN) {
@@ -249,23 +258,39 @@ GetLEVerityCmdLine (CONST CHAR8 *SourceCmdLine,
         AsciiSPrint (
         DMTemp,
         MAX_VERITY_CMD_LINE,
+#ifdef NAD_PARTITION
+        " %a dm=\"%a none ro,0 %a %a 1 %a %a %a %a %a %d %a %a %a\"",
+        VerityRoot, VerityAppliedOn, SectorSize, VerityName,
+        VeritySystemPartitionStr, VeritySystemPartitionStr, VerityBlockSize, VerityBlockSize, DataSize, HashSize, VerityEncriptionName,
+        Hash, VeritySalt
+#else
         " %a dm=\"%a none ro,0 %a %a 1 %a%d %a%d %a %a %a %d %a %a %a\"",
         VerityRoot, VerityAppliedOn, SectorSize, VerityName,
         VeritySystemPartitionStr, Index, VeritySystemPartitionStr, Index,
         VerityBlockSize, VerityBlockSize, DataSize, HashSize, VerityEncriptionName,
         Hash, VeritySalt
+#endif
         );
     }
     else {
         AsciiSPrint (
         DMTemp,
         MAX_VERITY_CMD_LINE,
+#ifdef NAD_PARTITION
+        " %a dm=\"%a none ro,0 %a %a 1 %a %a %a %a %a %d %a %a %a %d %a %a %a %a %a 2 %a %a %a %a\"",
+        VerityRoot, VerityAppliedOn, SectorSize, VerityName,
+        VeritySystemPartitionStr, VeritySystemPartitionStr,
+        VerityBlockSize, VerityBlockSize, DataSize, HashSize, VerityEncriptionName,
+        Hash, VeritySalt, FEATUREARGS, OptionalParam0, OptionalParam1, UseFec,
+        VeritySystemPartitionStr, FecRoot, FecBlock, FecOff, FecStart, FecOff
+#else
         " %a dm=\"%a none ro,0 %a %a 1 %a%d %a%d %a %a %a %d %a %a %a %d %a %a %a %a%d %a 2 %a %a %a %a\"",
         VerityRoot, VerityAppliedOn, SectorSize, VerityName,
         VeritySystemPartitionStr, Index, VeritySystemPartitionStr, Index,
         VerityBlockSize, VerityBlockSize, DataSize, HashSize, VerityEncriptionName,
         Hash, VeritySalt, FEATUREARGS, OptionalParam0, OptionalParam1, UseFec,
         VeritySystemPartitionStr, Index, FecRoot, FecBlock, FecOff, FecStart, FecOff
+#endif
         );
     }
 
