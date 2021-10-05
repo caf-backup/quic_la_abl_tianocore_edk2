@@ -159,4 +159,4 @@ BASETOOLS_CLEAN: ABL_FV_IMG
 	@$(MAKEPATH)make -C $(BUILDDIR)/BaseTools/Source/C clean > /dev/null
 
 ABL_FV_ELF: BASETOOLS_CLEAN
-	python $(WORKSPACE)/QcomModulePkg/Tools/image_header.py $(ABL_FV_IMG) $(ABL_FV_ELF) $(LOAD_ADDRESS) elf 32
+	python $(WORKSPACE)/QcomModulePkg/Tools/image_header.py $(ABL_FV_IMG) $(ABL_FV_ELF) $(LOAD_ADDRESS) elf 32 nohash
