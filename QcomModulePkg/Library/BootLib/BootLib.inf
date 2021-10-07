@@ -71,6 +71,7 @@
 	EarlyUsbInit.c
 	NandMultiSlotBoot.c
 	IntegrityIMA.c
+	ThreadStack.c
 
 [Packages]
 	ArmPkg/ArmPkg.dec
@@ -153,6 +154,7 @@
 	gQcomScmProtocolGuid
 	gEfiNandPartiGuidProtocolGuid
 	gEfiDDRGetInfoProtocolGuid
+	gEfiKernelProtocolGuid
 
 [FixedPcd]
 	gArmTokenSpaceGuid.PcdSystemMemoryBase
