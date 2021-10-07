@@ -51,6 +51,42 @@
 STATIC QCOM_SCM_MODE_SWITCH_PROTOCOL *pQcomScmModeSwitchProtocol = NULL;
 STATIC BOOLEAN BootDevImage;
 
+STATIC VOID
+SetLinuxBootCpu (UINT32 BootCpu)
+{
+  EFI_STATUS Status;
+  Status = gRT->SetVariable (L"DestinationCore",
+      &gQcomTokenSpaceGuid,
+      (EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_NON_VOLATILE |
+       EFI_VARIABLE_RUNTIME_ACCESS),
+       sizeof(UINT32),
+       (void*)(UINT32*)&BootCpu);
+
+  if (Status != EFI_SUCCESS) {
+       DEBUG ((EFI_D_ERROR, "Error: Failed to set Linux boot cpu:%d\n", BootCpu));
+   } else if (Status == EFI_SUCCESS) {
+       DEBUG ((EFI_D_INFO, "Switching to physical CPU:%d for Booting Linux\n", BootCpu));
+   }
+
+  return;
+}
+
+#ifdef LINUX_BOOT_CPU_SELECTION_ENABLED
+#define BootCpuId	TARGET_LINUX_BOOT_CPU_ID
+STATIC BOOLEAN
+BootCpuSelectionEnabled (VOID)
+{
+  return TRUE;
+}
+#else
+#define BootCpuId	0
+STATIC BOOLEAN
+BootCpuSelectionEnabled (VOID)
+{
+  return FALSE;
+}
+#endif
+
 /* To set load addresses, callers should make sure to initialize the
  * BootParamlistPtr before calling this function */
 UINT64 SetandGetLoadAddr (BootParamlist *BootParamlistPtr, AddrType Type)
@@ -850,6 +886,7 @@ BootLinux (BootInfo *Info)
   CHAR16 *PartitionName = NULL;
   BOOLEAN Recovery = FALSE;
   BOOLEAN AlarmBoot = FALSE;
+  CHAR8 SilentBootMode;
 
   LINUX_KERNEL LinuxKernel;
   LINUX_KERNEL32 LinuxKernel32;
@@ -878,6 +915,11 @@ BootLinux (BootInfo *Info)
   PartitionName = Info->Pname;
   Recovery = Info->BootIntoRecovery;
   AlarmBoot = Info->BootReasonAlarm;
+  SilentBootMode = Info->SilentBootMode;
+
+  if (SilentBootMode) {
+   DEBUG ((EFI_D_INFO, "Silent Mode value: %d\n", SilentBootMode));
+  }
 
   if (!StrnCmp (PartitionName, (CONST CHAR16 *)L"boot",
                 StrLen ((CONST CHAR16 *)L"boot"))) {
@@ -995,7 +1037,7 @@ BootLinux (BootInfo *Info)
    */
   Status = UpdateCmdLine (BootParamlistPtr.CmdLine, FfbmStr, Recovery,
                    AlarmBoot, Info->VBCmdLine, &BootParamlistPtr.FinalCmdLine,
-                   Info->HeaderVersion);
+                   Info->HeaderVersion, SilentBootMode);
   if (EFI_ERROR (Status)) {
     DEBUG ((EFI_D_ERROR, "Error updating cmdline. Device Error %r\n", Status));
     return Status;
@@ -1017,6 +1059,9 @@ BootLinux (BootInfo *Info)
       IsModeSwitch = TRUE;
   }
 
+  if(BootCpuSelectionEnabled())
+    SetLinuxBootCpu(BootCpuId);
+
   DEBUG ((EFI_D_INFO, "\nShutting Down UEFI Boot Services: %lu ms\n",
           GetTimerCountms ()));
   /*Shut down UEFI boot services*/
@@ -1030,6 +1075,7 @@ BootLinux (BootInfo *Info)
 
   PreparePlatformHardware ();
 
+  BootStatsSetTimeStamp (BS_BL_END);
   BootStatsSetTimeStamp (BS_KERNEL_ENTRY);
 
   if (IsVmEnabled ()) {
@@ -1563,6 +1609,18 @@ BOOLEAN IsSystemdBootslotEnabled (VOID)
 }
 #else
 BOOLEAN IsSystemdBootslotEnabled (VOID)
+{
+  return FALSE;
+}
+#endif
+
+#if HIBERNATION_SUPPORT_INSECURE
+BOOLEAN IsHibernationEnabled (VOID)
+{
+  return TRUE;
+}
+#else
+BOOLEAN IsHibernationEnabled (VOID)
 {
   return FALSE;
 }

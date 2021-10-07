@@ -1,5 +1,5 @@
 #/*
-# * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
+# * Copyright (c) 2015-2021, The Linux Foundation. All rights reserved.
 # *
 # * Redistribution and use in source and binary forms, with or without
 # * modification, are permitted provided that the following conditions are
@@ -105,6 +105,15 @@
   !if $(VERIFIED_BOOT_LE)
       GCC:*_*_*_CC_FLAGS = -DVERIFIED_BOOT_LE
   !endif
+  !if $(EARLY_ETH_ENABLED)
+      GCC:*_*_*_CC_FLAGS = -DEARLY_ETH_ENABLED
+  !endif
+  !if $(HIBERNATION_SUPPORT_INSECURE)
+      GCC:*_*_*_CC_FLAGS = -DHIBERNATION_SUPPORT_INSECURE
+  !endif
+  !if $(HIBERNATION_SUPPORT_INSECURE)
+      GCC:*_*_*_PP_FLAGS = -DHIBERNATION_SUPPORT_INSECURE
+  !endif
   !if $(AB_RETRYCOUNT_DISABLE)
       GCC:*_*_*_CC_FLAGS = -DAB_RETRYCOUNT_DISABLE
   !endif
@@ -145,6 +154,14 @@
   !endif
   !if $(ENABLE_SYSTEMD_BOOTSLOT)
       GCC:*_*_*_CC_FLAGS = -DENABLE_SYSTEMD_BOOTSLOT
+  !endif
+  !if $(LINUX_BOOT_CPU_SELECTION_ENABLED)
+      GCC:*_*_*_CC_FLAGS = -DLINUX_BOOT_CPU_SELECTION_ENABLED
+      GCC:*_*_*_CC_FLAGS = -DTARGET_LINUX_BOOT_CPU_ID=$(TARGET_LINUX_BOOT_CPU_ID)
+  !endif
+  !if $(LINUX_BOOT_CPU_SELECTION_ENABLED)
+      GCC:*_*_*_PP_FLAGS = -DLINUX_BOOT_CPU_SELECTION_ENABLED
+      GCC:*_*_*_PP_FLAGS = -DTARGET_LINUX_BOOT_CPU_ID=$(TARGET_LINUX_BOOT_CPU_ID)
   !endif
 
 [PcdsFixedAtBuild.common]

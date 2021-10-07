@@ -34,8 +34,15 @@
 #include <Library/Recovery.h>
 #include <Library/StackCanary.h>
 
+#define GOLDEN_SNAPSHOT_MAGIC 0x575757
+
 STATIC DeviceInfo DevInfo;
 STATIC BOOLEAN FirstReadDevInfo = TRUE;
+
+BOOLEAN IsSnapshotGolden (VOID)
+{
+  return (DevInfo.golden_snapshot == GOLDEN_SNAPSHOT_MAGIC) ? TRUE : FALSE;
+}
 
 BOOLEAN IsUnlocked (VOID)
 {
@@ -376,4 +383,23 @@ GetUserKey (CHAR8 **UserKey, UINT32 *UserKeySize)
   *UserKey = DevInfo.user_public_key;
   *UserKeySize = DevInfo.user_public_key_length;
   return EFI_SUCCESS;
+}
+
+EFI_STATUS
+SetSnapshotGolden (UINTN Val)
+{
+  EFI_STATUS Status = EFI_SUCCESS;
+
+  if (FirstReadDevInfo) {
+    Status = EFI_NOT_STARTED;
+    DEBUG ((EFI_D_ERROR, "Erase swap on restore DeviceInfo not initalized \n"));
+    return Status;
+  }
+
+  DevInfo.golden_snapshot = Val;
+  Status = ReadWriteDeviceInfo (WRITE_CONFIG, (VOID *)&DevInfo, sizeof (DevInfo));
+  if (Status != EFI_SUCCESS) {
+    DEBUG ((EFI_D_ERROR, "Unable to Write Device Info: %r\n", Status));
+  }
+  return Status;
 }
