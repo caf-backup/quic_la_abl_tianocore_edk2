@@ -77,6 +77,7 @@
   UefiDriverEntryPoint|MdePkg/Library/UefiDriverEntryPoint/UefiDriverEntryPoint.inf
   PerformanceLib|MdeModulePkg/Library/DxePerformanceLib/DxePerformanceLib.inf
   AvbLib|QcomModulePkg/Library/avb/AvbLib.inf
+  AesLib|QcomModulePkg/Library/aes/AesLib.inf
 
 [LibraryClasses.ARM]
   ArmLib|ArmPkg/Library/ArmLib/ArmV7/ArmV7Lib.inf
@@ -193,5 +194,6 @@
 			StackCanary|QcomModulePkg/Library/StackCanary/StackCanary.inf
 			FastbootLib|QcomModulePkg/Library/FastbootLib/FastbootLib.inf
 			AvbLib|QcomModulePkg/Library/avb/AvbLib.inf
+			AesLib|QcomModulePkg/Library/aes/AesLib.inf
 			UbsanLib|QcomModulePkg/Library/UbsanLib/UbsanLib.inf
 	}
