@@ -347,6 +347,27 @@ LoadVendorBootImageHeader (BootInfo *Info,
 }
 
 STATIC EFI_STATUS
+LoadBootImageHeader (BootInfo *Info,
+                          VOID **BootImageHdrBuffer,
+                          UINT32 *BootImageHdrSize)
+{
+  EFI_STATUS Status = EFI_SUCCESS;
+  CHAR16 Pname[MAX_GPT_NAME_SIZE] = {0};
+
+  StrnCpyS (Pname, ARRAY_SIZE (Pname),
+            (CHAR16 *)L"boot", StrLen ((CHAR16 *)L"boot"));
+
+  if (Info->MultiSlotBoot) {
+    GUARD (StrnCatS (Pname, ARRAY_SIZE (Pname),
+                     GetCurrentSlotSuffix ().Suffix,
+                     StrLen (GetCurrentSlotSuffix ().Suffix)));
+  }
+
+  return LoadImageHeader (Pname, BootImageHdrBuffer, BootImageHdrSize);
+}
+
+
+STATIC EFI_STATUS
 LoadBootImageNoAuth (BootInfo *Info, UINT32 *PageSize, BOOLEAN *FastbootPath)
 {
   EFI_STATUS Status = EFI_SUCCESS;
@@ -559,7 +580,11 @@ LoadImageNoAuthWrapper (BootInfo *Info)
 
    if (!IsDynamicPartitionSupport () &&
         !IsRootCmdLineUpdated (Info)) {
-    SystemPathLen = GetSystemPath (&SystemPath, Info);
+    SystemPathLen = GetSystemPath (&SystemPath,
+                                   Info->MultiSlotBoot,
+                                   Info->BootIntoRecovery,
+                                   (CHAR16 *)L"system",
+                                   (CHAR8 *)"root");
     if (SystemPathLen == 0 || SystemPath == NULL) {
       DEBUG ((EFI_D_ERROR, "GetSystemPath failed!\n"));
       return EFI_LOAD_ERROR;
@@ -622,7 +647,11 @@ LoadImageAndAuthVB1 (BootInfo *Info)
   }
 
   if (!IsRootCmdLineUpdated (Info)) {
-    SystemPathLen = GetSystemPath (&SystemPath, Info);
+    SystemPathLen = GetSystemPath (&SystemPath,
+                                   Info->MultiSlotBoot,
+                                   Info->BootIntoRecovery,
+                                   (CHAR16 *)L"system",
+                                   (CHAR8 *)"root");
     if (SystemPathLen == 0 || SystemPath == NULL) {
       DEBUG ((EFI_D_ERROR, "GetSystemPath failed!\n"));
       return EFI_LOAD_ERROR;
@@ -1037,7 +1066,7 @@ IsValidPartition (Slot *Slot, CONST CHAR16 *Name)
 }
 
 STATIC EFI_STATUS
-LoadImageAndAuthVB2 (BootInfo *Info)
+LoadImageAndAuthVB2 (BootInfo *Info, BOOLEAN HibernationResume,  BOOLEAN SetRotAndBootState)
 {
   EFI_STATUS Status = EFI_SUCCESS;
   AvbSlotVerifyResult Result;
@@ -1073,8 +1102,10 @@ LoadImageAndAuthVB2 (BootInfo *Info)
   UINT32 OSVersion;
 
   Info->BootState = RED;
-  GUARD (VBCommonInit (Info));
-  GUARD (VBAllocateCmdLine (Info));
+  if (!HibernationResume) {
+    GUARD (VBCommonInit (Info));
+    GUARD (VBAllocateCmdLine (Info));
+  }
 
   UserData = avb_calloc (sizeof (AvbOpsUserData));
   if (UserData == NULL) {
@@ -1165,6 +1196,11 @@ LoadImageAndAuthVB2 (BootInfo *Info)
         HeaderVersion >= BOOT_HEADER_VERSION_THREE) {
        AddRequestedPartition (RequestedPartitionAll, IMG_DTBO);
        NumRequestedPartition += 1;
+
+       if (!HibernationResume) {
+         AddRequestedPartition (RequestedPartitionAll, IMG_DTBO);
+         NumRequestedPartition += 1;
+       }
        if (SlotData != NULL) {
           avb_slot_verify_data_free (SlotData);
        }
@@ -1173,62 +1209,56 @@ LoadImageAndAuthVB2 (BootInfo *Info)
     }
   } else {
     Slot CurrentSlot;
+    VOID *ImageHdrBuffer = NULL;
+    UINT32 ImageHdrSize = 0;
+
+    Status = LoadBootImageHeader (Info, &ImageHdrBuffer, &ImageHdrSize);
+
+    if (Status != EFI_SUCCESS ||
+        ImageHdrBuffer ==  NULL) {
+      DEBUG ((EFI_D_ERROR, "ERROR: Failed to load image header: %r\n", Status));
+      Info->BootState = RED;
+      goto out;
+    } else if (ImageHdrSize < sizeof (boot_img_hdr)) {
+      DEBUG ((EFI_D_ERROR,
+              "ERROR: Invalid image header size: %u\n", ImageHdrSize));
+      Info->BootState = RED;
+      Status = EFI_BAD_BUFFER_SIZE;
+      goto out;
+    }
+
+    Info->HeaderVersion = ((boot_img_hdr *)(ImageHdrBuffer))->header_version;
+    DEBUG ((EFI_D_VERBOSE, "Header version  %d\n", Info->HeaderVersion));
 
     if (!Info->NumLoadedImages) {
       AddRequestedPartition (RequestedPartitionAll, IMG_BOOT);
       NumRequestedPartition += 1;
     }
 
-    AddRequestedPartition (RequestedPartitionAll, IMG_DTBO);
-    NumRequestedPartition += 1;
-
-    Result = avb_slot_verify (Ops, (CONST CHAR8 *CONST *)RequestedPartition,
-               SlotSuffix, VerifyFlags, VerityFlags, &SlotData);
-    if (AllowVerificationError &&
-               ResultShouldContinue (Result)) {
-      DEBUG ((EFI_D_VERBOSE, "State: Unlocked, AvbSlotVerify returned "
-                          "%a, continue boot\n",
-              avb_slot_verify_result_to_string (Result)));
-    } else if (Result != AVB_SLOT_VERIFY_RESULT_OK) {
-      DEBUG ((EFI_D_ERROR, "ERROR: Device State %a,AvbSlotVerify returned %a\n",
-             AllowVerificationError ? "Unlocked" : "Locked",
-            avb_slot_verify_result_to_string (Result)));
-      Status = EFI_LOAD_ERROR;
-      Info->BootState = RED;
-      goto out;
+    if (!HibernationResume) {
+      AddRequestedPartition (RequestedPartitionAll, IMG_DTBO);
+      NumRequestedPartition += 1;
     }
-    if (SlotData == NULL) {
-      Status = EFI_LOAD_ERROR;
-      Info->BootState = RED;
-      goto out;
-    }
-    BOOLEAN HeaderVersion = GetHeaderVersion (SlotData, "boot");
-    DEBUG ( (EFI_D_VERBOSE, "Boot HeaderVersion %d \n", HeaderVersion));
-
 
     if (Info->MultiSlotBoot) {
         CurrentSlot = GetCurrentSlotSuffix ();
     }
 
     /* Load vendor boot in following conditions
-     * 1. In Ram load case where Header version is 0 because
-     * boot image is not loaded in the flow& Valid partition.
-     * 2. In Case of header version 3 & valid partititon.
+     * 1. In Case of header version 3
+     * 2. valid partititon.
      */
 
     if (IsValidPartition (&CurrentSlot, L"vendor_boot") &&
-       (HeaderVersion == BOOT_HEADER_VERSION_ZERO ||
-        HeaderVersion >= BOOT_HEADER_VERSION_THREE)) {
+       (Info->HeaderVersion >= BOOT_HEADER_VERSION_THREE ||
+        Info->HeaderVersion == BOOT_HEADER_VERSION_ZERO)) {
       AddRequestedPartition (RequestedPartitionAll, IMG_VENDOR_BOOT);
       NumRequestedPartition += 1;
-       if (SlotData != NULL) {
-          avb_slot_verify_data_free (SlotData);
-       }
-       Result = avb_slot_verify (Ops, (CONST CHAR8 *CONST *)RequestedPartition,
-                  SlotSuffix, VerifyFlags, VerityFlags, &SlotData);
     } else {
       DEBUG ((EFI_D_ERROR, "Invalid vendor_boot partition. Skipping\n"));
     }
+    Result = avb_slot_verify (Ops, (CONST CHAR8 *CONST *)RequestedPartition,
+                  SlotSuffix, VerifyFlags, VerityFlags, &SlotData);
   }
 
   if (SlotData == NULL) {
@@ -1342,10 +1372,11 @@ LoadImageAndAuthVB2 (BootInfo *Info)
     }
   }
 
-  /* command line */
-  GUARD_OUT (AppendVBCommonCmdLine (Info));
-  GUARD_OUT (AppendVBCmdLine (Info, SlotData->cmdline));
-
+  if (!HibernationResume) {
+    /* command line */
+    GUARD_OUT (AppendVBCommonCmdLine (Info));
+    GUARD_OUT (AppendVBCmdLine (Info, SlotData->cmdline));
+  }
   /* Set Rot & Boot State*/
   Data.Color = Info->BootState;
   Data. IsUnlocked = AllowVerificationError;
@@ -1390,12 +1421,15 @@ LoadImageAndAuthVB2 (BootInfo *Info)
   }
   Data.SystemVersion = (OSVersion & 0xFFFFF800) >> 11;
 
-  GUARD_OUT (KeyMasterSetRotAndBootState (&Data));
-  ComputeVbMetaDigest (SlotData, (CHAR8 *)&Digest);
-  GUARD_OUT (SetVerifiedBootHash ((CONST CHAR8 *)&Digest, sizeof(Digest)));
-  DEBUG ((EFI_D_INFO, "VB2: Authenticate complete! boot state is: %a\n",
-          VbSn[Info->BootState].name));
+  if (!SetRotAndBootState)
+      GUARD_OUT (KeyMasterSetRotAndBootState (&Data));
 
+  if (!HibernationResume) {
+    ComputeVbMetaDigest (SlotData, (CHAR8 *)&Digest);
+    GUARD_OUT (SetVerifiedBootHash ((CONST CHAR8 *)&Digest, sizeof(Digest)));
+    DEBUG ((EFI_D_INFO, "VB2: Authenticate complete! boot state is: %a\n",
+            VbSn[Info->BootState].name));
+  }
 out:
   if (Status != EFI_SUCCESS) {
     if (SlotData != NULL) {
@@ -1598,7 +1632,11 @@ STATIC EFI_STATUS LoadImageAndAuthForLE (BootInfo *Info)
 
 skip_verification:
     if (!IsRootCmdLineUpdated (Info)) {
-        SystemPathLen = GetSystemPath (&SystemPath, Info);
+        SystemPathLen = GetSystemPath (&SystemPath,
+                                       Info->MultiSlotBoot,
+                                       Info->BootIntoRecovery,
+                                       (CHAR16 *)L"system",
+                                       (CHAR8 *)"root");
         if (SystemPathLen == 0 ||
             SystemPath == NULL) {
             return EFI_LOAD_ERROR;
@@ -1609,7 +1647,7 @@ skip_verification:
 }
 
 EFI_STATUS
-LoadImageAndAuth (BootInfo *Info)
+LoadImageAndAuth (BootInfo *Info, BOOLEAN HibernationResume, BOOLEAN SetRotAndBootState)
 {
   EFI_STATUS Status = EFI_SUCCESS;
   BOOLEAN MdtpActive = FALSE;
@@ -1660,16 +1698,17 @@ LoadImageAndAuth (BootInfo *Info)
 
   DEBUG ((EFI_D_VERBOSE, "MultiSlot %a, partition name %s\n",
           BooleanString[Info->MultiSlotBoot].name, Info->Pname));
-
-  if (FixedPcdGetBool (EnableMdtpSupport)) {
-    Status = IsMdtpActive (&MdtpActive);
-    if (EFI_ERROR (Status)) {
-      DEBUG ((EFI_D_ERROR, "Failed to get activation state for MDTP, "
-                           "Status=%r."
-                           " Considering MDTP as active and continuing \n",
-              Status));
-      if (Status != EFI_NOT_FOUND)
-        MdtpActive = TRUE;
+  if (!HibernationResume) {
+    if (FixedPcdGetBool (EnableMdtpSupport)) {
+      Status = IsMdtpActive (&MdtpActive);
+      if (EFI_ERROR (Status)) {
+        DEBUG ((EFI_D_ERROR, "Failed to get activation state for MDTP, "
+                             "Status=%r."
+                             " Considering MDTP as active and continuing \n",
+                Status));
+        if (Status != EFI_NOT_FOUND)
+          MdtpActive = TRUE;
+      }
     }
   }
 
@@ -1685,7 +1724,7 @@ LoadImageAndAuth (BootInfo *Info)
     Status = LoadImageAndAuthVB1 (Info);
     break;
   case AVB_2:
-    Status = LoadImageAndAuthVB2 (Info);
+    Status = LoadImageAndAuthVB2 (Info, HibernationResume, SetRotAndBootState);
     break;
   case AVB_LE:
     Status = LoadImageAndAuthForLE (Info);
@@ -1694,6 +1733,9 @@ LoadImageAndAuth (BootInfo *Info)
     DEBUG ((EFI_D_ERROR, "Unsupported AVB version %d\n", AVBVersion));
     Status = EFI_UNSUPPORTED;
   }
+
+  if (HibernationResume)
+    return Status;
 
   // if MDTP is active Display Recovery UI
   if (Status != EFI_SUCCESS && MdtpActive) {

@@ -131,6 +131,7 @@ typedef struct BootInfo {
   BOOLEAN MultiSlotBoot;
   BOOLEAN BootIntoRecovery;
   BOOLEAN BootReasonAlarm;
+  CHAR8 SilentBootMode;
   CHAR16 Pname[MAX_GPT_NAME_SIZE];
   CHAR16 BootableSlot[MAX_GPT_NAME_SIZE];
   ImageData Images[MAX_NUMBER_OF_LOADED_IMAGES];
@@ -227,4 +228,5 @@ UINT64 SetandGetLoadAddr (BootParamlist *BootParamlistPtr, AddrType Type);
 BOOLEAN IsNANDSquashFsSupport (VOID);
 BOOLEAN IsEnableDisplayMenuFlagSupported (VOID);
 BOOLEAN IsSystemdBootslotEnabled (VOID);
+BOOLEAN IsHibernationEnabled (VOID);
 #endif
