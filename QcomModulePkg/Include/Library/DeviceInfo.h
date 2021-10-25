@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011, 2014 - 2015, 2017, 2021 The Linux Foundation. All rights
+ * * Copyright (c) 2011,2014-2015,2017 The Linux Foundation. All rights
  * reserved.
  *
  * Redistribution and use in source and binary forms, with or without
