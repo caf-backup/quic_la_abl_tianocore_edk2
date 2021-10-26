@@ -27,6 +27,7 @@ OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
 IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 **********************************************************************/
 
+#if HIBERNATION_SUPPORT_SECURE
 #include "utils.h"
 #include <Library/MemoryAllocationLib.h>
 
@@ -87,3 +88,4 @@ size_t ENV_sec_memcpy(void *dest, size_t dst_size, const void *source, size_t sr
 {
   return _memscpy(dest, dst_size, source, src_size);
 }
+#endif /*HIBERNATION_SUPPORT_SECURE*/

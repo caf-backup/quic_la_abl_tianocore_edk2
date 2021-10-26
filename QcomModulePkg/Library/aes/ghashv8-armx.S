@@ -48,6 +48,7 @@
 #
 # (*)	presented for reference/comparison purposes;
 
+#ifdef HIBERNATION_SUPPORT_SECURE
 #include "arm_arch.h"
 
 .text
@@ -598,3 +599,4 @@ gcm_ghash_v8_4x:
 .byte	71,72,65,83,72,32,102,111,114,32,65,82,77,118,56,44,32,67,82,89,80,84,79,71,65,77,83,32,98,121,32,60,97,112,112,114,111,64,111,112,101,110,115,115,108,46,111,114,103,62,0
 .align	2
 .align	2
+#endif /*HIBERNATION_SUPPORT_SECURE*/

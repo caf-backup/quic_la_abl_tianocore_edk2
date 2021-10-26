@@ -7,6 +7,7 @@
  * https://www.openssl.org/source/license.html
  */
 
+#if HIBERNATION_SUPPORT_SECURE
 #ifndef HEADER_MODES_H
 # define HEADER_MODES_H
 
@@ -77,3 +78,4 @@ size_t CRYPTO_128_unwrap_pad(void *key, const unsigned char *icv,
 # endif
 
 #endif
+#endif /*HIBERNATION_SUPPORT_SECURE*/

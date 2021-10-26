@@ -35,6 +35,7 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
                      INCLUDE FILES FOR MODULE
 
 ===========================================================================*/
+#if HIBERNATION_SUPPORT_SECURE
 #include <stdint.h>
 
 typedef enum
@@ -277,3 +278,4 @@ typedef unsigned long           uintnt;
         (((uint16)(x) & 0xff00) >> 8)))
 
 #endif // UC_COMDEF_H
+#endif /*HIBERNATION_SUPPORT_SECURE*/

@@ -8,6 +8,7 @@
 * in the file LICENSE in the source distribution or at
 * https://www.openssl.org/source/license.html */
 
+#if HIBERNATION_SUPPORT_SECURE
 #include <stdlib.h>
 #include "modes_lcl.h"
 #include <string.h>
@@ -1759,3 +1760,4 @@ void CRYPTO_gcm128_release(GCM128_CONTEXT *ctx)
 {
     memset(ctx, 0, sizeof(*ctx));
 }
+#endif /*HIBERNATION_SUPPORT_SECURE*/

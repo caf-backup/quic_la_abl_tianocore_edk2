@@ -7,6 +7,7 @@
  * https://www.openssl.org/source/license.html
  */
 
+#if HIBERNATION_SUPPORT_SECURE
 #include "modes.h"
 
 #if (defined(_WIN32) || defined(_WIN64)) && !defined(__MINGW32__)
@@ -132,4 +133,4 @@ struct gcm128_context {
     unsigned char Xn[48];
 #endif
 };
-
+#endif /*HIBERNATION_SUPPORT_SECURE*/

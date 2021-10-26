@@ -58,6 +58,7 @@
 # (**)	numbers after slash are for 32-bit code, which is 3x-
 #	interleaved;
 
+#ifdef HIBERNATION_SUPPORT_SECURE
 #include "arm_arch.h"
 
 .section        .rodata
@@ -948,3 +949,4 @@ aes_v8_ctr32_encrypt_blocks:
 	ldr		x29,[sp],#16
 	ret
 .size	aes_v8_ctr32_encrypt_blocks,.-aes_v8_ctr32_encrypt_blocks
+#endif /*HIBERNATION_SUPPORT_SECURE*/

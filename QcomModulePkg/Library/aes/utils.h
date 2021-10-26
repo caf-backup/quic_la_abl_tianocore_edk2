@@ -27,6 +27,7 @@ OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
 IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 **********************************************************************/
 
+#if HIBERNATION_SUPPORT_SECURE
 #include <stddef.h>
 #include <Library/DebugLib.h>
 
@@ -62,3 +63,4 @@ size_t ENV_sec_memcpy(void *dest, size_t dst_size, const void *source, size_t sr
                                                      }
 
 #define UC_PASS(cond, st)                            if (cond) return (st)
+#endif /*HIBERNATION_SUPPORT_SECURE*/

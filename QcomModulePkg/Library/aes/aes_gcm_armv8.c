@@ -26,7 +26,7 @@ WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
 OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
 IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************/
-
+#if HIBERNATION_SUPPORT_SECURE
 /*===========================================================================
                      INCLUDE FILES FOR MODULE
 ===========================================================================*/
@@ -466,3 +466,4 @@ sw_crypto_errno_enum_type SW_Cipher_Init(SW_Cipher_Alg_Type pAlgo)
   DEBUG ((EFI_D_VERBOSE,"end : %s:%d \n", __func__, __LINE__));
   return ret_val;
 }
+#endif /*HIBERNATION_SUPPORT_SECURE*/

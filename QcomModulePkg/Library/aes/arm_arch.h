@@ -7,6 +7,7 @@
  * https://www.openssl.org/source/license.html
  */
 
+#if HIBERNATION_SUPPORT_SECURE
 #ifndef __ARM_ARCH_H__
 # define __ARM_ARCH_H__
 
@@ -82,3 +83,4 @@ extern const unsigned int OPENSSL_armcap_P;
 # define ARMV8_SHA512    (1<<6)
 
 #endif
+#endif /*HIBERNATION_SUPPORT_SECURE*/

@@ -26,7 +26,7 @@ WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
 OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
 IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************/
-
+#if HIBERNATION_SUPPORT_SECURE
 #include "aes_public.h"
 #include "utils.h"
 #include <string.h>
@@ -404,3 +404,4 @@ int aes_start_test(void)
    }
    return status;
 }
+#endif /*HIBERNATION_SUPPORT_SECURE*/

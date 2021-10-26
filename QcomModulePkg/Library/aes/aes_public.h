@@ -26,6 +26,7 @@ WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
 OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
 IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************/
+#if HIBERNATION_SUPPORT_SECURE
 
 #ifndef AES_PUBLIC_H
 #define AES_PUBLIC_H
@@ -184,3 +185,4 @@ sw_crypto_errno_enum_type SW_Cipher_GetParam (                 SW_CipherParam   
                                               uint32               cParam );
 
 #endif /* AES_SHARED */
+#endif /*HIBERNATION_SUPPORT_SECURE*/

@@ -34,6 +34,7 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 /*===========================================================================
                      INCLUDE FILES FOR MODULE
 ===========================================================================*/
+#if HIBERNATION_SUPPORT_SECURE
 #include <stdint.h>
 
 #define UCLIB_CONTROL_FLAG(flag)                ((flag)>31?0:(uint32_t)1<<(flag))
@@ -48,3 +49,4 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define UCLIB_CIPHER_IV_READY                   UCLIB_CONTROL_FLAG(3)
 #define UCLIB_CIPHER_KEY_READY                  UCLIB_CONTROL_FLAG(4)
 #endif /* _UCLIB_FLAGS */
+#endif /*HIBERNATION_SUPPORT_SECURE*/
