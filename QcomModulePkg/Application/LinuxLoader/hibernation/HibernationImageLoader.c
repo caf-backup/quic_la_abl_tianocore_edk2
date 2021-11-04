@@ -37,6 +37,9 @@
 #include "BootStats.h"
 #include <Library/DxeServicesTableLib.h>
 #include <VerifiedBoot.h>
+#if HIBERNATION_32BIT_MODE_SWITCH
+#include <Protocol/EFIScmModeSwitch.h>
+#endif
 
 #define BUG(fmt, ...) {\
 		printf("Fatal error " fmt, ##__VA_ARGS__);\
@@ -61,6 +64,10 @@ struct mapped_range {
         UINT64 start, end;
         struct mapped_range * next;
 };
+
+#if HIBERNATION_32BIT_MODE_SWITCH
+EFI_HLOS_BOOT_ARGS HlosBootArgs;
+#endif
 
 /* number of data pages to be copied from swap */
 static unsigned int nr_copy_pages;
@@ -1003,6 +1010,13 @@ static void copy_bounce_and_boot_kernel()
 	stackPointer = get_unused_pfn() << PAGE_SHIFT;
 	stackPointer = stackPointer + PAGE_SIZE - 16;
 
+#if HIBERNATION_32BIT_MODE_SWITCH
+	SetMem ((VOID *)&HlosBootArgs, sizeof (HlosBootArgs), 0);
+	/* Write 0 into el1_x4 to switch to 32bit mode */
+	HlosBootArgs.el1_x4 = 0;
+	HlosBootArgs.el1_elr = cpu_resume;
+#endif
+
 	/*
 	 * The restore routine "JumpToKernel" copies the bounced pages after iterating
 	 * through the bounce entry table and passes control to hibernated kernel after
@@ -1049,6 +1063,9 @@ static void copy_bounce_and_boot_kernel()
 		"mov x21, %[resume]\n"
 		"mov sp, %[sp]\n"
 		"mov x22, %[relocate_code]\n"
+#if HIBERNATION_32BIT_MODE_SWITCH
+		"mov x23, %[hlos_bootargs]\n"
+#endif
 		"br x22"
 		:
 		:[table_base] "r" (bti->first_table),
@@ -1056,7 +1073,12 @@ static void copy_bounce_and_boot_kernel()
 		[resume] "r" (cpu_resume),
 		[sp] "r" (stackPointer),
 		[relocate_code] "r" (relocateAddress)
+#if HIBERNATION_32BIT_MODE_SWITCH
+		,[hlos_bootargs] "r" (&HlosBootArgs)
+		:"x18", "x19", "x21", "x22", "x23", "memory");
+#else
 		:"x18", "x19", "x21", "x22", "memory");
+#endif
 }
 
 static int check_for_valid_header(void)

@@ -46,6 +46,7 @@
  * x18 = bounce_pfn_entry_table
  * x19 = bounce_count
  * x21 = cpu_resume (kernel entry point)
+ * x22 = hlos_boot_args
  */
 JumpToKernel:
 	mov	x4, #ENTRIES_PER_TABLE
@@ -60,7 +61,23 @@ JumpToKernel:
 	ldr	x18, [x0]			// load address of next table
 	cbnz	x19, JumpToKernel      		// loop until bounce_count equals 0
 	bl	_PreparePlatformHardware	// call PreparePlatformHardware
+#if HIBERNATION_32BIT_MODE_SWITCH
+	bl	SwitchMode			//swich to arm mode
+#endif
 	br	x21				// jump to kernel
+
+#if HIBERNATION_32BIT_MODE_SWITCH
+SwitchMode:
+	mov     x0,#0x10F
+	movk    x0,#0x200,lsl #0x10
+	mov	x1,#0x12
+	mov	x2, x23
+	mov	x3, #0x50
+scmloop:	smc	0x0
+	cmp	x0,0x0
+	b.gt	scmloop
+	ret
+#endif
 
 /*
  * copy pages
