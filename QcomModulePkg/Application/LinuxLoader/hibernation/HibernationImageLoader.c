@@ -39,6 +39,7 @@
 #include <VerifiedBoot.h>
 #include <Library/aes/aes_public.h>
 #include <Protocol/EFIQseecom.h>
+#include "KeymasterClient.h"
 
 #define BUG(fmt, ...) {\
 		printf("Fatal error " fmt, ##__VA_ARGS__);\
@@ -1309,6 +1310,12 @@ void BootIntoHibernationImage(BootInfo *Info, BOOLEAN *SetRotAndBootState)
          * snapshot stage..
 	 */
 	*SetRotAndBootState = TRUE;
+
+	Status = KeyMasterFbeSetSeed();
+	if (Status != EFI_SUCCESS) {
+		DEBUG ((EFI_D_ERROR, "Failed to set seed for fbe : %r\n", Status));
+		goto err;
+	}
 
 	ret = restore_snapshot_image();
 	if (ret) {
