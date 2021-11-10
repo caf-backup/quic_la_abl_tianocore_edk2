@@ -54,9 +54,8 @@ STATIC CONST CHAR8 *UseFec = "use_fec_from_device";
 STATIC CONST CHAR8 *FecRoot = "fec_roots";
 STATIC CONST CHAR8 *FecBlock = "fec_blocks";
 STATIC CONST CHAR8 *FecStart = "fec_start";
-STATIC CONST CHAR8 *DeviceWait = "device_wait";
 
-#define FEATUREARGS 11
+#define FEATUREARGS 10
 #if VERITY_LE
 BOOLEAN IsLEVerity (VOID)
 {
@@ -302,23 +301,23 @@ GetLEVerityCmdLine (CONST CHAR8 *SourceCmdLine,
         AsciiSPrint (
         DMTemp,
         MAX_VERITY_CMD_LINE,
-        " %a dm-mod.create=\"%a,,,ro,0 %a %a 1 %a %a %a %a %a %d %a %a %a %a\"",
+        " %a dm-mod.create=\"%a,,,ro,0 %a %a 1 %a %a %a %a %a %d %a %a %a\"",
         VerityRoot, VerityAppliedOn, SectorSize, VerityName,
         VeritySystemPartitionStr, VeritySystemPartitionStr,
         VerityBlockSize, VerityBlockSize, DataSize, HashSize, VerityEncriptionName,
-        Hash, VeritySalt, DeviceWait
+        Hash, VeritySalt
         );
     }
     else {
         AsciiSPrint (
         DMTemp,
         MAX_VERITY_CMD_LINE,
-        " %a dm-mod.create=\"%a,,,ro,0 %a %a 1 %a %a %a %a %a %d %a %a %a %d %a %a %a %a %a 2 %a %a %a %a %a\"",
+        " %a dm-mod.create=\"%a,,,ro,0 %a %a 1 %a %a %a %a %a %d %a %a %a %d %a %a %a %a %a 2 %a %a %a %a\"",
         VerityRoot, VerityAppliedOn, SectorSize, VerityName,
         VeritySystemPartitionStr, VeritySystemPartitionStr,
         VerityBlockSize, VerityBlockSize, DataSize, HashSize, VerityEncriptionName,
         Hash, VeritySalt, FEATUREARGS, OptionalParam0, OptionalParam1, UseFec,
-        VeritySystemPartitionStr, FecRoot, FecBlock, FecOff, FecStart, FecOff, DeviceWait
+        VeritySystemPartitionStr, FecRoot, FecBlock, FecOff, FecStart, FecOff
         );
     }
 
