@@ -50,4 +50,7 @@ SetVerifiedBootHash(CONST CHAR8 *Vbh, UINTN VbhSize);
 EFI_STATUS
 KeyMasterGetDateSupport (BOOLEAN *Supported);
 
+EFI_STATUS
+KeyMasterFbeSetSeed(void);
+
 #endif /* __KEYMASTER_CLIENT_H__ */
