@@ -169,6 +169,9 @@
   !if $(NAD_PARTITION)
       GCC:*_*_*_CC_FLAGS = -DNAD_PARTITION
   !endif
+  !if $(DM_VERITY)
+      GCC:*_*_*_CC_FLAGS = -DDM_VERITY
+  !endif
   !ifdef $(MTD_UBI_BEB_LIMIT_PER1024)
       GCC:*_*_*_CC_FLAGS = -DMTD_UBI_BEB_LIMIT_PER1024=$(MTD_UBI_BEB_LIMIT_PER1024)
   !endif

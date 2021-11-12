@@ -36,7 +36,7 @@
 #define MAX_VERITY_CMD_LINE 512
 #define MAX_VERITY_SECTOR_LEN 12
 #define MAX_VERITY_HASH_LEN 65
-#ifdef NAD_PARTITION
+#ifdef DM_VERITY
 STATIC CONST CHAR8 *VeritySystemPartitionStr = "/dev/ubiblock0_0";
 #else
 STATIC CONST CHAR8 *VeritySystemPartitionStr = "/dev/mmcblk0p";
@@ -224,7 +224,7 @@ GetLEVerityCmdLine (CONST CHAR8 *SourceCmdLine,
     /* Get system partition index */
     MultiSlotBoot = PartitionHasMultiSlot ((CONST CHAR16 *)L"boot");
 
-#ifdef NAD_PARTITION
+#ifdef DM_VERITY
     StrnCpyS (PartitionName, MAX_GPT_NAME_SIZE, (CONST CHAR16 *)L"nad_ubi",
           StrLen ((CONST CHAR16 *)L"nad_ubi"));
 #else
@@ -258,7 +258,7 @@ GetLEVerityCmdLine (CONST CHAR8 *SourceCmdLine,
         AsciiSPrint (
         DMTemp,
         MAX_VERITY_CMD_LINE,
-#ifdef NAD_PARTITION
+#ifdef DM_VERITY
         " %a dm=\"%a none ro,0 %a %a 1 %a %a %a %a %a %d %a %a %a\"",
         VerityRoot, VerityAppliedOn, SectorSize, VerityName,
         VeritySystemPartitionStr, VeritySystemPartitionStr, VerityBlockSize, VerityBlockSize, DataSize, HashSize, VerityEncriptionName,
@@ -276,7 +276,7 @@ GetLEVerityCmdLine (CONST CHAR8 *SourceCmdLine,
         AsciiSPrint (
         DMTemp,
         MAX_VERITY_CMD_LINE,
-#ifdef NAD_PARTITION
+#ifdef DM_VERITY
         " %a dm=\"%a none ro,0 %a %a 1 %a %a %a %a %a %d %a %a %a %d %a %a %a %a %a 2 %a %a %a %a\"",
         VerityRoot, VerityAppliedOn, SectorSize, VerityName,
         VeritySystemPartitionStr, VeritySystemPartitionStr,
