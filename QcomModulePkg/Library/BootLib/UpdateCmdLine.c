@@ -84,9 +84,8 @@ STATIC UINTN DisplayCmdLineLen = sizeof (DisplayCmdLine);
 STATIC CHAR8 *AndroidBootDtboIdx = " androidboot.dtbo_idx=";
 STATIC CHAR8 *AndroidBootDtbIdx = " androidboot.dtb_idx=";
 
-/* recovery vol idx =  total num of partitions + rootfs + firmware + telaf + recoveryfs
-   42                      + 1      + 1        + 1     + 1           = 46 */
-#define RECOVERYFS_VOLUME_INDEX 46
+/* recovery ubi vol idx =  2 */
+#define RECOVERYFS_VOLUME_INDEX 2
 
 STATIC EFI_STATUS
 TargetPauseForBatteryCharge (BOOLEAN *BatteryStatus)
@@ -379,9 +378,21 @@ GetSystemPath (CHAR8 **SysPath, BOOLEAN MultiSlotBoot, BOOLEAN FlashlessBoot,
       if (MultiSlotBoot &&
          (StrnCmp ((CONST CHAR16 *)L"_b", CurSlot.Suffix,
           StrLen (CurSlot.Suffix)) == 0) && !IsRecoveryVolumeUsed())
+      {
+#ifdef NAD_PARTITION
+         MtdBlkIndex = 1;
+#else
          MtdBlkIndex = PartitionCount;
+#endif
+      }
       else
+      {
+#ifdef NAD_PARTITION
+         MtdBlkIndex = 0;
+#else
          MtdBlkIndex = PartitionCount - 1;
+#endif
+      }
 
       if (IsDefinedMTDUbiBebLimit ()){
          if(BootIntoRecovery && IsRecoveryVolumeUsed()){
@@ -391,9 +402,18 @@ GetSystemPath (CHAR8 **SysPath, BOOLEAN MultiSlotBoot, BOOLEAN FlashlessBoot,
              DEBUG ((EFI_D_ERROR, "%d  = root index  \n", MtdBlkIndex));
           }
 #ifdef NAD_PARTITION
+         if(BootIntoRecovery == 0)
+         {
           AsciiSPrint (*SysPath, MAX_PATH_SIZE,
-                   " rootfstype=squashfs ubi.mtd=%d,0,%d ubi.block=0,0 root=/dev/ubiblock0_0",
-                   (Index - 1), MTD_UBI_BEB_LIMIT_PER1024);
+                     " rootfstype=squashfs ubi.mtd=%d,0,%d ubi.block=0,%d root=/dev/ubiblock0_%d",
+                     (Index - 1), MTD_UBI_BEB_LIMIT_PER1024, MtdBlkIndex, MtdBlkIndex);
+         }
+         else
+         {
+            AsciiSPrint (*SysPath, MAX_PATH_SIZE,
+                     " rootfstype=squashfs ubi.mtd=%d,0,%d ubi.block=0,%d root=/dev/ubiblock0_%d",
+                     (Index - 1), MTD_UBI_BEB_LIMIT_PER1024, MtdBlkIndex, MtdBlkIndex);
+         }
 #else
           AsciiSPrint (*SysPath, MAX_PATH_SIZE,
                    " rootfstype=squashfs root=/dev/mtdblock%d ubi.mtd=%d,0,%d",
