@@ -77,6 +77,7 @@
   UefiDriverEntryPoint|MdePkg/Library/UefiDriverEntryPoint/UefiDriverEntryPoint.inf
   PerformanceLib|MdeModulePkg/Library/DxePerformanceLib/DxePerformanceLib.inf
   AvbLib|QcomModulePkg/Library/avb/AvbLib.inf
+  AesLib|QcomModulePkg/Library/aes/AesLib.inf
 
 [LibraryClasses.ARM]
   ArmLib|ArmPkg/Library/ArmLib/ArmV7/ArmV7Lib.inf
@@ -119,6 +120,12 @@
   !endif
   !if $(HIBERNATION_32BIT_MODE_SWITCH)
       GCC:*_*_*_PP_FLAGS = -DHIBERNATION_32BIT_MODE_SWITCH
+  !endif
+  !if $(HIBERNATION_SUPPORT_SECURE)
+      GCC:*_*_*_CC_FLAGS = -DHIBERNATION_SUPPORT_SECURE
+  !endif
+  !if $(HIBERNATION_SUPPORT_SECURE)
+      GCC:*_*_*_PP_FLAGS = -DHIBERNATION_SUPPORT_SECURE
   !endif
   !if $(AB_RETRYCOUNT_DISABLE)
       GCC:*_*_*_CC_FLAGS = -DAB_RETRYCOUNT_DISABLE
@@ -199,5 +206,6 @@
 			StackCanary|QcomModulePkg/Library/StackCanary/StackCanary.inf
 			FastbootLib|QcomModulePkg/Library/FastbootLib/FastbootLib.inf
 			AvbLib|QcomModulePkg/Library/avb/AvbLib.inf
+			AesLib|QcomModulePkg/Library/aes/AesLib.inf
 			UbsanLib|QcomModulePkg/Library/UbsanLib/UbsanLib.inf
 	}

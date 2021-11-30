@@ -27,8 +27,8 @@
 */
 #if HIBERNATION_SUPPORT_INSECURE
 
-#define __aligned(x)	__attribute__((aligned(x)))
-#define __packed	__attribute__((packed))
+#define ___aligned(x)	__attribute__((aligned(x)))
+#define ___packed	__attribute__((packed))
 #define __AC(X,Y)       (X##Y)
 #define _AC(X,Y)        __AC(X,Y)
 #define PAGE_SHIFT	12
@@ -50,15 +50,98 @@ typedef VOID (*HIBERNATION_KERNEL)(VOID);
 typedef unsigned int u32;
 typedef unsigned long sector_t;
 
+#define AES256_KEY_SIZE         32
+#define NUM_OF_AES256_KEYS      2
+#define PAYLOAD_KEY_SIZE (NUM_OF_AES256_KEYS * AES256_KEY_SIZE)
+#define RAND_INDEX_SIZE         8
+#define NONCE_LENGTH            8
+#define MAC_LENGTH              16
+#define TIME_STRUCT_LENGTH      48
+#define WRAP_PAYLOAD_LENGTH \
+                (PAYLOAD_KEY_SIZE + RAND_INDEX_SIZE + TIME_STRUCT_LENGTH)
+#define AAD_WITH_PAD_LENGTH     32
+#define WRAPPED_KEY_SIZE \
+		(AAD_WITH_PAD_LENGTH + WRAP_PAYLOAD_LENGTH + MAC_LENGTH + \
+		NONCE_LENGTH)
+
+struct s4app_time {
+	unsigned short year;
+	unsigned char  month;
+	unsigned char  day;
+	unsigned char  hour;
+	unsigned char  minute;
+};
+
+struct wrap_req {
+	struct s4app_time save_time;
+};
+
+struct wrap_rsp {
+	unsigned char wrapped_key_buffer[WRAPPED_KEY_SIZE];
+	unsigned int wrapped_key_size;
+	unsigned char key_buffer[PAYLOAD_KEY_SIZE];
+	unsigned int key_size;
+};
+
+struct unwrap_req {
+	unsigned char wrapped_key_buffer[WRAPPED_KEY_SIZE];
+	unsigned int wrapped_key_size;
+	struct s4app_time curr_time;
+};
+
+struct unwrap_rsp {
+	unsigned char key_buffer[PAYLOAD_KEY_SIZE];
+	unsigned int key_size;
+};
+
+enum cmd_id {
+	WRAP_KEY_CMD = 0,
+	UNWRAP_KEY_CMD = 1,
+};
+
+struct cmd_req {
+	enum cmd_id cmd;
+	union {
+		struct wrap_req wrapkey_req;
+		struct unwrap_req unwrapkey_req;
+	};
+};
+
+struct cmd_rsp {
+        enum cmd_id cmd;
+	union {
+		struct wrap_rsp wrapkey_rsp;
+		struct unwrap_rsp unwrapkey_rsp;
+	};
+	unsigned int status;
+};
+
+
+struct decrypt_param {
+	void    *out;
+	void	*auth_cur;
+	int     authsize;
+	unsigned char	key_blob[WRAPPED_KEY_SIZE];
+	unsigned char	unwrapped_key[32];
+	unsigned char	iv[12];
+	unsigned char	aad[12];
+};
+
 struct swsusp_header {
 	char reserved[PAGE_SIZE - 20 - sizeof(sector_t) - sizeof(int) -
-		sizeof(u32)];
+		sizeof(u32) - (3 * sizeof(int)) - 24 - WRAPPED_KEY_SIZE];
 	u32     crc32;
 	sector_t image;
 	unsigned int flags;     /* Flags to pass to the "boot" kernel */
-	char    orig_sig[10];
-	char    sig[10];
-} __packed;
+	int	authsize;
+	int	authslot_start;
+	int	authslot_count;
+	unsigned char	key_blob[WRAPPED_KEY_SIZE];
+	unsigned char	iv[12];
+	unsigned char	aad[12];
+	unsigned char	orig_sig[10];
+	unsigned char	sig[10];
+} ___packed;
 
 struct new_utsname {
 	char sysname[__NEW_UTS_LEN + 1];
@@ -77,7 +160,7 @@ struct swsusp_info {
 	unsigned long		image_pages;
 	unsigned long		pages;
 	unsigned long		size;
-} __aligned(PAGE_SIZE);
+} ___aligned(PAGE_SIZE);
 
 struct arch_hibernate_hdr_invariants {
         char            uts_version[__NEW_UTS_LEN + 1];
@@ -91,4 +174,5 @@ struct arch_hibernate_hdr {
 	unsigned long	 __hyp_stub_vectors;
 	unsigned long	sleep_cpu_mpidr;
 };
+
 #endif
