@@ -155,7 +155,7 @@ unsigned long relocateAddress;
 #define SWAP_INFO_OFFSET        (swsusp_header->image + 1)
 #define FIRST_PFN_INDEX_OFFSET	(SWAP_INFO_OFFSET + 1)
 
-#define SWAP_PARTITION_NAME	L"swap_a"
+#define SWAP_PARTITION_NAME	L"swap"
 
 /*
  * target_addr  : address where page allocation is needed
