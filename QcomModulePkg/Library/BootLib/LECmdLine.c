@@ -31,13 +31,16 @@
 #include <Library/PartitionTableUpdate.h>
 #include "LECmdLine.h"
 #include <Library/MemoryAllocationLib.h>
-
+#include <Library/NandMultiSlotBoot.h>
+#include <Library/BootLinux.h>
 /* verity command line related structures */
 #define MAX_VERITY_CMD_LINE 512
 #define MAX_VERITY_SECTOR_LEN 12
 #define MAX_VERITY_HASH_LEN 65
-#ifdef DM_VERITY
-STATIC CONST CHAR8 *VeritySystemPartitionStr = "/dev/ubiblock0_0";
+#define VERITY_STR_LEN 20
+
+#ifdef NAD_PARTITION
+CHAR8 *VeritySystemPartitionStr = NULL;
 #else
 STATIC CONST CHAR8 *VeritySystemPartitionStr = "/dev/mmcblk0p";
 #endif
@@ -218,12 +221,37 @@ GetLEVerityCmdLine (CONST CHAR8 *SourceCmdLine,
       goto ErrLEVerityout;
     }
 
+#ifdef NAD_PARTITION
+    /* Get HashSize for veritysetup will be next byte of datasize */
+    HashSize = AsciiStrDecimalToUintn ((CHAR8 *) &DataSize[0]) + 1;
+#else
     /* Get HashSize which is always greater by 8 bytes to DataSize */
     HashSize = AsciiStrDecimalToUintn ((CHAR8 *) &DataSize[0]) + 8;
-
+#endif
     /* Get system partition index */
     MultiSlotBoot = PartitionHasMultiSlot ((CONST CHAR16 *)L"boot");
 
+#ifdef NAD_PARTITION
+    UINT32 MtdBlkIndex = 0;
+    VeritySystemPartitionStr = AllocateZeroPool (sizeof (CHAR8) *VERITY_STR_LEN);
+    Slot CurSlot = GetCurrentSlotSuffix ();
+    /*Get ubiblock index for 4+4 device */
+    if(IsRecoveryVolumeUsed()) {
+        AsciiSPrint (VeritySystemPartitionStr, VERITY_STR_LEN, "/dev/ubiblock0_%d",MtdBlkIndex);
+    }
+    /*Get ubiblock index for 8+8 device*/
+    else {
+        /*for active slot b*/
+        if (StrnCmp ((CONST CHAR16 *)L"_b", CurSlot.Suffix,
+                    StrLen (CurSlot.Suffix))==0){
+            AsciiSPrint (VeritySystemPartitionStr, VERITY_STR_LEN, "/dev/ubiblock0_%d",MtdBlkIndex+1);
+        }
+        /*for active slot a*/
+        else {
+            AsciiSPrint (VeritySystemPartitionStr, VERITY_STR_LEN, "/dev/ubiblock0_%d",MtdBlkIndex);
+        }
+    }
+#endif
 #ifdef DM_VERITY
     StrnCpyS (PartitionName, MAX_GPT_NAME_SIZE, (CONST CHAR16 *)L"nad_ubi",
           StrLen ((CONST CHAR16 *)L"nad_ubi"));
