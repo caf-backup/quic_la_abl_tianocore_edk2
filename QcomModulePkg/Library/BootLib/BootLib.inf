@@ -97,6 +97,7 @@
 	StackCanary
 	AvbLib
 	UbsanLib
+	AesLib
 
 [Guids]
 	gEfiFileInfoGuid
