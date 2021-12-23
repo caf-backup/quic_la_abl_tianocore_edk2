@@ -728,7 +728,7 @@ skip_BoardSerialNum:
   }
 
   if (HaveCmdLine) {
-    if (IsLEVerity ()) {
+    if (IsLEVerity () && !Recovery) {
       Status = GetLEVerityCmdLine (CmdLine, &LEVerityCmdLine,
                                    &LEVerityCmdLineLen);
       if (Status != EFI_SUCCESS) {
