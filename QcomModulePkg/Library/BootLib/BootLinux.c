@@ -1161,6 +1161,9 @@ CheckImageHeader (VOID *ImageHdrBuffer,
   UINT32 DtSize = 0;
   UINT32 tempImgSize = 0;
 
+  if (!VendorImageHdrBuffer)
+    return EFI_INVALID_PARAMETER;
+
   if (CompareMem ((VOID *)((boot_img_hdr *)(ImageHdrBuffer))->magic, BOOT_MAGIC,
                   BOOT_MAGIC_SIZE)) {
     DEBUG ((EFI_D_ERROR, "Invalid boot image header\n"));
