@@ -405,6 +405,9 @@ LoadBootImageNoAuth (BootInfo *Info, UINT32 *PageSize, BOOLEAN *FastbootPath)
     BootIntoRecovery = Info->BootIntoRecovery;
   }
 
+  if (!ImageHdrBuffer)
+    return EFI_INVALID_PARAMETER;
+
   Info->HeaderVersion = ((boot_img_hdr *)(ImageHdrBuffer))->header_version;
 
   /* Additional vendor_boot image header needs be loaded for header
