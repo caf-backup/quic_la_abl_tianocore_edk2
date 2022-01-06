@@ -434,13 +434,57 @@ GetSystemPath (CHAR8 **SysPath, BOOLEAN MultiSlotBoot, BOOLEAN FlashlessBoot,
        * reserve MTD_UBI_BEB_LIMIT_PER1024*nand_size_in_blocks/1024 erase blocks
        * for bad block handling.
        */
-        AsciiSPrint (*SysPath, MAX_PATH_SIZE,
-            " rootfstype=ubifs rootflags=bulk_read root=ubi0:rootfs ubi.mtd=%d,0,%d",
-            (Index - 1), MTD_UBI_BEB_LIMIT_PER1024);
+       if(IsNADUBIEnable()) {
+           /* use IsRecoveryVolumeUsed differentiate between 4+4 and 8+8
+            * add slot suffix to command line for 8+8 device
+            */
+           if (MultiSlotBoot && !IsRecoveryVolumeUsed()) {
+               CurSlot = GetCurrentSlotSuffix ();
+               if(StrnCmp ((CONST CHAR16 *)L"_a", CurSlot.Suffix, StrLen (CurSlot.Suffix)) == 0) {
+                  AsciiSPrint (*SysPath, MAX_PATH_SIZE,
+                      " rootfstype=ubifs rootflags=bulk_read root=ubi0:system_a ubi.mtd=%d,0,%d",
+                      (Index - 1), MTD_UBI_BEB_LIMIT_PER1024);
+               } else {
+                  AsciiSPrint (*SysPath, MAX_PATH_SIZE,
+                      " rootfstype=ubifs rootflags=bulk_read root=ubi0:system_b ubi.mtd=%d,0,%d",
+                      (Index - 1), MTD_UBI_BEB_LIMIT_PER1024);
+               }
+           } else {
+                  AsciiSPrint (*SysPath, MAX_PATH_SIZE,
+                      " rootfstype=ubifs rootflags=bulk_read root=ubi0:system ubi.mtd=%d,0,%d",
+                      (Index - 1), MTD_UBI_BEB_LIMIT_PER1024);
+           }
+       } else {
+           AsciiSPrint (*SysPath, MAX_PATH_SIZE,
+               " rootfstype=ubifs rootflags=bulk_read root=ubi0:rootfs ubi.mtd=%d,0,%d",
+               (Index - 1), MTD_UBI_BEB_LIMIT_PER1024);
+       }
     } else {
-      AsciiSPrint (*SysPath, MAX_PATH_SIZE,
-          " rootfstype=ubifs rootflags=bulk_read root=ubi0:rootfs ubi.mtd=%d",
-          (Index - 1));
+       if(IsNADUBIEnable()) {
+           /* use IsRecoveryVolumeUsed differentiate between 4+4 and 8+8
+            * add slot suffix to command line for 8+8 device
+            */
+           if (MultiSlotBoot && !IsRecoveryVolumeUsed()) {
+               CurSlot = GetCurrentSlotSuffix ();
+               if(StrnCmp ((CONST CHAR16 *)L"_a", CurSlot.Suffix, StrLen (CurSlot.Suffix)) == 0) {
+                   AsciiSPrint (*SysPath, MAX_PATH_SIZE,
+                       " rootfstype=ubifs rootflags=bulk_read root=ubi0:system_a ubi.mtd=%d",
+                       (Index - 1));
+               } else {
+                   AsciiSPrint (*SysPath, MAX_PATH_SIZE,
+                       " rootfstype=ubifs rootflags=bulk_read root=ubi0:system_b ubi.mtd=%d",
+                       (Index - 1));
+               }
+           } else {
+               AsciiSPrint (*SysPath, MAX_PATH_SIZE,
+                   " rootfstype=ubifs rootflags=bulk_read root=ubi0:system ubi.mtd=%d",
+                   (Index - 1));
+           }
+       } else {
+           AsciiSPrint (*SysPath, MAX_PATH_SIZE,
+               " rootfstype=ubifs rootflags=bulk_read root=ubi0:rootfs ubi.mtd=%d",
+               (Index - 1));
+       }
     }
   } else if (!AsciiStrCmp ("UFS", RootDevStr)) {
     AsciiSPrint (*SysPath, MAX_PATH_SIZE,
@@ -728,7 +772,7 @@ skip_BoardSerialNum:
   }
 
   if (HaveCmdLine) {
-    if (IsLEVerity () && !Recovery) {
+    if (IsLEVerity () && !Recovery && IsNANDSquashFsSupport ()) {
       Status = GetLEVerityCmdLine (CmdLine, &LEVerityCmdLine,
                                    &LEVerityCmdLineLen);
       if (Status != EFI_SUCCESS) {
