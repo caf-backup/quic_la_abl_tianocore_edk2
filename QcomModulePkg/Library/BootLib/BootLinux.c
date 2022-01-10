@@ -140,7 +140,7 @@ UpdateBootParams (BootParamlist *BootParamlistPtr)
   UINT64 KernelSizeReserved;
   UINT64 KernelLoadAddr;
 #ifdef RAMDISK_RELOCATION_ENABLED
-  UINT64 RamDiskLoadAddress = 0xE0000000;
+  UINT64 RamDiskLoadAddress = RAMDISK_LOAD_ADDRESS;
 #endif
   if (BootParamlistPtr == NULL ) {
     DEBUG ((EFI_D_ERROR, "Invalid input parameters\n"));
@@ -193,10 +193,9 @@ UpdateBootParams (BootParamlist *BootParamlistPtr)
 #ifdef RAMDISK_RELOCATION_ENABLED
   BootParamlistPtr->RamdiskLoadAddr = RamDiskLoadAddress;
   BootParamlistPtr->DeviceTreeLoadAddr = (BootParamlistPtr->KernelEndAddr -
-	                                 (DT_SIZE_2MB +
-					  BootParamlistPtr->PageSize));
+                                         (DT_SIZE_2MB +
+                                          BootParamlistPtr->PageSize));
 #else
-  DEBUG ((EFI_D_INFO, "Outside RAMDISK_RELOCATION_ENABLED \n"));
   BootParamlistPtr->RamdiskLoadAddr = (BootParamlistPtr->KernelEndAddr -
                             (LOCAL_ROUND_TO_PAGE (
                                           BootParamlistPtr->RamdiskSize +
@@ -736,7 +735,7 @@ LoadAddrAndDTUpdate (BootInfo *Info, BootParamlist *BootParamlistPtr)
   UINT64 RamdiskLoadAddr;
   UINT32 TotalRamdiskSize;
 #ifdef RAMDISK_RELOCATION_ENABLED
-  UINT64 RamdiskEndAddr = 0xEA800000;
+  UINT64 RamdiskEndAddr = RAMDISK_END_ADDRESS;
 #else
   UINT64 RamdiskEndAddr = 0;
 #endif
