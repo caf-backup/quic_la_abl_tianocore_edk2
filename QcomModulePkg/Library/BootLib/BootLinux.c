@@ -1161,9 +1161,6 @@ CheckImageHeader (VOID *ImageHdrBuffer,
   UINT32 DtSize = 0;
   UINT32 tempImgSize = 0;
 
-  if (!VendorImageHdrBuffer)
-    return EFI_INVALID_PARAMETER;
-
   if (CompareMem ((VOID *)((boot_img_hdr *)(ImageHdrBuffer))->magic, BOOT_MAGIC,
                   BOOT_MAGIC_SIZE)) {
     DEBUG ((EFI_D_ERROR, "Invalid boot image header\n"));
@@ -1177,6 +1174,9 @@ CheckImageHeader (VOID *ImageHdrBuffer,
     SecondSize = ((boot_img_hdr *)(ImageHdrBuffer))->second_size;
     *PageSize = ((boot_img_hdr *)(ImageHdrBuffer))->page_size;
   } else {
+    if (!VendorImageHdrBuffer)
+      return EFI_INVALID_PARAMETER;
+
     if (CompareMem ((VOID *)((vendor_boot_img_hdr_v3 *)
                      (VendorImageHdrBuffer))->magic,
                      VENDOR_BOOT_MAGIC, VENDOR_BOOT_MAGIC_SIZE)) {
