@@ -797,12 +797,6 @@ UpdateCmdLine (CONST CHAR8 *CmdLine,
   GetDisplayCmdline ();
   CmdLineLen += AsciiStrLen (DisplayCmdLine);
   if (EarlyServicesEnabled ()) {
-    CmdLineLen += GetSystemPathByPname(&EarlyServicesStr,
-                                        MultiSlotBoot,
-                                        Recovery,
-                                        (CHAR16 *)L"early_services",
-                                        (CHAR8 *)"early_userspace");
-
     CmdLineLen += GetSystemPathByPname(&ModemPathStr,
                                         MultiSlotBoot,
                                         Recovery,
